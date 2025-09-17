@@ -7,16 +7,22 @@
 3. [Key Concepts](#3-key-concepts)
    - 3.1. [Nodes as Organizational Units](#31-nodes-as-organizational-units)
    - 3.2. [Tree-Based Aggregation System](#32-tree-based-aggregation-system)
-   - 3.3. [Example: DDNS Service Architecture](#33-example-ddns-service-architecture)
+   - 3.3.
+     [Example: DDNS Service Architecture](#33-example-ddns-service-architecture)
 4. [Design Decisions & Rationale](#4-design-decisions--rationale)
    - 4.1. [Integrated Logging Architecture](#41-integrated-logging-architecture)
-   - 4.2. [Concurrent Node Architecture (Go Backend)](#42-concurrent-node-architecture-go-backend)
-   - 4.3. [Single Executable Deployment Strategy](#43-single-executable-deployment-strategy)
+   - 4.2.
+     [Concurrent Node Architecture (Go Backend)](#42-concurrent-node-architecture-go-backend)
+   - 4.3.
+     [Single Executable Deployment Strategy](#43-single-executable-deployment-strategy)
    - 4.4. [GUI-First Design Philosophy](#44-gui-first-design-philosophy)
-   - 4.5. [Minimal Dependency GUI Architecture](#45-minimal-dependency-gui-architecture)
+   - 4.5.
+     [Minimal Dependency GUI Architecture](#45-minimal-dependency-gui-architecture)
    - 4.6. [Node Data Structure](#46-node-data-structure)
-   - 4.7. [Tooling to Mitigate GUI-First Trade-offs](#47-tooling-to-mitigate-gui-first-trade-offs)
-   - 4.8. [Backend-GUI Communication Protocol](#48-backend-gui-communication-protocol)
+   - 4.7.
+     [Tooling to Mitigate GUI-First Trade-offs](#47-tooling-to-mitigate-gui-first-trade-offs)
+   - 4.8.
+     [Backend-GUI Communication Protocol](#48-backend-gui-communication-protocol)
 
 ## 1. Overview
 
@@ -309,19 +315,28 @@ real-time updates and tree manipulation straightforward and predictable. Shared
 logic, like displaying the name flows naturally with inheritance of
 web-component classes.
 
-### 4.6. Node Data Structure
+### 4.6. Node Information Architecture
 
-Every GUI node consists of three fundamental data types:
+**Decision**: Define a minimal, universal data model that covers all node
+interaction patterns while maintaining simplicity.
 
-- **Name**: Node identifier and display label
-- **Info Values**: Read-only data displayed to the user (status, metrics,
-  computed results)
-- **Parameter Values**: User-configurable settings that affect node behavior
+**Core Data Categories**:
 
-This minimal data model covers the primary use cases for personal agent
-interfaces. The framework will later provide extensibility through custom
-widgets, but these three data types form the foundation that must work
-excellently before adding complexity.
+- **Identity**: How nodes identify themselves within the tree structure
+- **Status Information**: Read-only data that nodes expose about their current
+  state, performance, and computed results
+- **Configuration**: User-controllable settings that influence node behavior and
+  operations
+
+**Design Philosophy**: This three-category model provides complete coverage for
+personal agent interfaces while maintaining conceptual clarity. The framework
+prioritizes making these fundamental categories work excellently before adding
+specialized extensions, ensuring that complex workflows can be built from
+simple, well-understood primitives.
+
+**Extensibility Strategy**: Future custom widgets and specialized displays can
+be layered on top of this foundation without compromising the core simplicity
+that makes the system predictable and maintainable.
 
 ### 4.7. Tooling to Mitigate GUI-First Trade-offs
 
@@ -353,64 +368,38 @@ eventually be exposed through CLI interfaces.
 accommodate development convenience, build the necessary tooling to make
 principled designs practical for daily development work.
 
-### 4.8. Backend-GUI Communication Protocol
+### 4.8. Backend-GUI Communication Architecture
 
-**Decision**: Use Go structs as the single source of truth for message types,
-with CBOR as the binary serialization format for WebSocket communication.
+**Decision**: Design a dual-channel communication pattern that separates
+real-time notifications from business-critical data transfer.
 
-**Type System Architecture**:
+**Architectural Principle**: The backend serves as the single source of truth
+for all system state, with the GUI acting as a pure display layer that never
+maintains independent state or communicates directly with external services.
 
-- **Go Structs as Source of Truth**: Define message contracts in Go with precise
-  types (int64, time.Time, etc.)
-- **Automated TypeScript Generation**: Use `tygo` to generate TypeScript
-  interfaces from Go structs
-- **Type Mapping Benefits**: Go's rich type system provides precise contracts
-  (int64 → bigint/number, time.Time → string)
-- **JSON Tag Control**: Only fields with JSON tags are exposed, maintaining
-  clean API contracts
+**Communication Pattern Separation**:
 
-**Efficiency Rationale**:
+- **Real-Time Channel**: Handles lightweight notifications about state changes
+  and system events, enabling immediate GUI updates and maintaining the "living
+  interface" experience
+- **Data Channel**: Handles all business-critical information transfer using
+  reliable request-response patterns for node data, parameters, and operations
 
-- **Small Hardware Constraints**: Efficiency matters on modest hardware and
-  limited bandwidth
-- **Real-time Requirements**: CBOR provides better performance than JSON for
-  frequent GUI updates
-- **High-Density Information Display**: GUI design optimized for displaying
-  hundreds of information pieces simultaneously requires efficient serialization
-  to maintain real-time responsiveness at that information density
-- **Development Experience**: Go-first approach eliminates type definition
-  duplication and schema maintenance overhead
+**Personal-Scale Benefits**:
 
-This approach provides binary efficiency comparable to Protobuf while
-maintaining the simplicity and debugging advantages of schema-free formats, with
-Go's type system ensuring contract precision.
+- **Operational Simplicity**: Clear separation of concerns reduces debugging
+  complexity while maintaining robust data operations
+- **Real-Time Performance**: Dedicated notification channel enables the
+  "freakishly serious" real-time updates required for monitoring 24/7 personal
+  agents
+- **Resilience**: System continues functioning even when real-time updates fail,
+  with business operations remaining unaffected
+- **Development Experience**: Type-safe contracts between backend and frontend
+  eliminate schema maintenance overhead
 
-**WebSocket vs HTTP Separation**: WebSocket connections are intentionally kept
-minimal and focused solely on real-time interface concerns:
-
-- **WebSocket Duties (Lightweight)**:
-  - Heartbeat mechanism for connection health monitoring
-  - Update notifications to trigger GUI refreshes
-  - Real-time interface responsiveness
-
-- **HTTP Duties (Business Critical)**:
-  - Actual data fetching (node info and parameters)
-  - All business-critical information transfer
-  - Reliable request-response patterns
-
-**Architectural Benefits**:
-
-- **Reliability**: Business data flows through proven HTTP patterns with proper
-  error handling
-- **Debugging**: HTTP requests are easily inspectable and replayable
-- **Resilience**: WebSocket failures don't affect data integrity - only
-  real-time responsiveness
-- **Simplicity**: WebSocket logic remains minimal and focused on its core
-  strength (real-time notifications)
-
-This separation ensures that the real-time GUI experience depends on WebSocket
-connectivity while business operations remain robust through standard HTTP
-communication patterns.
+This architecture ensures consistency between what the system knows and what the
+user sees, while providing the real-time responsiveness essential for personal
+agent monitoring and interaction.
 
 ---
 
