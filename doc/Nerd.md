@@ -1,42 +1,42 @@
 # Nerd: Personal Software Agent Architecture
 
-## Table of Contents
-
-1. [Overview](#1-overview)
-2. [Core Design Philosophy](#2-core-design-philosophy)
-3. [Key Concepts](#3-key-concepts)
-   - 3.1. [Nodes as Organizational Units](#31-nodes-as-organizational-units)
-   - 3.2. [Tree-Based Aggregation System](#32-tree-based-aggregation-system)
-   - 3.3.
-     [Example: DDNS Service Architecture](#33-example-ddns-service-architecture)
-4. [Design Decisions & Rationale](#4-design-decisions--rationale)
-   - 4.1. [Integrated Logging Architecture](#41-integrated-logging-architecture)
-   - 4.2.
-     [Concurrent Node Architecture (Go Backend)](#42-concurrent-node-architecture-go-backend)
-   - 4.3.
-     [Single Executable Deployment Strategy](#43-single-executable-deployment-strategy)
-   - 4.4. [GUI-First Design Philosophy](#44-gui-first-design-philosophy)
-   - 4.5.
-     [Minimal Dependency GUI Architecture](#45-minimal-dependency-gui-architecture)
-   - 4.6. [Node Data Structure](#46-node-data-structure)
-   - 4.7.
-     [Tooling to Mitigate GUI-First Trade-offs](#47-tooling-to-mitigate-gui-first-trade-offs)
-   - 4.8.
-     [Backend-GUI Communication Protocol](#48-backend-gui-communication-protocol)
-
-## 1. Overview
+## Overview
 
 Nerd is a software architecture framework designed specifically for building
 small personal agents that run continuously on modest hardware. The framework
-consists of Go backends paired with TypeScript frontends, organized around tree
+consists of Go instances paired with TypeScript GUIs, organized around tree
 structures of communicating nodes.
 
-The name "Nerd" comes from "a herd of nodes" - representing the collaborative
-nature of nodes working together in a personal computing environment.
+The name "Nerd" comes from "a herd of nodes" - nodes representing concurrent
+microservices doing things on the user's behalf on the Internet.
 
-A _service_ built with Nerd is a single executable that opens a port for a GUI.
+A _service_ built with Nerd consists of an _instance_ (the executable) and
+connected _GUIs_.
 
-## 2. Core Design Philosophy
+## Terminology
+
+**Fundamental Nerd Architecture Components**:
+
+- **Service**: The complete package consisting of an instance and its connected
+  GUIs. A Nerd service is not complete without both components.
+- **Instance**: The backend/server component - the main entity that runs as an
+  executable with a network location. This is the persistent, addressable
+  component that maintains state and business logic.
+- **GUI**: The frontend component that connects to an instance. Multiple GUIs
+  can connect to a single instance from anywhere on the network. GUIs are pure
+  display layers that never maintain independent state or communicate directly
+  with external services.
+
+**Key Relationships**:
+
+- An instance is the primary entity with a network address (even if the IP
+  changes frequently)
+- GUIs are interface clients that can connect from anywhere to view and interact
+  with an instance
+- The instance serves as the single source of truth; GUIs display exactly what
+  the instance knows
+
+## Core Design Philosophy
 
 This architecture is purpose-built for **single-person information systems**
 rather than enterprise-scale services handling millions of users. Every design
@@ -48,9 +48,9 @@ The fundamental shift from "serving millions" to "serving one person deeply"
 enables architectural choices that would be impractical or impossible at
 enterprise scale.
 
-## 3. Key Concepts
+## Key Concepts
 
-### 3.1. Nodes as Organizational Units
+### Nodes as Organizational Units
 
 - **Node**: The fundamental organizational unit that can represent either:
   - A goroutine communicating with external web services
@@ -63,7 +63,7 @@ enterprise scale.
   - **Aggregation flow control**: Parent nodes can automatically aggregate data
     from their children
 
-### 3.2. Tree-Based Aggregation System
+### Tree-Based Aggregation System
 
 The hierarchical structure directly determines data flow and UI presentation:
 
@@ -77,7 +77,7 @@ The node tree creates a **generalized display layer** where the tree structure
 drives what data gets aggregated and how it's presented, eliminating the need
 for custom aggregation logic in individual services.
 
-### 3.3. Example: DDNS Service Architecture
+### Example: DDNS Service Architecture
 
 **Client Side**:
 
@@ -94,11 +94,11 @@ This demonstrates how nodes provide a consistent organizational model whether
 you're consuming external services or building services within the Nerd
 ecosystem.
 
-## 4. Design Decisions & Rationale
+## Design Decisions & Rationale
 
-### 4.1. Integrated Logging Architecture
+### Integrated Logging Architecture
 
-**Decision**: Couple logging directly with the service and containerize as a
+**Decision**: Couple logging directly with the instance and containerize as a
 single unit, rather than using separate log collectors, storage solutions, and
 analysis tools.
 
@@ -133,7 +133,7 @@ significant advantages for single-person systems where operational simplicity
 and debugging experience outweigh the scalability benefits of distributed
 logging.
 
-### 4.2. Concurrent Node Architecture (Go Backend)
+### Concurrent Node Architecture (Go Instance)
 
 **Decision**: Implement every node as a goroutine with strict communication
 patterns to ensure deadlock-free concurrent execution.
@@ -202,7 +202,7 @@ This creates a **predictable concurrency model** where data flows down the tree
 naturally, while upstream communication happens through well-defined external
 channels, making the system both concurrent and deterministic.
 
-### 4.3. Single Executable Deployment Strategy
+### Single Executable Deployment Strategy
 
 **Decision**: Target single executable binaries for services, enabling flexible
 deployment across various environments without forcing containerization.
@@ -235,7 +235,7 @@ deployment across various environments without forcing containerization.
 This approach maintains the personal-scale philosophy where operational
 simplicity and user control take precedence over enterprise deployment patterns.
 
-### 4.4. GUI-First Design Philosophy
+### GUI-First Design Philosophy
 
 **Decision**: Design Nerd as GUI-first rather than CLI-first, fundamentally
 changing architectural priorities and user interaction patterns. The GUI's sole
@@ -257,13 +257,13 @@ applications.
 - **Minimal CLI**: Services include basic CLI commands for initialization and
   startup operations
 
-**Core GUI Principle**: The frontend's singular responsibility is to display and
+**Core GUI Principle**: The GUI's singular responsibility is to display and
 interact with a **tree of nodes** - and it must do this as well as practically
 possible. All other functionality emerges from this fundamental capability.
 
-**Single Source of Truth**: The GUI connects exclusively to the backend - it
+**Single Source of Truth**: The GUI connects exclusively to the instance - it
 never communicates directly with external services or maintains independent
-state. This ensures the user always sees exactly how the backend perceives the
+state. This ensures the user always sees exactly how the instance perceives the
 world, eliminating inconsistencies between what the system thinks is happening
 and what the user sees.
 
@@ -283,11 +283,11 @@ This creates a **living interface** where the GUI feels like a direct window
 into the running system rather than a periodic snapshot, essential for
 monitoring and interacting with 24/7 personal agents.
 
-This design constraint means the backend architecture is shaped by GUI
+This design constraint means the instance architecture is shaped by GUI
 requirements rather than API-first or CLI-first considerations, resulting in
 fundamentally different structural decisions.
 
-### 4.5. Minimal Dependency GUI Architecture
+### Minimal Dependency GUI Architecture
 
 **Decision**: Build the TypeScript GUI using Web Components and established
 WebAPIs while aggressively avoiding npm dependencies.
@@ -309,13 +309,13 @@ development velocity.
 - **Tree-Component Mapping**: The entire node tree is implemented as custom Web
   Components, creating a direct mapping between logical nodes and DOM elements
 
-**Architectural Advantage**: Each node in the backend corresponds to a custom
+**Architectural Advantage**: Each node in the instance corresponds to a custom
 Web Component in the GUI, maintaining the one-to-one mapping that makes the
 real-time updates and tree manipulation straightforward and predictable. Shared
 logic, like displaying the name flows naturally with inheritance of
 web-component classes.
 
-### 4.6. Node Information Architecture
+### Node Information Architecture
 
 **Decision**: Define a minimal, universal data model that covers all node
 interaction patterns while maintaining simplicity.
@@ -338,7 +338,7 @@ simple, well-understood primitives.
 be layered on top of this foundation without compromising the core simplicity
 that makes the system predictable and maintainable.
 
-### 4.7. Tooling to Mitigate GUI-First Trade-offs
+### Tooling to Mitigate GUI-First Trade-offs
 
 **Acknowledgment**: GUI-first design principles create unusual and uncomfortable
 development experiences that must be addressed through dedicated tooling rather
@@ -368,12 +368,12 @@ eventually be exposed through CLI interfaces.
 accommodate development convenience, build the necessary tooling to make
 principled designs practical for daily development work.
 
-### 4.8. Backend-GUI Communication Architecture
+### Instance-GUI Communication Architecture
 
 **Decision**: Design a dual-channel communication pattern that separates
 real-time notifications from business-critical data transfer.
 
-**Architectural Principle**: The backend serves as the single source of truth
+**Architectural Principle**: The instance serves as the single source of truth
 for all system state, with the GUI acting as a pure display layer that never
 maintains independent state or communicates directly with external services.
 
@@ -394,7 +394,7 @@ maintains independent state or communicates directly with external services.
   agents
 - **Resilience**: System continues functioning even when real-time updates fail,
   with business operations remaining unaffected
-- **Development Experience**: Type-safe contracts between backend and frontend
+- **Development Experience**: Type-safe contracts between instance and GUI
   eliminate schema maintenance overhead
 
 This architecture ensures consistency between what the system knows and what the

@@ -62,7 +62,7 @@ number type in GUI.
 
 **Decision**: Use JSON for HTTP and WebSocket message serialization.
 
-**Context**: Need consistent serialization across backend-GUI communication.
+**Context**: Need consistent serialization across instance-GUI communication.
 JSON provides debugging simplicity, wide tooling support, and sufficient
 performance for personal-scale systems. Enables easy inspection and testing of
 API communications.
@@ -74,15 +74,16 @@ API communications.
 **Decision**: Use tygo for Go struct to TypeScript interface generation.
 
 **Context**: Go structs serve as single source of truth for message contracts
-between backend and GUI. tygo automatically generates TypeScript interfaces from
-Go structs with proper type mapping (int64 → number/bigint, time.Time → string).
-Only structs with JSON tags are exposed to maintain clean API contracts.
+between instance and GUI. tygo automatically generates TypeScript interfaces
+from Go structs with proper type mapping (int64 → number/bigint, time.Time →
+string). Only structs with JSON tags are exposed to maintain clean API
+contracts.
 
 **Status**: Decided
 
-## Backend-GUI Communication Protocol
+## Instance-GUI Communication Protocol
 
-**Decision**: Separate WebSocket and HTTP responsibilities for backend-GUI
+**Decision**: Separate WebSocket and HTTP responsibilities for instance-GUI
 communication.
 
 **Context**: WebSocket handles lightweight real-time concerns (heartbeat, update
