@@ -37,11 +37,13 @@ loads its own configuration for security (e.g., passwords).
 
 ## Node Type System
 
-**Decision**: Define 5 core node types as integer enum: GroupNode, RootNode,
-UserNode, UpdaterNode, LoggerNode.
+**Decision**: Define 6 core node types as integer enum: GroupNode, RootNode,
+UserNode, UpdaterNode, LoggerNode, AuthenticatorNode.
 
 **Context**: These node types provide the foundation for a complete empty Nerd
-service. Using integer enum for efficient storage and comparison.
+service. Using integer enum for efficient storage and comparison. The
+AuthenticatorNode handles user authentication and authorization within the
+service.
 
 **Status**: Decided
 
@@ -91,6 +93,41 @@ notifications) while HTTP handles all business-critical data transfer (node
 identity, status, config). This separation ensures business operations remain
 robust through reliable HTTP patterns while real-time updates depend on
 WebSocket connectivity.
+
+**Status**: Decided
+
+## Database Access Pattern
+
+**Decision**: Use distributed database access where each node handles its own
+database operations directly.
+
+**Context**: SQLite with Gorm enables safe concurrent access. Each node performs
+its own database operations rather than using a centralized database service.
+This aligns with Nerd's distributed architecture and financial-level reliability
+requirements.
+
+**Status**: Decided
+
+## Special System Nodes Architecture
+
+**Decision**: Logger, Authenticator, and Updater nodes are special cases
+requiring special treatment.
+
+**Context**: These fundamental system nodes behave differently from ordinary
+nodes. For example, Logger node stores logging configuration while each
+individual node handles its own logging operations. These nodes will have
+special behavior patterns that ordinary nodes will not follow.
+
+**Status**: Decided
+
+## Financial Reliability Pattern
+
+**Decision**: Database commits must complete before UI parameter updates.
+
+**Context**: Nerd targets financial-level reliability. Any parameter change must
+be successfully committed to the database before the change is reflected in the
+user interface. This ensures data consistency and prevents the UI from showing
+uncommitted state changes.
 
 **Status**: Decided
 
