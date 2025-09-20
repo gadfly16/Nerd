@@ -39,8 +39,8 @@ func (t *Tree) removeNode(nodeID nerd.NodeID) {
 	delete(t.nodes, nodeID)
 }
 
-// GetTag returns the tag for a given node ID (thread-safe read)
-func (t *Tree) GetTag(nodeID nerd.NodeID) (*nerd.Tag, bool) {
+// getTag returns the tag for a given node ID (thread-safe read)
+func (t *Tree) getTag(nodeID nerd.NodeID) (*nerd.Tag, bool) {
 	t.mutex.RLock()
 	defer t.mutex.RUnlock()
 
@@ -65,26 +65,24 @@ func (t *Tree) getNodeCount() int {
 	return len(t.nodes)
 }
 
-// NotifyNode sends a message to a node (non-blocking) - high-level with housekeeping
+// NotifyNode sends a message to a node (non-blocking)
 func (t *Tree) NotifyNode(targetID nerd.NodeID, msgType nerd.MessageType, payload interface{}) error {
-	// TODO: Add housekeeping logic here (node lifecycle management)
-
-	// Use low-level message primitive
-	return nerd.Notify(t, targetID, msgType, payload)
-}
-
-// AskNode sends a message to a node and waits for response (blocking) - high-level with housekeeping
-func (t *Tree) AskNode(targetID nerd.NodeID, msgType nerd.MessageType, payload interface{}) (*nerd.Message, error) {
-	// TODO: Add housekeeping logic here (node lifecycle management)
-
-	response, err := nerd.Ask(t, targetID, msgType, payload)
-	if err != nil {
-		return nil, err
+	tag, exists := t.getTag(targetID)
+	if !exists {
+		return nerd.ErrNodeNotFound
 	}
 
-	// TODO: Handle successful responses (e.g., if CreateChildMessage succeeded, add node to tree, set globals)
+	return tag.Notify(msgType, payload)
+}
 
-	return response, nil
+// AskNode sends a message to a node and waits for response (blocking)
+func (t *Tree) AskNode(targetID nerd.NodeID, msgType nerd.MessageType, payload interface{}) (*nerd.Message, error) {
+	tag, exists := t.getTag(targetID)
+	if !exists {
+		return nil, nerd.ErrNodeNotFound
+	}
+
+	return tag.Ask(msgType, payload)
 }
 
 // InitInstance initializes a new Nerd instance by setting up the database

@@ -13,13 +13,8 @@ var (
 	ErrNodeBusy = errors.New("node is busy (pipe full)")
 )
 
-// Notify sends a message to a node (non-blocking) - low-level primitive
-func Notify(tree TreeInterface, targetID NodeID, msgType MessageType, payload interface{}) error {
-	tag, exists := tree.GetTag(targetID)
-	if !exists {
-		return ErrNodeNotFound
-	}
-
+// Notify sends a message to this node (non-blocking)
+func (t *Tag) Notify(msgType MessageType, payload interface{}) error {
 	msg := &Message{
 		Type:    msgType,
 		Payload: payload,
@@ -28,20 +23,15 @@ func Notify(tree TreeInterface, targetID NodeID, msgType MessageType, payload in
 
 	// Non-blocking send
 	select {
-	case tag.Incoming <- msg:
+	case t.Incoming <- msg:
 		return nil
 	default:
 		return ErrNodeBusy
 	}
 }
 
-// Ask sends a message to a node and waits for response (blocking) - low-level primitive
-func Ask(tree TreeInterface, targetID NodeID, msgType MessageType, payload interface{}) (*Message, error) {
-	tag, exists := tree.GetTag(targetID)
-	if !exists {
-		return nil, ErrNodeNotFound
-	}
-
+// Ask sends a message to this node and waits for response (blocking)
+func (t *Tag) Ask(msgType MessageType, payload interface{}) (*Message, error) {
 	// Create answer pipe for response
 	answer := make(Pipe, 1) // Buffered for the response
 
@@ -53,7 +43,7 @@ func Ask(tree TreeInterface, targetID NodeID, msgType MessageType, payload inter
 
 	// Send the message
 	select {
-	case tag.Incoming <- msg:
+	case t.Incoming <- msg:
 		// Wait for response
 		response := <-answer
 		if msgResponse, ok := response.(*Message); ok {
@@ -63,9 +53,4 @@ func Ask(tree TreeInterface, targetID NodeID, msgType MessageType, payload inter
 	default:
 		return nil, ErrNodeBusy
 	}
-}
-
-// TreeInterface defines what message functions need from tree
-type TreeInterface interface {
-	GetTag(nodeID NodeID) (*Tag, bool)
 }
