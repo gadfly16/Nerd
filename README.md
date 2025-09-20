@@ -440,13 +440,10 @@ loads its own configuration for security (e.g., passwords).
 
 ### Node Type System
 
-**Decision**: Define 6 core node types as integer enum: GroupNode, RootNode,
-UserNode, UpdaterNode, LoggerNode, AuthenticatorNode.
+**Decision**: Define 2 core node types as integer enum: GroupNode, RootNode.
 
-**Context**: These node types provide the foundation for a complete empty Nerd
-service. Using integer enum for efficient storage and comparison. The
-AuthenticatorNode handles user authentication and authorization within the
-service.
+**Context**: These node types provide the foundation for the core Nerd service.
+Using integer enum for efficient storage and comparison.
 
 **Status**: Decided
 
@@ -511,15 +508,12 @@ requirements.
 
 **Status**: Decided
 
-### Special System Nodes Architecture
+### Core Node Architecture
 
-**Decision**: Logger, Authenticator, and Updater nodes are special cases
-requiring special treatment.
+**Decision**: Focus on Group and Root nodes as the fundamental building blocks.
 
-**Context**: These fundamental system nodes behave differently from ordinary
-nodes. For example, Logger node stores logging configuration while each
-individual node handles its own logging operations. These nodes will have
-special behavior patterns that ordinary nodes will not follow.
+**Context**: Group and Root nodes provide the essential tree structure for the
+Nerd system. Additional specialized nodes can be added later as needed.
 
 **Status**: Decided
 
@@ -591,34 +585,28 @@ separation of concerns for concurrent node behavior:
 
 - Top-level tree operations and database integration
 - Orchestrates the overall node runtime system
-- Imports: `system`, `message`, `nodes`
+- Imports: `nerd`, `nodes`
 
-**`internal/tree/system/`** - **Curated Runtime Access Layer**
+**`internal/tree/nerd/`** - **Core Nerd Types & APIs**
 
-- Fundamental types (`nodeID`, `pipe`, `messageType`, etc.)
+- Fundamental types (`NodeID`, `Pipe`, `MessageType`, `Message`, etc.)
+- Send/Ask communication patterns and message routing
 - Thread-safe, curated access to runtime tree data
 - Performance/safety contract layer for concurrent node access
-- Mutexes and lock-free data with explicit safety guarantees
 - **No imports** - foundation layer
-
-**`internal/tree/message/`** - **Message Passing APIs**
-
-- Send/Ask communication patterns
-- Message routing and delivery logic
-- Imports: `system`
 
 **`internal/tree/nodes/`** - **Node Definitions & Behaviors**
 
 - Node types, Identity/Config structs
 - Individual node implementation logic
 - Node lifecycle and behavior patterns
-- Imports: `system`, `message`
+- Imports: `nerd`
 
-**Dependency Flow**: `system` ← `message` ← `nodes` ← `tree`
+**Dependency Flow**: `nerd` ← `nodes` ← `tree`
 
 **Import Cycle Solution**: Node packages can access message passing and runtime
-tree data through the `system` package without importing the main `tree`
-package, eliminating circular dependencies.
+tree data through the `nerd` package without importing the main `tree` package,
+eliminating circular dependencies.
 
 #### Curated Access Pattern
 

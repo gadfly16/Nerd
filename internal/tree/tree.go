@@ -1,32 +1,93 @@
 package tree
 
 import (
-	"github.com/gadfly16/nerd/internal/tree/system"
+	"sync"
+
+	"github.com/gadfly16/nerd/internal/tree/nerd"
+	"github.com/gadfly16/nerd/internal/tree/nodes"
 )
 
 // Tree manages the overall tree coordination and runtime
 type Tree struct {
-	system *system.System
+	nodes map[nerd.NodeID]*nerd.Tag
+	mutex sync.RWMutex
 }
 
-// NewTree creates a new Tree instance with curated system access
-func NewTree() *Tree {
+// newTree creates a new Tree instance
+func newTree() *Tree {
 	return &Tree{
-		system: system.NewSystem(),
+		nodes: make(map[nerd.NodeID]*nerd.Tag),
 	}
 }
 
-// AddNode adds a node to the tree for routing
-func (t *Tree) AddNode(nodeID system.NodeID, pipe system.Pipe) {
-	t.system.AddNode(nodeID, pipe)
+// addNode adds a node to the tree for routing (authoritative)
+func (t *Tree) addNode(nodeID nerd.NodeID, pipe nerd.Pipe) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	t.nodes[nodeID] = &nerd.Tag{
+		NodeID:   nodeID,
+		Incoming: pipe,
+	}
 }
 
-// RemoveNode removes a node from the tree
-func (t *Tree) RemoveNode(nodeID system.NodeID) {
-	t.system.RemoveNode(nodeID)
+// removeNode removes a node from the tree (authoritative)
+func (t *Tree) removeNode(nodeID nerd.NodeID) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
+	delete(t.nodes, nodeID)
 }
 
-// GetSystem returns the curated system access layer
-func (t *Tree) GetSystem() *system.System {
-	return t.system
+// GetTag returns the tag for a given node ID (thread-safe read)
+func (t *Tree) GetTag(nodeID nerd.NodeID) (*nerd.Tag, bool) {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	tag, exists := t.nodes[nodeID]
+	return tag, exists
+}
+
+// isNodeAlive checks if a node exists in the tree (atomic read)
+func (t *Tree) isNodeAlive(nodeID nerd.NodeID) bool {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	_, exists := t.nodes[nodeID]
+	return exists
+}
+
+// getNodeCount returns the total number of active nodes (atomic read)
+func (t *Tree) getNodeCount() int {
+	t.mutex.RLock()
+	defer t.mutex.RUnlock()
+
+	return len(t.nodes)
+}
+
+// NotifyNode sends a message to a node (non-blocking) - high-level with housekeeping
+func (t *Tree) NotifyNode(targetID nerd.NodeID, msgType nerd.MessageType, payload interface{}) error {
+	// TODO: Add housekeeping logic here (node lifecycle management)
+
+	// Use low-level message primitive
+	return nerd.Notify(t, targetID, msgType, payload)
+}
+
+// AskNode sends a message to a node and waits for response (blocking) - high-level with housekeeping
+func (t *Tree) AskNode(targetID nerd.NodeID, msgType nerd.MessageType, payload interface{}) (*nerd.Message, error) {
+	// TODO: Add housekeeping logic here (node lifecycle management)
+
+	response, err := nerd.Ask(t, targetID, msgType, payload)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Handle successful responses (e.g., if CreateChildMessage succeeded, add node to tree, set globals)
+
+	return response, nil
+}
+
+// InitInstance initializes a new Nerd instance by setting up the database
+func InitInstance(dbPath string) error {
+	return nodes.InitDatabase(dbPath)
 }

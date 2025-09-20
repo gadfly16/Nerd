@@ -1,22 +1,18 @@
 package nodes
 
-import (
-	"github.com/gadfly16/nerd/internal/tree/system"
-)
+import "github.com/gadfly16/nerd/internal/tree/nerd"
 
 // Group represents a group node for organizing other nodes
 type Group struct {
 	identity *Identity
 	// Note: Group nodes don't have configs
-	incoming system.Pipe
-	sys      *system.System
+	incoming nerd.Pipe
 }
 
 // NewGroup creates a new Group node instance
-func NewGroup(sys *system.System) *Group {
-	incoming := make(system.Pipe, 100)
+func NewGroup() *Group {
+	incoming := make(nerd.Pipe, 100)
 	return &Group{
-		sys:      sys,
 		incoming: incoming,
 	}
 }
@@ -36,9 +32,7 @@ func (g *Group) Load(dbPath string) error {
 
 // Run starts the Group node goroutine and message loop
 func (g *Group) Run() {
-	if g.identity != nil {
-		g.sys.AddNode(g.identity.ID, g.incoming)
-	}
+	// Note: Tree package handles node registration during lifecycle management
 	go g.messageLoop()
 }
 
@@ -56,24 +50,26 @@ func (g *Group) Shutdown() error {
 
 // messageLoop handles incoming messages
 func (g *Group) messageLoop() {
-	for msg := range g.incoming {
-		switch msg.Type {
-		case system.CreateChildMessage:
-			g.handleCreateChild(msg)
-		case system.ShutdownMessage:
-			g.handleShutdown(msg)
-		default:
-			// Unknown message type
+	for rawMsg := range g.incoming {
+		if msg, ok := rawMsg.(*nerd.Message); ok {
+			switch msg.Type {
+			case nerd.CreateChildMessage:
+				g.handleCreateChild(msg)
+			case nerd.ShutdownMessage:
+				g.handleShutdown(msg)
+			default:
+				// Unknown message type
+			}
 		}
 	}
 }
 
 // handleCreateChild processes requests to create child nodes
-func (g *Group) handleCreateChild(msg *system.Message) {
+func (g *Group) handleCreateChild(msg *nerd.Message) {
 	// TODO: Implement child creation
 }
 
 // handleShutdown processes shutdown requests
-func (g *Group) handleShutdown(msg *system.Message) {
+func (g *Group) handleShutdown(msg *nerd.Message) {
 	// TODO: Implement shutdown handling
 }

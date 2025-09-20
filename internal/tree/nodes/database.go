@@ -25,9 +25,6 @@ func InitDatabase(dbPath string) error {
 	err = db.AutoMigrate(
 		&Identity{},
 		&RootConfig{},
-		&UserConfig{},
-		&LoggerConfig{},
-		&AuthenticatorConfig{},
 	)
 	if err != nil {
 		return err

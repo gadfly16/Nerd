@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gadfly16/nerd/internal/tree/nodes"
+	"github.com/gadfly16/nerd/internal/tree"
 	"github.com/spf13/cobra"
 )
 
@@ -23,7 +23,7 @@ nodes and trees.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dbPath := "./nerd.db"
 
-		err := nodes.InitDatabase(dbPath)
+		err := tree.InitInstance(dbPath)
 		if err != nil {
 			return fmt.Errorf("failed to initialize database: %w", err)
 		}

@@ -1,22 +1,18 @@
 package nodes
 
-import (
-	"github.com/gadfly16/nerd/internal/tree/system"
-)
+import "github.com/gadfly16/nerd/internal/tree/nerd"
 
 // Root represents the root node of the tree
 type Root struct {
 	identity *Identity
 	config   *RootConfig
-	incoming system.Pipe
-	sys      *system.System
+	incoming nerd.Pipe
 }
 
 // NewRoot creates a new Root node instance
-func NewRoot(sys *system.System) *Root {
-	incoming := make(system.Pipe, 100) // Buffered channel for messages
+func NewRoot() *Root {
+	incoming := make(nerd.Pipe, 100) // Buffered channel for messages
 	return &Root{
-		sys:      sys,
 		incoming: incoming,
 	}
 }
@@ -40,11 +36,7 @@ func (r *Root) Load(dbPath string) error {
 
 // Run starts the Root node goroutine and message loop
 func (r *Root) Run() {
-	// Register with system
-	if r.identity != nil {
-		r.sys.AddNode(r.identity.ID, r.incoming)
-	}
-
+	// Note: Tree package handles node registration during lifecycle management
 	// Start message loop
 	go r.messageLoop()
 }
@@ -69,20 +61,22 @@ func (r *Root) Shutdown() error {
 
 // messageLoop handles incoming messages
 func (r *Root) messageLoop() {
-	for msg := range r.incoming {
-		switch msg.Type {
-		case system.CreateChildMessage:
-			r.handleCreateChild(msg)
-		case system.ShutdownMessage:
-			r.handleShutdown(msg)
-		default:
-			// Unknown message type
+	for rawMsg := range r.incoming {
+		if msg, ok := rawMsg.(*nerd.Message); ok {
+			switch msg.Type {
+			case nerd.CreateChildMessage:
+				r.handleCreateChild(msg)
+			case nerd.ShutdownMessage:
+				r.handleShutdown(msg)
+			default:
+				// Unknown message type
+			}
 		}
 	}
 }
 
 // handleCreateChild processes requests to create child nodes
-func (r *Root) handleCreateChild(msg *system.Message) {
+func (r *Root) handleCreateChild(msg *nerd.Message) {
 	// TODO: Implement child creation
 	// 1. Parse message payload for node type and config
 	// 2. Create appropriate node instance
@@ -91,7 +85,7 @@ func (r *Root) handleCreateChild(msg *system.Message) {
 }
 
 // handleShutdown processes shutdown requests
-func (r *Root) handleShutdown(msg *system.Message) {
+func (r *Root) handleShutdown(msg *nerd.Message) {
 	// TODO: Implement shutdown handling
 	// 1. Initiate graceful shutdown of all children
 	// 2. Wait for completion
