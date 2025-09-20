@@ -559,16 +559,16 @@ go test ./...
 go test -v ./...
 
 # Run tests for specific package
-go test ./internal/instance
+go test ./internal/tree
 
 # Run specific test function
-go test -run TestFunctionName ./internal/instance
+go test -run TestFunctionName ./internal/tree
 ```
 
 ### Code Structure
 
 - `cmd/nerd/main.go` - CLI entry point using Cobra
-- `internal/instance/` - Core runtime infrastructure
+- `internal/tree/` - Core runtime infrastructure
   - `nodes.go` - Node types, Identity/Config structs
   - `database.go` - Database initialization and schema
   - `tree.go` - In-memory tree for message routing

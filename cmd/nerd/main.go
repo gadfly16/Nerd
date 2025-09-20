@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gadfly16/nerd/internal/instance"
+	"github.com/gadfly16/nerd/internal/tree"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +27,7 @@ nodes and trees.`,
 			return fmt.Errorf("database file %s already exists", dbPath)
 		}
 
-		err := instance.InitDatabase(dbPath)
+		err := tree.InitDatabase(dbPath)
 		if err != nil {
 			return fmt.Errorf("failed to initialize database: %w", err)
 		}
