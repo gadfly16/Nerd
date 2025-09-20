@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gadfly16/nerd/internal/tree"
+	"github.com/gadfly16/nerd/internal/tree/nodes"
 	"github.com/spf13/cobra"
 )
 
@@ -23,11 +23,7 @@ nodes and trees.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		dbPath := "./nerd.db"
 
-		if _, err := os.Stat(dbPath); err == nil {
-			return fmt.Errorf("database file %s already exists", dbPath)
-		}
-
-		err := tree.InitDatabase(dbPath)
+		err := nodes.InitDatabase(dbPath)
 		if err != nil {
 			return fmt.Errorf("failed to initialize database: %w", err)
 		}

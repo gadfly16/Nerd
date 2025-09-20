@@ -567,12 +567,79 @@ go test -run TestFunctionName ./internal/tree
 
 ### Code Structure
 
-- `cmd/nerd/main.go` - CLI entry point using Cobra
-- `internal/tree/` - Core runtime infrastructure
-  - `nodes.go` - Node types, Identity/Config structs
-  - `database.go` - Database initialization and schema
-  - `tree.go` - In-memory tree for message routing
-  - `message.go` - Message passing (Send/Ask patterns)
+#### Package Organization & Import Cycle Prevention
+
+```
+internal/
+├── server/
+└── tree/
+    ├── system/
+    ├── message/
+    └── nodes/
+```
+
+The codebase is structured to avoid import cycles while enabling proper
+separation of concerns for concurrent node behavior:
+
+**`internal/server/`** - HTTP and WebSocket connection handling
+
+- Implements network protocols for GUI connections
+- Uses exported functions from tree package
+- No dependencies on tree internals
+
+**`internal/tree/`** - Tree management and coordination
+
+- Top-level tree operations and database integration
+- Orchestrates the overall node runtime system
+- Imports: `system`, `message`, `nodes`
+
+**`internal/tree/system/`** - **Curated Runtime Access Layer**
+
+- Fundamental types (`nodeID`, `pipe`, `messageType`, etc.)
+- Thread-safe, curated access to runtime tree data
+- Performance/safety contract layer for concurrent node access
+- Mutexes and lock-free data with explicit safety guarantees
+- **No imports** - foundation layer
+
+**`internal/tree/message/`** - **Message Passing APIs**
+
+- Send/Ask communication patterns
+- Message routing and delivery logic
+- Imports: `system`
+
+**`internal/tree/nodes/`** - **Node Definitions & Behaviors**
+
+- Node types, Identity/Config structs
+- Individual node implementation logic
+- Node lifecycle and behavior patterns
+- Imports: `system`, `message`
+
+**Dependency Flow**: `system` ← `message` ← `nodes` ← `tree`
+
+**Import Cycle Solution**: Node packages can access message passing and runtime
+tree data through the `system` package without importing the main `tree`
+package, eliminating circular dependencies.
+
+#### Curated Access Pattern
+
+The `system` package provides **controlled, thread-safe access** to runtime tree
+state:
+
+```go
+// Safe: immutable after tree construction
+func (s *System) GetNodeType(id nodeID) nodeType
+
+// Safe: atomic read
+func (s *System) IsNodeAlive(id nodeID) bool
+
+// Protected: requires mutex
+func (s *System) GetUpdaterChannel(id nodeID) (pipe, error)
+```
+
+**Key Principle**: Controlled memory sharing across goroutines for performance,
+with explicit safety contracts rather than pure message passing. The `system`
+package becomes the single source of truth for what runtime data can be safely
+accessed by concurrent nodes and how to access it safely.
 
 ### Current Implementation Status
 

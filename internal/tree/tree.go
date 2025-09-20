@@ -1,39 +1,32 @@
 package tree
 
-// Tag bundles information about a node for routing without direct pointers
-type tag struct {
-	NodeID   nodeID
-	Incoming pipe
-	// Owner info omitted for now (no authentication yet)
+import (
+	"github.com/gadfly16/nerd/internal/tree/system"
+)
+
+// Tree manages the overall tree coordination and runtime
+type Tree struct {
+	system *system.System
 }
 
-// Tree manages the in-memory tree structure for message routing
-type tree struct {
-	Nodes map[nodeID]*tag
-}
-
-// NewTree creates a new Tree instance
-func newTree() *tree {
-	return &tree{
-		Nodes: make(map[nodeID]*tag),
+// NewTree creates a new Tree instance with curated system access
+func NewTree() *Tree {
+	return &Tree{
+		system: system.NewSystem(),
 	}
 }
 
-// AddNode adds a node tag to the tree for routing
-func (t *tree) addNode(nodeID nodeID, pipe pipe) {
-	t.Nodes[nodeID] = &tag{
-		NodeID:   nodeID,
-		Incoming: pipe,
-	}
+// AddNode adds a node to the tree for routing
+func (t *Tree) AddNode(nodeID system.NodeID, pipe system.Pipe) {
+	t.system.AddNode(nodeID, pipe)
 }
 
 // RemoveNode removes a node from the tree
-func (t *tree) removeNode(nodeID nodeID) {
-	delete(t.Nodes, nodeID)
+func (t *Tree) RemoveNode(nodeID system.NodeID) {
+	t.system.RemoveNode(nodeID)
 }
 
-// GetTag returns the tag for a given node ID
-func (t *tree) getTag(nodeID nodeID) (*tag, bool) {
-	tag, exists := t.Nodes[nodeID]
-	return tag, exists
+// GetSystem returns the curated system access layer
+func (t *Tree) GetSystem() *system.System {
+	return t.system
 }
