@@ -4,16 +4,19 @@ import "github.com/gadfly16/nerd/internal/tree/nerd"
 
 // Group represents a group node for organizing other nodes
 type Group struct {
-	identity *Identity
+	*Identity
 	// Note: Group nodes don't have configs
-	incoming nerd.Pipe
 }
 
 // NewGroup creates a new Group node instance
 func NewGroup() *Group {
 	incoming := make(nerd.Pipe, 100)
 	return &Group{
-		incoming: incoming,
+		Identity: &Identity{
+			Name:     "group",
+			NodeType: nerd.GroupNode,
+			Incoming: incoming,
+		},
 	}
 }
 
@@ -24,9 +27,13 @@ func (g *Group) Save(dbPath string) error {
 	return nil
 }
 
-// Load retrieves the Group node from the database
+// Load retrieves the Group node and all children from the database
 func (g *Group) Load(dbPath string) error {
 	// TODO: Implement database load operation
+	// 1. Load Identity from database
+	// 2. Populate struct fields
+	// 3. Load all children recursively
+	// 4. Start children nodes
 	return nil
 }
 
@@ -36,21 +43,17 @@ func (g *Group) Run() {
 	go g.messageLoop()
 }
 
-// LoadChildren recursively loads and starts all descendant nodes
-func (g *Group) LoadChildren(dbPath string) error {
-	// TODO: Implement recursive child loading
-	return nil
-}
-
-// Shutdown gracefully shuts down the Group node
-func (g *Group) Shutdown() error {
+// Shutdown gracefully shuts down the Group node and all children
+func (g *Group) Shutdown() {
 	// TODO: Implement graceful shutdown
-	return nil
+	// 1. Ask all children to shutdown (blocking)
+	// 2. Wait for all child goroutines to complete
+	// 3. Clean up resources and exit
 }
 
 // messageLoop handles incoming messages
 func (g *Group) messageLoop() {
-	for rawMsg := range g.incoming {
+	for rawMsg := range g.Incoming {
 		if msg, ok := rawMsg.(*nerd.Message); ok {
 			switch msg.Type {
 			case nerd.CreateChildMessage:

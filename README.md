@@ -528,6 +528,99 @@ uncommitted state changes.
 
 **Status**: Decided
 
+### Tag-Centric Messaging Pattern
+
+**Decision**: Implement messaging through Tag objects with their own Ask/Notify
+methods rather than using tags as passive data structures.
+
+**Context**: Tags bundle immutable routing information (NodeID + Incoming
+channel) and act as identity cards for nodes. Rather than implementing messaging
+as `nerd.Ask(tree, targetID, ...)`, the pattern uses `tag.Ask(...)` directly on
+the tag object.
+
+**Rationale**:
+
+- **Object-Oriented Clarity**: Tags become active participants in messaging
+  rather than just lookup data
+- **API Simplicity**: `tag.Ask(msgType, payload)` is cleaner than
+  `tree.AskNode(targetID, msgType, payload)`
+- **Immutable Identity**: Tags represent stable routing information that doesn't
+  change during execution
+- **Direct Communication**: Eliminates tree lookup overhead once you have a tag
+  reference
+
+**Status**: Implemented
+
+### Identity as Dual-Purpose Foundation
+
+**Decision**: Identity struct contains both persistent database fields and
+runtime communication channels.
+
+**Context**: Identity includes database fields (ID, Name, NodeType) alongside
+runtime fields (Incoming channel) marked with `gorm:"-"` to exclude from
+persistence.
+
+**Rationale**:
+
+- **True Node Identity**: A node's identity consists equally of its persistent
+  data (for database/routing) and runtime data (for communication)
+- **Embedded Inheritance**: Using Go embedding, all node types automatically
+  inherit both persistent and runtime identity methods
+- **Architectural Consistency**: Treats the incoming channel as fundamental to
+  identity, not just an implementation detail
+
+**Trade-offs**: Mixing persistent and runtime data in one struct is
+unconventional but reflects the reality that both are equally core to what makes
+a node unique.
+
+**Status**: Implemented
+
+### Go Embedding for Interface Compliance
+
+**Decision**: Use Go struct embedding to implement Node interface methods once
+on Identity rather than duplicating across node types.
+
+**Context**: Root and Group embed `*Identity`, automatically inheriting methods
+like `GetID()`, `GetName()`, `GetNodeType()`, `GetIncoming()`.
+
+**Rationale**:
+
+- **Code Reuse**: Common interface methods implemented once on Identity
+- **Automatic Compliance**: All node types automatically satisfy Node interface
+  through embedding
+- **Maintainability**: Changes to common behavior only need updating in one
+  place
+- **Go Idiom**: Leverages Go's composition over inheritance patterns effectively
+
+**Implementation**: Node-specific methods like `Run()`, `Load()`, `Shutdown()`
+remain on individual types since they access node-specific data.
+
+**Status**: Implemented
+
+### Tree API Boundary Design
+
+**Decision**: Maintain minimal tree API surface (AskNode/NotifyNode with NodeID)
+while using efficient Tag-based messaging internally.
+
+**Context**: External code uses `tree.AskNode(targetID, ...)` while internally
+this resolves to tag lookup and `tag.Ask()`.
+
+**Rationale**:
+
+- **External Convenience**: NodeID-based API matches how external code thinks
+  about targeting nodes
+- **Internal Efficiency**: Tag-based messaging avoids repeated lookups once you
+  have a tag reference
+- **Clean Boundaries**: Tree package serves as proper interface layer hiding
+  internal Tag mechanics
+- **Future Flexibility**: Can add housekeeping, metrics, or lifecycle management
+  in tree methods without changing external API
+
+**Trade-offs**: Slight overhead of getTag() lookup in tree methods, but
+maintains clean architectural boundaries.
+
+**Status**: Implemented
+
 ## Development
 
 ### Building and Running

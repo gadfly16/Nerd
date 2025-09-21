@@ -38,3 +38,14 @@ type Message struct {
 	Payload interface{}
 	Answer  Pipe // nil for Notify mode, set for Ask mode
 }
+
+// Node interface defines common methods all node types must implement
+type Node interface {
+	GetID() NodeID
+	GetName() string
+	GetNodeType() NodeType
+	GetIncoming() Pipe
+	Run()
+	Load(dbPath string) error
+	Shutdown()
+}

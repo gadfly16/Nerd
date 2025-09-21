@@ -4,16 +4,19 @@ import "github.com/gadfly16/nerd/internal/tree/nerd"
 
 // Root represents the root node of the tree
 type Root struct {
-	identity *Identity
-	config   *RootConfig
-	incoming nerd.Pipe
+	*Identity
+	config *RootConfig
 }
 
 // NewRoot creates a new Root node instance
 func NewRoot() *Root {
 	incoming := make(nerd.Pipe, 100) // Buffered channel for messages
 	return &Root{
-		incoming: incoming,
+		Identity: &Identity{
+			Name:     "root",
+			NodeType: nerd.RootNode,
+			Incoming: incoming,
+		},
 	}
 }
 
@@ -26,11 +29,13 @@ func (r *Root) Save(dbPath string) error {
 	return nil
 }
 
-// Load retrieves the Root node from the database
+// Load retrieves the Root node and all children from the database
 func (r *Root) Load(dbPath string) error {
 	// TODO: Implement database load operation
 	// 1. Load Identity and Config from database
 	// 2. Populate struct fields
+	// 3. Load all children recursively
+	// 4. Start children nodes
 	return nil
 }
 
@@ -41,27 +46,17 @@ func (r *Root) Run() {
 	go r.messageLoop()
 }
 
-// LoadChildren recursively loads and starts all descendant nodes
-func (r *Root) LoadChildren(dbPath string) error {
-	// TODO: Implement recursive child loading
-	// 1. Query database for direct children
-	// 2. Create and start each child node
-	// 3. Call LoadChildren on each child recursively
-	return nil
-}
-
 // Shutdown gracefully shuts down the Root node and all children
-func (r *Root) Shutdown() error {
+func (r *Root) Shutdown() {
 	// TODO: Implement graceful shutdown
 	// 1. Ask all children to shutdown (blocking)
 	// 2. Wait for all child goroutines to complete
 	// 3. Clean up resources and exit
-	return nil
 }
 
 // messageLoop handles incoming messages
 func (r *Root) messageLoop() {
-	for rawMsg := range r.incoming {
+	for rawMsg := range r.Incoming {
 		if msg, ok := rawMsg.(*nerd.Message); ok {
 			switch msg.Type {
 			case nerd.CreateChildMessage:
