@@ -37,18 +37,18 @@ func NewRoot(dbPath string) *Root {
 }
 
 // Save persists the Root node to the database
-func (r *Root) Save() error {
+func (n *Root) Save() error {
 	return db.Transaction(func(tx *gorm.DB) error {
 		// Save Identity record first to get auto-generated ID
-		if err := tx.Create(r.Identity).Error; err != nil {
+		if err := tx.Create(n.Identity).Error; err != nil {
 			return err
 		}
 
 		// Update IdentityID reference
-		r.config.IdentityID = r.Identity.Tag.NodeID
+		n.config.IdentityID = n.Identity.Tag.NodeID
 
 		// Save RootConfig record
-		if err := tx.Create(r.config).Error; err != nil {
+		if err := tx.Create(n.config).Error; err != nil {
 			return err
 		}
 
@@ -57,7 +57,7 @@ func (r *Root) Save() error {
 }
 
 // Load retrieves the Root node and all children from the database
-func (r *Root) Load() error {
+func (n *Root) Load() error {
 	// TODO: Implement database load operation
 	// 1. Load Identity and Config from database
 	// 2. Populate struct fields
@@ -67,14 +67,14 @@ func (r *Root) Load() error {
 }
 
 // Run starts the Root node goroutine and message loop
-func (r *Root) Run() {
+func (n *Root) Run() {
 	// Note: Tree package handles node registration during lifecycle management
 	// Start message loop
-	go r.messageLoop()
+	go n.messageLoop()
 }
 
 // Shutdown gracefully shuts down the Root node and all children
-func (r *Root) Shutdown() {
+func (n *Root) Shutdown() {
 	// TODO: Implement graceful shutdown
 	// 1. Ask all children to shutdown (blocking)
 	// 2. Wait for all child goroutines to complete
@@ -82,13 +82,13 @@ func (r *Root) Shutdown() {
 }
 
 // messageLoop handles incoming messages
-func (r *Root) messageLoop() {
-	for msg := range r.Incoming {
+func (n *Root) messageLoop() {
+	for msg := range n.Incoming {
 		switch msg.Type {
 		case nerd.CreateChildMessage:
-			r.handleCreateChild(&msg)
+			n.handleCreateChild(&msg)
 		case nerd.ShutdownMessage:
-			r.handleShutdown(&msg)
+			n.handleShutdown(&msg)
 		default:
 			// Unknown message type
 		}
@@ -96,7 +96,7 @@ func (r *Root) messageLoop() {
 }
 
 // handleCreateChild processes requests to create child nodes
-func (r *Root) handleCreateChild(msg *nerd.Message) {
+func (n *Root) handleCreateChild(msg *nerd.Message) {
 	// Parse message payload
 	nodeType, ok := msg.Payload.(nerd.NodeType)
 	if !ok {
@@ -155,7 +155,7 @@ func (r *Root) handleCreateChild(msg *nerd.Message) {
 }
 
 // handleShutdown processes shutdown requests
-func (r *Root) handleShutdown(msg *nerd.Message) {
+func (n *Root) handleShutdown(msg *nerd.Message) {
 	// TODO: Implement shutdown handling
 	// 1. Initiate graceful shutdown of all children
 	// 2. Wait for completion
