@@ -1,6 +1,8 @@
 package nodes
 
 import (
+	"fmt"
+
 	"github.com/gadfly16/nerd/internal/tree/nerd"
 	"gorm.io/gorm"
 )
@@ -95,11 +97,61 @@ func (r *Root) messageLoop() {
 
 // handleCreateChild processes requests to create child nodes
 func (r *Root) handleCreateChild(msg *nerd.Message) {
-	// TODO: Implement child creation
-	// 1. Parse message payload for node type and config
-	// 2. Create appropriate node instance
-	// 3. Call Save() and Run() on new child
-	// 4. Send response if this was an Ask
+	// Parse message payload
+	nodeType, ok := msg.Payload.(nerd.NodeType)
+	if !ok {
+		// Send error response if this was an Ask
+		if msg.Answer != nil {
+			msg.Answer <- nerd.Answer{
+				Error: fmt.Errorf("invalid payload type"),
+			}
+		}
+		return
+	}
+
+	// Create appropriate node instance based on type
+	var child nerd.Node
+	switch nodeType {
+	case nerd.GroupNode:
+		child = NewGroup()
+	default:
+		// Send error response
+		if msg.Answer != nil {
+			msg.Answer <- nerd.Answer{
+				Error: fmt.Errorf("unsupported node type"),
+			}
+		}
+		return
+	}
+
+	// Save the child to database
+	err := child.Save()
+	if err != nil {
+		// Send error response
+		if msg.Answer != nil {
+			msg.Answer <- nerd.Answer{
+				Error: err,
+			}
+		}
+		return
+	}
+
+	// Generate auto name: "New Type #NodeID"
+	nodeTypeName := "Group" // For now, will expand this
+	autoName := fmt.Sprintf("New %s #%d", nodeTypeName, child.GetTag().NodeID)
+
+	// TODO: Update child name in database
+	_ = autoName // Silence unused variable for now
+
+	// Start the child node
+	child.Run()
+
+	// Send success response if this was an Ask
+	if msg.Answer != nil {
+		msg.Answer <- nerd.Answer{
+			Payload: child.GetTag(), // Return the child's tag
+		}
+	}
 }
 
 // handleShutdown processes shutdown requests

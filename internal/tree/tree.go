@@ -7,15 +7,17 @@ import (
 	"github.com/gadfly16/nerd/internal/tree/nodes"
 )
 
+var tree Tree
+
 // Tree manages the overall tree coordination and runtime
 type Tree struct {
 	nodes map[nerd.NodeID]*nerd.Tag
 	mutex sync.RWMutex
 }
 
-// newTree creates a new Tree instance
-func newTree() *Tree {
-	return &Tree{
+// initTree creates a new Tree instance
+func initTree() {
+	tree = Tree{
 		nodes: make(map[nerd.NodeID]*nerd.Tag),
 	}
 }
@@ -63,7 +65,7 @@ func (t *Tree) getNodeCount() int {
 }
 
 // NotifyNode sends a message to a node (non-blocking)
-func (t *Tree) NotifyNode(targetID nerd.NodeID, msgType nerd.MessageType, payload interface{}) error {
+func (t *Tree) NotifyNode(targetID nerd.NodeID, msgType nerd.MessageType, payload any) error {
 	tag, exists := t.getTag(targetID)
 	if !exists {
 		return nerd.ErrNodeNotFound
@@ -73,13 +75,20 @@ func (t *Tree) NotifyNode(targetID nerd.NodeID, msgType nerd.MessageType, payloa
 }
 
 // AskNode sends a message to a node and waits for response (blocking)
-func (t *Tree) AskNode(targetID nerd.NodeID, msgType nerd.MessageType, payload interface{}) (*nerd.Message, error) {
+func (t *Tree) AskNode(targetID nerd.NodeID, msgType nerd.MessageType, payload any) (any, error) {
 	tag, exists := t.getTag(targetID)
 	if !exists {
 		return nil, nerd.ErrNodeNotFound
 	}
 
-	return tag.Ask(msgType, payload)
+	// Prepare message struct
+	msg := &nerd.Message{
+		Type:    msgType,
+		Payload: payload,
+		Answer:  nil, // Will be set by Ask()
+	}
+
+	return tag.Ask(msg)
 }
 
 // InitInstance initializes a new Nerd instance by setting up the database
@@ -91,18 +100,29 @@ func InitInstance(dbPath string) error {
 	}
 
 	// Bootstrap Root node using runtime infrastructure
-	root := nodes.NewRoot(dbPath)
-	err = root.Save()
+	rootNode := nodes.NewRoot(dbPath)
+	err = rootNode.Save()
+	if err != nil {
+		return err
+	}
+	rootNode.Run()
+	root := rootNode.GetTag()
+
+	// Start Root node briefly to establish the tree structure
+	initTree()
+	tree.addTag(root)
+
+	a, err := root.Ask(&nerd.Message{
+		Type:    nerd.CreateChildMessage,
+		Payload: nerd.GroupNode,
+	})
 	if err != nil {
 		return err
 	}
 
-	// Start Root node briefly to establish the tree structure
-	tree := newTree()
-	tree.addTag(root.GetTag())
-	root.Run()
+	// TODO: Process response and add child to tree
+	_ = a // Silence unused variable for now
 
-	// TODO: Send messages to create initial children if needed
 	// TODO: Graceful shutdown when initialization is complete
 
 	return nil

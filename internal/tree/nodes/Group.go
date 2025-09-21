@@ -24,9 +24,8 @@ func NewGroup() *Group {
 
 // Save persists the Group node to the database
 func (g *Group) Save() error {
-	// TODO: Implement database save operation
 	// Note: Only saves Identity, no config for Group nodes
-	return nil
+	return db.Create(g.Identity).Error
 }
 
 // Load retrieves the Group node and all children from the database
