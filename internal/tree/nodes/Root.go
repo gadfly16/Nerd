@@ -22,9 +22,11 @@ func NewRoot(dbPath string) *Root {
 	incoming := make(nerd.Pipe) // Unbuffered channel for synchronous message delivery
 	return &Root{
 		Identity: &Identity{
+			Tag: &nerd.Tag{
+				Incoming: incoming,
+			},
 			Name:     "root",
 			NodeType: nerd.RootNode,
-			Incoming: incoming,
 		},
 		config: &RootConfig{
 			DatabasePath: dbPath,
@@ -41,7 +43,7 @@ func (r *Root) Save() error {
 		}
 
 		// Update IdentityID reference
-		r.config.IdentityID = r.Identity.ID
+		r.config.IdentityID = r.Identity.Tag.NodeID
 
 		// Save RootConfig record
 		if err := tx.Create(r.config).Error; err != nil {

@@ -20,15 +20,12 @@ func newTree() *Tree {
 	}
 }
 
-// addNode adds a node to the tree for routing (authoritative)
-func (t *Tree) addNode(nodeID nerd.NodeID, pipe nerd.Pipe) {
+// addTag adds a tag to the tree for routing (authoritative)
+func (t *Tree) addTag(tag *nerd.Tag) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
-	t.nodes[nodeID] = &nerd.Tag{
-		NodeID:   nodeID,
-		Incoming: pipe,
-	}
+	t.nodes[tag.NodeID] = tag
 }
 
 // removeNode removes a node from the tree (authoritative)
@@ -102,7 +99,7 @@ func InitInstance(dbPath string) error {
 
 	// Start Root node briefly to establish the tree structure
 	tree := newTree()
-	tree.addNode(root.GetID(), root.GetIncoming())
+	tree.addTag(root.GetTag())
 	root.Run()
 
 	// TODO: Send messages to create initial children if needed

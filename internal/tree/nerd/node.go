@@ -2,10 +2,9 @@ package nerd
 
 // Node interface defines common methods all node types must implement
 type Node interface {
-	GetID() NodeID
+	GetTag() *Tag
 	GetName() string
 	GetNodeType() NodeType
-	GetIncoming() Pipe
 	Run()
 	Save() error
 	Load() error
@@ -25,7 +24,7 @@ const (
 
 // Tag bundles information about a node for routing without direct pointers
 type Tag struct {
-	NodeID   NodeID
-	Incoming Pipe
+	NodeID   NodeID `gorm:"primaryKey"`
+	Incoming Pipe   `gorm:"-"` // Runtime field, not persisted
 	// Owner info omitted for now (no authentication yet)
 }

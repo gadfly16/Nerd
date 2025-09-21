@@ -13,9 +13,11 @@ func NewGroup() *Group {
 	incoming := make(nerd.Pipe) // Unbuffered channel for synchronous message delivery
 	return &Group{
 		Identity: &Identity{
+			Tag: &nerd.Tag{
+				Incoming: incoming,
+			},
 			Name:     "group",
 			NodeType: nerd.GroupNode,
-			Incoming: incoming,
 		},
 	}
 }
