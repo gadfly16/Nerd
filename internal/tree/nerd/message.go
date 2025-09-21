@@ -4,6 +4,25 @@ import (
 	"errors"
 )
 
+// Pipe is a channel for sending messages to nodes
+type Pipe chan Message
+
+// MessageType defines the types of messages that can be sent
+type MessageType int
+
+const (
+	CreateChildMessage MessageType = iota
+	QueryMessage
+	ShutdownMessage
+)
+
+// Message represents a message sent between nodes
+type Message struct {
+	Type    MessageType
+	Payload interface{}
+	Answer  Pipe // nil for Notify mode, set for Ask mode
+}
+
 // Message passing errors
 var (
 	// ErrNodeNotFound is returned when trying to access a non-existent node
@@ -15,7 +34,7 @@ var (
 
 // Notify sends a message to this node (non-blocking)
 func (t *Tag) Notify(msgType MessageType, payload interface{}) error {
-	msg := &Message{
+	msg := Message{
 		Type:    msgType,
 		Payload: payload,
 		Answer:  nil, // Notify mode - no answer expected
@@ -35,7 +54,7 @@ func (t *Tag) Ask(msgType MessageType, payload interface{}) (*Message, error) {
 	// Create answer pipe for response
 	answer := make(Pipe, 1) // Buffered for the response
 
-	msg := &Message{
+	msg := Message{
 		Type:    msgType,
 		Payload: payload,
 		Answer:  answer, // Ask mode - response expected
@@ -46,10 +65,7 @@ func (t *Tag) Ask(msgType MessageType, payload interface{}) (*Message, error) {
 	case t.Incoming <- msg:
 		// Wait for response
 		response := <-answer
-		if msgResponse, ok := response.(*Message); ok {
-			return msgResponse, nil
-		}
-		return nil, ErrNodeNotFound // Invalid response type
+		return &response, nil
 	default:
 		return nil, ErrNodeBusy
 	}

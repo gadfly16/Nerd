@@ -30,11 +30,6 @@ func InitDatabase(dbPath string) error {
 		return err
 	}
 
-	// TODO: Replace with proper Nerd initialization:
-	// 1. Bootstrap Root node manually (save + run)
-	// 2. Send messages to create children
-	// 3. Graceful shutdown when done
-
 	return nil
 }
 

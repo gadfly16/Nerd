@@ -17,7 +17,8 @@ type ConfigModel struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }
 
-// Identity represents a node's identity in the database
+// This is shared across all node types by embedding and this is stored in it's
+// own table in the database
 type Identity struct {
 	ID       nerd.NodeID   `gorm:"primaryKey"`
 	ParentID nerd.NodeID   `gorm:"index"`
@@ -31,10 +32,6 @@ type Identity struct {
 }
 
 // Node config types - only nodes that need persistent config have ConfigModel
-
-type GroupConfig struct {
-	// Group nodes don't have configs
-}
 
 type RootConfig struct {
 	ConfigModel

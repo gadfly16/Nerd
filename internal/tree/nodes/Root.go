@@ -56,16 +56,14 @@ func (r *Root) Shutdown() {
 
 // messageLoop handles incoming messages
 func (r *Root) messageLoop() {
-	for rawMsg := range r.Incoming {
-		if msg, ok := rawMsg.(*nerd.Message); ok {
-			switch msg.Type {
-			case nerd.CreateChildMessage:
-				r.handleCreateChild(msg)
-			case nerd.ShutdownMessage:
-				r.handleShutdown(msg)
-			default:
-				// Unknown message type
-			}
+	for msg := range r.Incoming {
+		switch msg.Type {
+		case nerd.CreateChildMessage:
+			r.handleCreateChild(&msg)
+		case nerd.ShutdownMessage:
+			r.handleShutdown(&msg)
+		default:
+			// Unknown message type
 		}
 	}
 }

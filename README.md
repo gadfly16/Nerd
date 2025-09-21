@@ -1,744 +1,125 @@
 # Nerd: Personal Software Agent Architecture
 
-## Overview
-
-Nerd is a software architecture framework designed specifically for building
-small personal agents that run continuously on modest hardware. The framework
-consists of Go instances paired with TypeScript GUIs, organized around tree
-structures of communicating nodes.
+Nerd is a software architecture framework for building small personal agents
+that run continuously on modest hardware. The framework consists of Go instances
+paired with TypeScript GUIs, organized around tree structures of communicating
+nodes.
 
 The name "Nerd" comes from "a herd of nodes" - nodes representing concurrent
-microservices doing things on the user's behalf on the Internet.
+microservices doing things on the user's behalf.
 
-A _service_ built with Nerd consists of an _instance_ (the executable) and
-connected _GUIs_.
-
-## Terminology
-
-**Fundamental Nerd Architecture Components**:
-
-- **Service**: The complete package consisting of an instance and its connected
-  GUIs. A Nerd service is not complete without both components.
-- **Instance**: The backend/server component - the main entity that runs as an
-  executable with a network location. This is the persistent, addressable
-  component that maintains state and business logic.
-- **GUI**: The frontend component that connects to an instance. Multiple GUIs
-  can connect to a single instance from anywhere on the network. GUIs are pure
-  display layers that never maintain independent state or communicate directly
-  with external services.
-
-**Key Relationships**:
-
-- An instance is the primary entity with a network address (even if the IP
-  changes frequently)
-- GUIs are interface clients that can connect from anywhere to view and interact
-  with an instance
-- The instance serves as the single source of truth; GUIs display exactly what
-  the instance knows
-
-## Core Design Philosophy
-
-This architecture is purpose-built for **single-person information systems**
-rather than enterprise-scale services handling millions of users. Every design
-decision prioritizes the specific requirements and constraints of personal
-agents that manage one person's data, workflows, and digital interactions while
-running 24/7 on consumer hardware.
-
-The fundamental shift from "serving millions" to "serving one person deeply"
-enables architectural choices that would be impractical or impossible at
-enterprise scale.
-
-## Key Concepts
-
-### Nodes as Organizational Units
-
-- **Node**: The fundamental organizational unit that can represent either:
-  - A goroutine communicating with external web services
-  - A service goroutine handling requests (when building services within the
-    Nerd ecosystem)
-  - An organizational node usually called a group node
-- **Tree Structure**: Nodes are organized in hierarchical trees that serve dual
-  purposes:
-  - Clear organizational boundaries and communication patterns
-  - **Aggregation flow control**: Parent nodes can automatically aggregate data
-    from their children
-
-### Tree-Based Aggregation System
-
-The hierarchical structure directly determines data flow and UI presentation:
-
-- **Logs**: View a parent node to see aggregated logs from all child nodes
-- **Metrics**: Parent nodes automatically roll up metrics from their subtree
-- **Status**: System health bubbles up through the tree hierarchy
-- **Dynamic Reorganization**: Users can restructure trees to create different
-  aggregation views without changing underlying services
-
-The node tree creates a **generalized display layer** where the tree structure
-drives what data gets aggregated and how it's presented, eliminating the need
-for custom aggregation logic in individual services.
-
-### Example: DDNS Service Architecture
-
-**Client Side**:
-
-- Web interface with nodes representing domains that need IP updates
-- Each domain node manages its own update logic and state
-
-**Server Side**:
-
-- Nodes representing goroutines handling incoming update requests
-- Nodes representing connected clients and their associated domains
-- Clean separation between request handling and client relationship management
-
-This demonstrates how nodes provide a consistent organizational model whether
-you're consuming external services or building services within the Nerd
-ecosystem.
-
-## Design Decisions & Rationale
-
-### Integrated Logging Architecture
-
-**Decision**: Couple logging directly with the instance and containerize as a
-single unit, rather than using separate log collectors, storage solutions, and
-analysis tools.
-
-**Enterprise Pattern**: Logging typically flows through a pipeline: Service →
-Log Collector → Storage Solution → Analysis Tools. This provides scalability,
-centralized management, and separation of concerns.
-
-**Personal-Scale Rationale**:
-
-- **Load Reality**: Personal agents generate manageable log volumes that don't
-  require distributed collection
-- **Operational Simplicity**: Eliminating the logging pipeline reduces
-  operational complexity from 4+ components to 1
-- **Debugging Experience**: Direct access to logs alongside the service provides
-  immediate visibility during development and troubleshooting
-- **Resource Efficiency**: Avoiding network hops and intermediate storage
-  reduces resource overhead on modest hardware
-- **Data Locality**: Keeping logs close to their generating service eliminates
-  latency and potential data loss during collection
-- **Intentional Integration**: When cross-service log access is needed (e.g.,
-  server accessing client logs), the framework provides straightforward
-  mechanisms for developers to explicitly enable this, rather than forcing
-  automatic distributed collection
-
-**Key Insight**: This approach replaces "automatic complexity" with "intentional
-complexity" - developers choose when and how to share logs between services,
-maintaining the simplicity benefits while enabling sophisticated scenarios when
-needed.
-
-This architectural choice would be impractical at enterprise scale but provides
-significant advantages for single-person systems where operational simplicity
-and debugging experience outweigh the scalability benefits of distributed
-logging.
-
-### Concurrent Node Architecture (Go Instance)
-
-**Decision**: Implement every node as a goroutine with strict communication
-patterns to ensure deadlock-free concurrent execution.
-
-**Core Design**:
-
-- **One Node = One Goroutine**: Direct mapping between logical nodes and Go
-  concurrency primitives
-- **Downward Channels**: Tree structure implemented via unbuffered (blocking)
-  channels from parents to children
-- **Upstream Communication Constraint**: Children cannot _ask_ directly to
-  ancestors (deadlock prevention)
-- **Pull-Based Default**: Parents query downstream nodes for information through
-  the downward channels (no updaters needed)
-- **Push-Based Exception**: Updater Pattern for downstream nodes that need to
-  independently notify upstream about state changes
-
-**Deadlock Prevention Strategy**: By forbidding direct child-to-parent
-communication and using pull-based queries as the primary pattern, the system
-eliminates most circular dependencies. Updaters only handle exceptional push
-notifications when downstream nodes must independently alert upstream.
-
-**Scalability Characteristics**: Goroutines consume minimal resources when idle
-(~2KB memory overhead each), enabling thousands of concurrent nodes with good
-performance. This makes the one-node-one-goroutine mapping practical at
-significant scale without meaningful resource penalty, maintaining conceptual
-clarity regardless of system size.
-
-**Aggregation Update Pattern**: When downstream nodes change state, aggregated
-parent information may need updating:
-
-1. **Update Notification**: Updater sends notification to root node with the
-   path of the changed downstream node
-2. **Path-Based Refresh**: System updates the entire path from root to changed
-   node, ensuring all aggregated values are current
-3. **Concurrent Operation**: While one path updates, unaffected tree branches
-   remain fully queryable and responsive
-
-**Bottleneck Mitigation**:
-
-- **Apparent Problem**: Root node receives all update notifications, creating a
-  potential bottleneck
-- **Architectural Solution**: Direct node queries bypass the root entirely -
-  clients query specific nodes directly in the tree
-- **Result**: Update notifications flow through root while normal operations
-  distribute across the tree, maintaining concurrency
-
-**Consistency Guarantees**: The system provides a **consistent view** of the
-tree state with specific atomicity boundaries:
-
-- **Node-Level Atomicity**: Individual node parameter updates are atomic - a
-  node's state changes all at once
-- **Non-Atomic Tree Updates**: Global tree changes are not atomic - the world
-  doesn't stop during path updates
-- **Concurrent Query Reality**: While an update propagates through a path,
-  downstream nodes may be queried and return state that will change momentarily
-- **Design Trade-off**: True global consistency would require halting all
-  concurrent operations, which conflicts with the real-time performance
-  requirements
-
-**Future Consideration**: Multi-node atomic transactions are not in immediate
-plans, but the architecture could support them through coordination mechanisms
-if needed.
-
-This creates a **predictable concurrency model** where data flows down the tree
-naturally, while upstream communication happens through well-defined external
-channels, making the system both concurrent and deterministic.
-
-### Single Executable Deployment Strategy
-
-**Decision**: Target single executable binaries for services, enabling flexible
-deployment across various environments without forcing containerization.
-
-**Deployment Flexibility**:
-
-- **Desktop Installation**: Simple executable deployment for personal computing
-  environments
-- **Container Ready**: Can be containerized when orchestration or isolation
-  requirements demand it
-- **Environment Agnostic**: Same binary works across different deployment
-  scenarios
-
-**Tooling Separation Principle**:
-
-- **Service Binaries**: Keep lean and focused on runtime functionality
-- **Framework Tooling**: Development and debugging tools remain separate to
-  avoid bloating service executables
-- **Size Optimization**: Avoid embedding tools with heavy dependencies that
-  significantly increase binary size
-
-**Benefits**:
-
-- **Deployment Simplicity**: Single file deployment reduces operational
-  complexity
-- **Resource Efficiency**: Lean binaries suitable for modest hardware
-- **User Choice**: Deployment method (bare metal, container, etc.) becomes an
-  operational decision rather than an architectural constraint
-
-This approach maintains the personal-scale philosophy where operational
-simplicity and user control take precedence over enterprise deployment patterns.
-
-### GUI-First Design Philosophy
-
-**Decision**: Design Nerd as GUI-first rather than CLI-first, fundamentally
-changing architectural priorities and user interaction patterns. The GUI's sole
-task is to display the tree of nodes and it is designed to do just that as well
-as practically possible.
-
-**Enterprise Pattern**: Most server software prioritizes CLI interfaces, APIs,
-and configuration files, with GUIs being secondary concerns or entirely separate
-applications.
-
-**Personal-Scale Rationale**:
-
-- **Single User Focus**: Personal agents benefit from rich, interactive
-  interfaces rather than scriptable CLIs designed for multiple operators
-- **Continuous Interaction**: 24/7 running agents need monitoring and adjustment
-  interfaces that are immediately accessible and visually clear
-- **Tree Visualization**: The hierarchical node structure is naturally suited to
-  GUI representation and manipulation
-- **Minimal CLI**: Services include basic CLI commands for initialization and
-  startup operations
-
-**Core GUI Principle**: The GUI's singular responsibility is to display and
-interact with a **tree of nodes** - and it must do this as well as practically
-possible. All other functionality emerges from this fundamental capability.
-
-**Single Source of Truth**: The GUI connects exclusively to the instance - it
-never communicates directly with external services or maintains independent
-state. This ensures the user always sees exactly how the instance perceives the
-world, eliminating inconsistencies between what the system thinks is happening
-and what the user sees.
-
-**Real-Time Performance**: Nerd takes real-time GUI updates "freakishly
-seriously" using:
-
-- **WebSocket-based updates**: Backend is obliged to trigger immediate reloading
-  of displayed node parameters
-- **Live topology changes**: Tree structure modifications are reflected
-  instantly in the GUI
-- **Lazy loading strategy**: GUI only loads what's currently visible, minimizing
-  bandwidth and computational overhead
-- **Display-driven updates**: Only nodes actually being viewed receive real-time
-  updates
-
-This creates a **living interface** where the GUI feels like a direct window
-into the running system rather than a periodic snapshot, essential for
-monitoring and interacting with 24/7 personal agents.
-
-This design constraint means the instance architecture is shaped by GUI
-requirements rather than API-first or CLI-first considerations, resulting in
-fundamentally different structural decisions.
-
-### Minimal Dependency GUI Architecture
-
-**Decision**: Build the TypeScript GUI using Web Components and established
-WebAPIs while aggressively avoiding npm dependencies.
-
-**Enterprise Pattern**: Modern GUI development typically embraces large
-dependency trees, build toolchains, and framework ecosystems to accelerate
-development velocity.
-
-**Personal-Scale Rationale**:
-
-- **Dependency Decision Process**: "Think first, then think some more, and if we
-  still want to bring in the bugger we think more. And if it involves npm we
-  think until we let it go."
-- **Web Standards Reliance**: Leverage established Web APIs and Web Components
-  instead of framework abstractions
-- **Long-term Stability**: Personal agents running 24/7 benefit from fewer
-  external dependencies that could break, become unmaintained, or introduce
-  security vulnerabilities
-- **Tree-Component Mapping**: The entire node tree is implemented as custom Web
-  Components, creating a direct mapping between logical nodes and DOM elements
-
-**Architectural Advantage**: Each node in the instance corresponds to a custom
-Web Component in the GUI, maintaining the one-to-one mapping that makes the
-real-time updates and tree manipulation straightforward and predictable. Shared
-logic, like displaying the name flows naturally with inheritance of
-web-component classes.
-
-### Node Information Architecture
-
-**Decision**: Define a minimal, universal data model that covers all node
-interaction patterns while maintaining simplicity.
-
-**Core Data Categories**:
-
-- **Identity**: How nodes identify themselves within the tree structure
-- **Status Information**: Read-only data that nodes expose about their current
-  state, performance, and computed results
-- **Configuration**: User-controllable settings that influence node behavior and
-  operations
-
-**Design Philosophy**: This three-category model provides complete coverage for
-personal agent interfaces while maintaining conceptual clarity. The framework
-prioritizes making these fundamental categories work excellently before adding
-specialized extensions, ensuring that complex workflows can be built from
-simple, well-understood primitives.
-
-**Extensibility Strategy**: Future custom widgets and specialized displays can
-be layered on top of this foundation without compromising the core simplicity
-that makes the system predictable and maintainable.
-
-### Tooling to Mitigate GUI-First Trade-offs
-
-**Acknowledgment**: GUI-first design principles create unusual and uncomfortable
-development experiences that must be addressed through dedicated tooling rather
-than compromising the architectural decisions.
-
-**Tooling Strategy**:
-
-- **Binary Log Readers**: If binary logging formats are chosen for performance,
-  provide tools to convert logs to human-readable form for terminal debugging
-- **Config File Watching**: Configuration files are monitored and automatically
-  reloaded when changed, enabling terminal-based configuration workflows
-  alongside GUI interaction
-- **Development Utilities**: Custom tooling bridges the gap between
-  GUI-optimized architecture and traditional command-line development workflows
-
-**Future CLI Possibility**: An excellent CLI experience is theoretically
-absolutely possible and can be added later as need arises, since the underlying
-tree structure and node abstraction naturally support multiple interface
-modalities.
-
-**Language Evolution**: A domain-specific language for tree operations will
-likely emerge from GUI interaction patterns. As users discover complex workflows
-through the interface, those patterns will inform language constructs that can
-eventually be exposed through CLI interfaces.
-
-**Design Philosophy**: Rather than weakening architectural principles to
-accommodate development convenience, build the necessary tooling to make
-principled designs practical for daily development work.
-
-### Instance-GUI Communication Architecture
-
-**Decision**: Design a dual-channel communication pattern that separates
-real-time notifications from business-critical data transfer.
-
-**Architectural Principle**: The instance serves as the single source of truth
-for all system state, with the GUI acting as a pure display layer that never
-maintains independent state or communicates directly with external services.
-
-**Communication Pattern Separation**:
-
-- **Real-Time Channel**: Handles lightweight notifications about state changes
-  and system events, enabling immediate GUI updates and maintaining the "living
-  interface" experience
-- **Data Channel**: Handles all business-critical information transfer using
-  reliable request-response patterns for node data, parameters, and operations
-
-**Personal-Scale Benefits**:
-
-- **Operational Simplicity**: Clear separation of concerns reduces debugging
-  complexity while maintaining robust data operations
-- **Real-Time Performance**: Dedicated notification channel enables the
-  "freakishly serious" real-time updates required for monitoring 24/7 personal
-  agents
-- **Resilience**: System continues functioning even when real-time updates fail,
-  with business operations remaining unaffected
-- **Development Experience**: Type-safe contracts between instance and GUI
-  eliminate schema maintenance overhead
-
-This architecture ensures consistency between what the system knows and what the
-user sees, while providing the real-time responsiveness essential for personal
-agent monitoring and interaction.
-
-## Implementation Decisions
-
-This section tracks technical decisions made during the implementation of the
-Nerd framework, including reasoning and context for each choice.
-
-### CLI Framework
-
-**Decision**: Use Cobra Commander for CLI implementation.
-
-**Context**: Need a futureproof CLI framework for implementing Nerd service
-commands. Implementing two commands initially: `init` for database creation and
-`run` for starting the service.
-
-**Status**: Decided
-
-### Database Stack
-
-**Decision**: Use Gorm as ORM with SQLite as the database.
-
-**Context**: Need persistent storage for node and tree state. SQLite provides
-single-file simplicity aligned with personal-scale architecture. Gorm provides
-Go-idiomatic database operations.
-
-**Status**: Decided
-
-### Database Schema Architecture
-
-**Decision**: Use Identity/Config struct separation with manual composition.
-
-**Context**: Every node has an `Identity` struct containing tree-essential
-fields (ID, parent_id, name, node_type) stored in `identities` table.
-Type-specific configuration is stored in separate structs/tables per node type.
-Node structs manually compose identity + config + runtime fields. Each goroutine
-loads its own configuration for security (e.g., passwords).
-
-**Status**: Decided
-
-### Node Type System
-
-**Decision**: Define 2 core node types as integer enum: GroupNode, RootNode.
-
-**Context**: These node types provide the foundation for the core Nerd service.
-Using integer enum for efficient storage and comparison.
-
-**Status**: Decided
-
-### Node ID Architecture
-
-**Decision**: Use int64 for node IDs with positive/negative distinction for
-ordinary vs system nodes.
-
-**Context**: Ordinary nodes stored in database get positive IDs from database
-counter. Ephemeral system nodes created by runtime get negative IDs from
-separate Go counter. ID 0 represents uninitialized state (error condition). Root
-node receives ID 1. ID range -2^53 to 2^53 ensures compatibility with TypeScript
-number type in GUI.
-
-**Status**: Decided
-
-### Serialization Format
-
-**Decision**: Use JSON for HTTP and WebSocket message serialization.
-
-**Context**: Need consistent serialization across instance-GUI communication.
-JSON provides debugging simplicity, wide tooling support, and sufficient
-performance for personal-scale systems. Enables easy inspection and testing of
-API communications.
-
-**Status**: Decided
-
-### Type Generation Tool
-
-**Decision**: Use tygo for Go struct to TypeScript interface generation.
-
-**Context**: Go structs serve as single source of truth for message contracts
-between instance and GUI. tygo automatically generates TypeScript interfaces
-from Go structs with proper type mapping (int64 → number/bigint, time.Time →
-string). Only structs with JSON tags are exposed to maintain clean API
-contracts.
-
-**Status**: Decided
-
-### Instance-GUI Communication Protocol
-
-**Decision**: Separate WebSocket and HTTP responsibilities for instance-GUI
-communication.
-
-**Context**: WebSocket handles lightweight real-time concerns (heartbeat, update
-notifications) while HTTP handles all business-critical data transfer (node
-identity, status, config). This separation ensures business operations remain
-robust through reliable HTTP patterns while real-time updates depend on
-WebSocket connectivity.
-
-**Status**: Decided
-
-### Database Access Pattern
-
-**Decision**: Use distributed database access where each node handles its own
-database operations directly.
-
-**Context**: SQLite with Gorm enables safe concurrent access. Each node performs
-its own database operations rather than using a centralized database service.
-This aligns with Nerd's distributed architecture and financial-level reliability
-requirements.
-
-**Status**: Decided
-
-### Core Node Architecture
-
-**Decision**: Focus on Group and Root nodes as the fundamental building blocks.
-
-**Context**: Group and Root nodes provide the essential tree structure for the
-Nerd system. Additional specialized nodes can be added later as needed.
-
-**Status**: Decided
-
-### Financial Reliability Pattern
-
-**Decision**: Database commits must complete before UI parameter updates.
-
-**Context**: Nerd targets financial-level reliability. Any parameter change must
-be successfully committed to the database before the change is reflected in the
-user interface. This ensures data consistency and prevents the UI from showing
-uncommitted state changes.
-
-**Status**: Decided
-
-### Tag-Centric Messaging Pattern
-
-**Decision**: Implement messaging through Tag objects with their own Ask/Notify
-methods rather than using tags as passive data structures.
-
-**Context**: Tags bundle immutable routing information (NodeID + Incoming
-channel) and act as identity cards for nodes. Rather than implementing messaging
-as `nerd.Ask(tree, targetID, ...)`, the pattern uses `tag.Ask(...)` directly on
-the tag object.
-
-**Rationale**:
-
-- **Object-Oriented Clarity**: Tags become active participants in messaging
-  rather than just lookup data
-- **API Simplicity**: `tag.Ask(msgType, payload)` is cleaner than
-  `tree.AskNode(targetID, msgType, payload)`
-- **Immutable Identity**: Tags represent stable routing information that doesn't
-  change during execution
-- **Direct Communication**: Eliminates tree lookup overhead once you have a tag
-  reference
-
-**Status**: Implemented
-
-### Identity as Dual-Purpose Foundation
-
-**Decision**: Identity struct contains both persistent database fields and
-runtime communication channels.
-
-**Context**: Identity includes database fields (ID, Name, NodeType) alongside
-runtime fields (Incoming channel) marked with `gorm:"-"` to exclude from
-persistence.
-
-**Rationale**:
-
-- **True Node Identity**: A node's identity consists equally of its persistent
-  data (for database/routing) and runtime data (for communication)
-- **Embedded Inheritance**: Using Go embedding, all node types automatically
-  inherit both persistent and runtime identity methods
-- **Architectural Consistency**: Treats the incoming channel as fundamental to
-  identity, not just an implementation detail
-
-**Trade-offs**: Mixing persistent and runtime data in one struct is
-unconventional but reflects the reality that both are equally core to what makes
-a node unique.
-
-**Status**: Implemented
-
-### Go Embedding for Interface Compliance
-
-**Decision**: Use Go struct embedding to implement Node interface methods once
-on Identity rather than duplicating across node types.
-
-**Context**: Root and Group embed `*Identity`, automatically inheriting methods
-like `GetID()`, `GetName()`, `GetNodeType()`, `GetIncoming()`.
-
-**Rationale**:
-
-- **Code Reuse**: Common interface methods implemented once on Identity
-- **Automatic Compliance**: All node types automatically satisfy Node interface
-  through embedding
-- **Maintainability**: Changes to common behavior only need updating in one
-  place
-- **Go Idiom**: Leverages Go's composition over inheritance patterns effectively
-
-**Implementation**: Node-specific methods like `Run()`, `Load()`, `Shutdown()`
-remain on individual types since they access node-specific data.
-
-**Status**: Implemented
-
-### Tree API Boundary Design
-
-**Decision**: Maintain minimal tree API surface (AskNode/NotifyNode with NodeID)
-while using efficient Tag-based messaging internally.
-
-**Context**: External code uses `tree.AskNode(targetID, ...)` while internally
-this resolves to tag lookup and `tag.Ask()`.
-
-**Rationale**:
-
-- **External Convenience**: NodeID-based API matches how external code thinks
-  about targeting nodes
-- **Internal Efficiency**: Tag-based messaging avoids repeated lookups once you
-  have a tag reference
-- **Clean Boundaries**: Tree package serves as proper interface layer hiding
-  internal Tag mechanics
-- **Future Flexibility**: Can add housekeeping, metrics, or lifecycle management
-  in tree methods without changing external API
-
-**Trade-offs**: Slight overhead of getTag() lookup in tree methods, but
-maintains clean architectural boundaries.
-
-**Status**: Implemented
-
-## Development
-
-### Building and Running
+## Quick Start
 
 ```bash
-# Build the nerd executable
+# Build and initialize
 go build -o nerd ./cmd/nerd
-
-# Initialize database (creates nerd.db)
 ./nerd init
 
-# Run the service (not yet implemented)
-./nerd run
-```
-
-### Testing
-
-```bash
-# Run all tests
+# Run tests
 go test ./...
-
-# Run tests with verbose output
-go test -v ./...
-
-# Run tests for specific package
-go test ./internal/tree
-
-# Run specific test function
-go test -run TestFunctionName ./internal/tree
 ```
 
-### Code Structure
+## Core Architecture
 
-#### Package Organization & Import Cycle Prevention
+### Terminology
+
+- **Service**: Complete package consisting of an instance and its connected GUIs
+- **Instance**: Backend executable that maintains state and business logic
+- **GUI**: Frontend that connects to display and interact with an instance
+- **Node**: Fundamental unit representing either a goroutine or organizational
+  group
+
+### Key Design Principles
+
+**Node-Centric Organization**: Everything is organized as trees of communicating
+nodes (one node = one goroutine). Each node has:
+
+- **Identity**: Tree position and routing information
+- **Status**: Read-only runtime state and performance data
+- **Config**: User-controllable settings
+
+**Message Passing**: Nodes communicate via Notify/Ask patterns through
+strongly-typed channels:
+
+- Downward channels from parents to children (deadlock prevention)
+- Children cannot directly ask ancestors
+- Updates flow upstream via special Updater nodes
+
+**GUI-First**: Architecture prioritizes real-time GUI updates and tree
+visualization over CLI convenience. The GUI's sole responsibility is displaying
+the node tree as effectively as possible.
+
+### Current Implementation
+
+**Package Structure:**
 
 ```
 internal/
-├── server/
+├── server/          # HTTP/WebSocket handling
 └── tree/
-    ├── system/
-    ├── message/
-    └── nodes/
+    ├── nerd/        # Core types (NodeID, Message, Pipe, Tag, Node interface)
+    └── nodes/       # Node implementations (Root, Group + 5 planned types)
 ```
 
-The codebase is structured to avoid import cycles while enabling proper
-separation of concerns for concurrent node behavior:
+**Node Types**: Currently 2 foundational types (Root, Group) with 5 more planned
+including GUI nodes representing connected interfaces.
 
-**`internal/server/`** - HTTP and WebSocket connection handling
+**Database**: SQLite with Gorm using Identity/Config separation. Each node
+handles its own database operations for security and reliability.
 
-- Implements network protocols for GUI connections
-- Uses exported functions from tree package
-- No dependencies on tree internals
+**Messaging**: `Pipe` channels carry `Message` values for efficiency, while
+handlers receive `*Message` pointers for flexibility.
 
-**`internal/tree/`** - Tree management and coordination
+## Development Guide
 
-- Top-level tree operations and database integration
-- Orchestrates the overall node runtime system
-- Imports: `nerd`, `nodes`
+### Commands
 
-**`internal/tree/nerd/`** - **Core Nerd Types & APIs**
+```bash
+# Build
+go build -o nerd ./cmd/nerd
 
-- Fundamental types (`NodeID`, `Pipe`, `MessageType`, `Message`, etc.)
-- Send/Ask communication patterns and message routing
-- Thread-safe, curated access to runtime tree data
-- Performance/safety contract layer for concurrent node access
-- **No imports** - foundation layer
+# Initialize database
+./nerd init
 
-**`internal/tree/nodes/`** - **Node Definitions & Behaviors**
-
-- Node types, Identity/Config structs
-- Individual node implementation logic
-- Node lifecycle and behavior patterns
-- Imports: `nerd`
-
-**Dependency Flow**: `nerd` ← `nodes` ← `tree`
-
-**Import Cycle Solution**: Node packages can access message passing and runtime
-tree data through the `nerd` package without importing the main `tree` package,
-eliminating circular dependencies.
-
-#### Curated Access Pattern
-
-The `system` package provides **controlled, thread-safe access** to runtime tree
-state:
-
-```go
-// Safe: immutable after tree construction
-func (s *System) GetNodeType(id nodeID) nodeType
-
-// Safe: atomic read
-func (s *System) IsNodeAlive(id nodeID) bool
-
-// Protected: requires mutex
-func (s *System) GetUpdaterChannel(id nodeID) (pipe, error)
+# Run tests
+go test ./...
+go test -v ./internal/instance
+go test -run TestFunctionName ./internal/instance
 ```
 
-**Key Principle**: Controlled memory sharing across goroutines for performance,
-with explicit safety contracts rather than pure message passing. The `system`
-package becomes the single source of truth for what runtime data can be safely
-accessed by concurrent nodes and how to access it safely.
+### Code Style
 
-### Current Implementation Status
+- Always format Go code with `gofmt`
+- Use tabs for indentation
+- No trailing whitespace
+- Follow financial reliability pattern: database commits before UI updates
+
+### Development Philosophy
+
+**Discussion Before Implementation**: This project follows "vibe coding" -
+discuss engineering decisions and reason through trade-offs before committing to
+code. Don't jump straight into implementation.
+
+### Current Status
 
 **✅ Completed:**
 
 - Database schema with Identity/Config separation
-- Node type system (6 core types)
+- Node type system (22 foundationalfoundational types: Group, Root)
 - CLI framework with `init` command
-- Message passing infrastructure
+- Message passing infrastructure with strongly-typed channels
 - Tree structure for node organization
+- Thread-safe tag-based routing system
 
 **🚧 In Progress:**
 
-- Runtime-based initialization (replacing direct DB creation)
+- Runtime-based initialization
 - Node goroutine lifecycle management
 
 **📋 TODO:**
 
+- Remaining 5 node types (including GUI node type)
+- Remaining 5 node types (including GUI node type)
 - `run` command implementation
 - HTTP/WebSocket servers
 - GUI (TypeScript with Web Components)
@@ -746,6 +127,117 @@ accessed by concurrent nodes and how to access it safely.
 
 ---
 
+## Appendix: Design Philosophy & Rationale
+
+This section explains why Nerd makes unconventional architectural choices
+optimized for personal-scale systems rather than enterprise patterns.
+
+### Personal-Scale vs Enterprise Design
+
+Nerd is purpose-built for **single-person information systems** rather than
+enterprise-scale services. This fundamental shift from "serving millions" to
+"serving one person deeply" enables architectural choices that would be
+impractical at enterprise scale.
+
+### GUI-First Architecture
+
+**Decision**: Design as GUI-first rather than CLI-first, fundamentally changing
+architectural priorities.
+
+**Enterprise Pattern**: Most server software prioritizes CLI interfaces, APIs,
+and configuration files, with GUIs being secondary.
+
+**Personal-Scale Rationale**:
+
+- Single user benefits from rich, interactive interfaces rather than scriptable
+  CLIs
+- 24/7 running agents need monitoring interfaces that are immediately accessible
+- Tree visualization is naturally suited to GUI representation
+- Real-time performance: WebSocket-based updates, live topology changes, lazy
+  loading
+
+**Trade-off**: Creates unusual development experiences that require custom
+tooling rather than compromising architectural principles.
+
+### Integrated Logging Architecture
+
+**Decision**: Couple logging directly with the instance rather than using
+separate log collectors and storage.
+
+**Enterprise Pattern**: Logging flows through pipelines (Service → Collector →
+Storage → Analysis).
+
+**Personal-Scale Rationale**:
+
+- Manageable log volumes don't require distributed collection
+- Eliminates operational complexity from 4+ components to 1
+- Direct log access provides immediate debugging visibility
+- Resource efficiency on modest hardware
+- Intentional complexity when cross-service access is needed
+
+### Concurrent Node Architecture
+
+**Decision**: Implement every node as a goroutine with strict communication
+patterns.
+
+**Core Design**:
+
+- One Node = One Goroutine mapping
+- Downward channels (blocking) from parents to children
+- Pull-based queries as primary pattern (parents query children)
+- Push-based Updater pattern for exceptional upstream notifications
+
+**Benefits**:
+
+- Goroutines consume minimal resources when idle (~2KB each)
+- Eliminates circular dependencies through communication constraints
+- Predictable concurrency model with deterministic data flow
+- Node-level atomic updates with acceptable tree-level eventual consistency
+
+### Single Executable Deployment
+
+**Decision**: Target single executable binaries for flexible deployment.
+
+**Benefits**:
+
+- Simple deployment (single file)
+- Container-ready when needed
+- Environment agnostic
+- Lean binaries suitable for modest hardware
+
+### Minimal Dependency GUI
+
+**Decision**: Build TypeScript GUI using Web Components and WebAPIs,
+aggressively avoiding npm dependencies.
+
+**Philosophy**: "Think first, then think some more, and if we still want to
+bring in the dependency we think more. And if it involves npm we think until we
+let it go."
+
+**Benefits**:
+
+- Long-term stability for 24/7 agents
+- Fewer security vulnerabilities
+- Direct mapping between nodes and Web Components
+- Reduced maintenance burden
+
+### Database Architecture
+
+**Decision**: Distributed database access where each node handles its own
+operations.
+
+**Pattern**: SQLite with Gorm enables safe concurrent access. Identity/Config
+struct separation with manual composition.
+
+**Benefits**:
+
+- Security (nodes load their own credentials)
+- Financial reliability (database commits before UI updates)
+- Alignment with distributed architecture
+- No centralized database service bottleneck
+
+---
+
 _This document serves as both technical documentation and engineering
-justification for architectural decisions that may diverge from conventional
+justification for architectural decisions that diverge from conventional
 enterprise patterns in favor of personal computing optimization._

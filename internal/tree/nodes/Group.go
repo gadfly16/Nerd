@@ -53,16 +53,14 @@ func (g *Group) Shutdown() {
 
 // messageLoop handles incoming messages
 func (g *Group) messageLoop() {
-	for rawMsg := range g.Incoming {
-		if msg, ok := rawMsg.(*nerd.Message); ok {
-			switch msg.Type {
-			case nerd.CreateChildMessage:
-				g.handleCreateChild(msg)
-			case nerd.ShutdownMessage:
-				g.handleShutdown(msg)
-			default:
-				// Unknown message type
-			}
+	for msg := range g.Incoming {
+		switch msg.Type {
+		case nerd.CreateChildMessage:
+			g.handleCreateChild(&msg)
+		case nerd.ShutdownMessage:
+			g.handleShutdown(&msg)
+		default:
+			// Unknown message type
 		}
 	}
 }

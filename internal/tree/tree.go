@@ -87,5 +87,15 @@ func (t *Tree) AskNode(targetID nerd.NodeID, msgType nerd.MessageType, payload i
 
 // InitInstance initializes a new Nerd instance by setting up the database
 func InitInstance(dbPath string) error {
-	return nodes.InitDatabase(dbPath)
+	err := nodes.InitDatabase(dbPath)
+	if err != nil {
+		return err
+	}
+
+	// TODO: Replace with proper Nerd initialization:
+	// 1. Bootstrap Root node manually (save + run)
+	// 2. Send messages to create children
+	// 3. Graceful shutdown when done
+
+	return nil
 }
