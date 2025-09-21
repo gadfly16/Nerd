@@ -1,5 +1,17 @@
 package nerd
 
+// Node interface defines common methods all node types must implement
+type Node interface {
+	GetID() NodeID
+	GetName() string
+	GetNodeType() NodeType
+	GetIncoming() Pipe
+	Run()
+	Save() error
+	Load() error
+	Shutdown()
+}
+
 // NodeID uniquely identifies a node in the tree
 type NodeID int64
 
@@ -16,15 +28,4 @@ type Tag struct {
 	NodeID   NodeID
 	Incoming Pipe
 	// Owner info omitted for now (no authentication yet)
-}
-
-// Node interface defines common methods all node types must implement
-type Node interface {
-	GetID() NodeID
-	GetName() string
-	GetNodeType() NodeType
-	GetIncoming() Pipe
-	Run()
-	Load(dbPath string) error
-	Shutdown()
 }

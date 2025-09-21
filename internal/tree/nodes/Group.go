@@ -10,7 +10,7 @@ type Group struct {
 
 // NewGroup creates a new Group node instance
 func NewGroup() *Group {
-	incoming := make(nerd.Pipe, 100)
+	incoming := make(nerd.Pipe) // Unbuffered channel for synchronous message delivery
 	return &Group{
 		Identity: &Identity{
 			Name:     "group",
@@ -21,14 +21,14 @@ func NewGroup() *Group {
 }
 
 // Save persists the Group node to the database
-func (g *Group) Save(dbPath string) error {
+func (g *Group) Save() error {
 	// TODO: Implement database save operation
 	// Note: Only saves Identity, no config for Group nodes
 	return nil
 }
 
 // Load retrieves the Group node and all children from the database
-func (g *Group) Load(dbPath string) error {
+func (g *Group) Load() error {
 	// TODO: Implement database load operation
 	// 1. Load Identity from database
 	// 2. Populate struct fields

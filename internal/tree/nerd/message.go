@@ -4,8 +4,12 @@ import (
 	"errors"
 )
 
-// Pipe is a channel for sending messages to nodes
-type Pipe chan Message
+// Message represents a message sent between nodes
+type Message struct {
+	Type    MessageType
+	Payload interface{}
+	Answer  Pipe // nil for Notify mode, set for Ask mode
+}
 
 // MessageType defines the types of messages that can be sent
 type MessageType int
@@ -16,12 +20,8 @@ const (
 	ShutdownMessage
 )
 
-// Message represents a message sent between nodes
-type Message struct {
-	Type    MessageType
-	Payload interface{}
-	Answer  Pipe // nil for Notify mode, set for Ask mode
-}
+// Pipe is a channel for sending messages to nodes
+type Pipe chan Message
 
 // Message passing errors
 var (

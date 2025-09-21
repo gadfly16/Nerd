@@ -21,7 +21,7 @@ var initCmd = &cobra.Command{
 	Long: `Creates the SQLite database with the required schema for
 nodes and trees.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		dbPath := "./nerd.db"
+		dbPath, _ := cmd.Flags().GetString("database")
 
 		err := tree.InitInstance(dbPath)
 		if err != nil {
@@ -47,6 +47,9 @@ var runCmd = &cobra.Command{
 func init() {
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(runCmd)
+
+	// Add flags to commands
+	initCmd.Flags().StringP("database", "d", "./nerd.db", "Path to the SQLite database file")
 }
 
 func main() {

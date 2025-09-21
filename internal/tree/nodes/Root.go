@@ -1,6 +1,9 @@
 package nodes
 
-import "github.com/gadfly16/nerd/internal/tree/nerd"
+import (
+	"github.com/gadfly16/nerd/internal/tree/nerd"
+	"gorm.io/gorm"
+)
 
 // Root represents the root node of the tree
 type Root struct {
@@ -8,29 +11,49 @@ type Root struct {
 	config *RootConfig
 }
 
-// NewRoot creates a new Root node instance
-func NewRoot() *Root {
-	incoming := make(nerd.Pipe, 100) // Buffered channel for messages
+// RootConfig stores configuration for Root nodes
+type RootConfig struct {
+	ConfigModel
+	DatabasePath string `gorm:"not null"`
+}
+
+// NewRoot creates a new Root node instance with specified database path
+func NewRoot(dbPath string) *Root {
+	incoming := make(nerd.Pipe) // Unbuffered channel for synchronous message delivery
 	return &Root{
 		Identity: &Identity{
 			Name:     "root",
 			NodeType: nerd.RootNode,
 			Incoming: incoming,
 		},
+		config: &RootConfig{
+			DatabasePath: dbPath,
+		},
 	}
 }
 
 // Save persists the Root node to the database
-func (r *Root) Save(dbPath string) error {
-	// TODO: Implement database save operation
-	// 1. Create Identity record
-	// 2. Create RootConfig record
-	// 3. Store node ID for future operations
-	return nil
+func (r *Root) Save() error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		// Save Identity record first to get auto-generated ID
+		if err := tx.Create(r.Identity).Error; err != nil {
+			return err
+		}
+
+		// Update IdentityID reference
+		r.config.IdentityID = r.Identity.ID
+
+		// Save RootConfig record
+		if err := tx.Create(r.config).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 // Load retrieves the Root node and all children from the database
-func (r *Root) Load(dbPath string) error {
+func (r *Root) Load() error {
 	// TODO: Implement database load operation
 	// 1. Load Identity and Config from database
 	// 2. Populate struct fields

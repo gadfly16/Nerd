@@ -86,16 +86,27 @@ func (t *Tree) AskNode(targetID nerd.NodeID, msgType nerd.MessageType, payload i
 }
 
 // InitInstance initializes a new Nerd instance by setting up the database
+// and bootstrapping the Root node using runtime infrastructure
 func InitInstance(dbPath string) error {
 	err := nodes.InitDatabase(dbPath)
 	if err != nil {
 		return err
 	}
 
-	// TODO: Replace with proper Nerd initialization:
-	// 1. Bootstrap Root node manually (save + run)
-	// 2. Send messages to create children
-	// 3. Graceful shutdown when done
+	// Bootstrap Root node using runtime infrastructure
+	root := nodes.NewRoot(dbPath)
+	err = root.Save()
+	if err != nil {
+		return err
+	}
+
+	// Start Root node briefly to establish the tree structure
+	tree := newTree()
+	tree.addNode(root.GetID(), root.GetIncoming())
+	root.Run()
+
+	// TODO: Send messages to create initial children if needed
+	// TODO: Graceful shutdown when initialization is complete
 
 	return nil
 }
