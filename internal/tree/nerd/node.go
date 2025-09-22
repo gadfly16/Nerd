@@ -5,6 +5,7 @@ type Node interface {
 	GetTag() *Tag
 	GetName() string
 	GetNodeType() NodeType
+	SetParentID(parentID NodeID)
 	Run()
 	Save() error
 	Load() error

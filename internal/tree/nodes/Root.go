@@ -1,8 +1,6 @@
 package nodes
 
 import (
-	"fmt"
-
 	"github.com/gadfly16/nerd/internal/tree/nerd"
 	"gorm.io/gorm"
 )
@@ -83,81 +81,28 @@ func (n *Root) Shutdown() {
 
 // messageLoop handles incoming messages
 func (n *Root) messageLoop() {
-	for msg := range n.Incoming {
-		switch msg.Type {
-		case nerd.CreateChildMessage:
-			n.handleCreateChild(&msg)
-		case nerd.ShutdownMessage:
-			n.handleShutdown(&msg)
-		default:
-			// Unknown message type
-		}
-	}
-}
+	for m := range n.Incoming {
+		var a any
+		var err error
 
-// handleCreateChild processes requests to create child nodes
-func (n *Root) handleCreateChild(msg *nerd.Message) {
-	// Parse message payload
-	nodeType, ok := msg.Payload.(nerd.NodeType)
-	if !ok {
-		// Send error response if this was an Ask
-		if msg.Answer != nil {
-			msg.Answer <- nerd.Answer{
-				Error: fmt.Errorf("invalid payload type"),
+		// TODO: Pre-process: authorization check
+
+		// Route based on message type
+		if m.Type < nerd.CommonMsgSeparator {
+			// Common message - handle via Identity
+			a, err = n.Identity.handleCommonMessage(&m, n)
+		} else {
+			// Node-specific message handling
+			switch m.Type {
+			default:
+				err = nerd.ErrUnknownMessageType
 			}
 		}
-		return
+
+		// Post-process: apply any response filtering, logging, etc.
+		// TODO: Add post-processing logic here
+
+		// Send response
+		m.Reply(a, err)
 	}
-
-	// Create appropriate node instance based on type
-	var child nerd.Node
-	switch nodeType {
-	case nerd.GroupNode:
-		child = NewGroup()
-	default:
-		// Send error response
-		if msg.Answer != nil {
-			msg.Answer <- nerd.Answer{
-				Error: fmt.Errorf("unsupported node type"),
-			}
-		}
-		return
-	}
-
-	// Save the child to database
-	err := child.Save()
-	if err != nil {
-		// Send error response
-		if msg.Answer != nil {
-			msg.Answer <- nerd.Answer{
-				Error: err,
-			}
-		}
-		return
-	}
-
-	// Generate auto name: "New Type #NodeID"
-	nodeTypeName := "Group" // For now, will expand this
-	autoName := fmt.Sprintf("New %s #%d", nodeTypeName, child.GetTag().NodeID)
-
-	// TODO: Update child name in database
-	_ = autoName // Silence unused variable for now
-
-	// Start the child node
-	child.Run()
-
-	// Send success response if this was an Ask
-	if msg.Answer != nil {
-		msg.Answer <- nerd.Answer{
-			Payload: child.GetTag(), // Return the child's tag
-		}
-	}
-}
-
-// handleShutdown processes shutdown requests
-func (n *Root) handleShutdown(msg *nerd.Message) {
-	// TODO: Implement shutdown handling
-	// 1. Initiate graceful shutdown of all children
-	// 2. Wait for completion
-	// 3. Send response and exit message loop
 }

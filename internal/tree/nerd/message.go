@@ -1,12 +1,8 @@
 package nerd
 
-import (
-	"errors"
-)
-
-// Message represents a message sent between nodes
-type Message struct {
-	Type    MessageType
+// Msg represents a message sent between nodes
+type Msg struct {
+	Type    MsgType
 	Payload any
 	Answer  AnswerPipe // nil for Notify mode, set for Ask mode
 }
@@ -17,33 +13,42 @@ type Answer struct {
 	Error   error
 }
 
-// MessageType defines the types of messages that can be sent
-type MessageType int
+// MsgType defines the types of messages that can be sent
+type MsgType int
 
 const (
-	CreateChildMessage MessageType = iota
-	QueryMessage
-	ShutdownMessage
+	// Common messages (handled by Identity)
+	Create_Child_Msg MsgType = iota
+	Shutdown_Msg
+	Get_Config_Msg
+
+	// Separator - messages >= this value are node-specific
+	CommonMsgSeparator
+
+	// Node-specific messages start here
+	// Each node type can define their own starting from this point
 )
 
 // Pipe is a channel for sending messages to nodes
-type Pipe chan Message
+type Pipe chan Msg
 
 // AnswerPipe is a channel for sending answers back
 type AnswerPipe chan Answer
 
-// Message passing errors
-var (
-	// ErrNodeNotFound is returned when trying to access a non-existent node
-	ErrNodeNotFound = errors.New("node not found in tree")
-
-	// ErrNodeBusy is returned when a node's incoming pipe is full (non-blocking send failed)
-	ErrNodeBusy = errors.New("node is busy (pipe full)")
-)
+// Reply sends a response back on this message's answer channel
+// Does nothing if this message has no answer channel (was a Notify)
+func (m *Msg) Reply(payload any, err error) {
+	if m.Answer != nil {
+		m.Answer <- Answer{
+			Payload: payload,
+			Error:   err,
+		}
+	}
+}
 
 // Notify sends a message to this node (non-blocking)
-func (t *Tag) Notify(msgType MessageType, payload any) error {
-	msg := Message{
+func (t *Tag) Notify(msgType MsgType, payload any) error {
+	m := Msg{
 		Type:    msgType,
 		Payload: payload,
 		Answer:  nil, // Notify mode - no answer expected
@@ -51,7 +56,7 @@ func (t *Tag) Notify(msgType MessageType, payload any) error {
 
 	// Non-blocking send
 	select {
-	case t.Incoming <- msg:
+	case t.Incoming <- m:
 		return nil
 	default:
 		return ErrNodeBusy
@@ -61,15 +66,15 @@ func (t *Tag) Notify(msgType MessageType, payload any) error {
 // Ask sends a prepared message to this node and waits for response (blocking)
 // The message struct should already be prepared with Type and Payload
 // This function only sets up the answer channel and handles the send
-func (t *Tag) Ask(msg *Message) (any, error) {
+func (t *Tag) Ask(m *Msg) (any, error) {
 	// Create answer pipe for response (buffered length 1)
 	answer := make(AnswerPipe, 1)
 
 	// Set the answer channel on the prepared message
-	msg.Answer = answer
+	m.Answer = answer
 
 	// Send the message (copy occurs here during channel send)
-	t.Incoming <- *msg
+	t.Incoming <- *m
 
 	// Wait for response
 	a := <-answer

@@ -1,6 +1,8 @@
 package nodes
 
-import "github.com/gadfly16/nerd/internal/tree/nerd"
+import (
+	"github.com/gadfly16/nerd/internal/tree/nerd"
+)
 
 // Group represents a group node for organizing other nodes
 type Group struct {
@@ -54,24 +56,28 @@ func (n *Group) Shutdown() {
 
 // messageLoop handles incoming messages
 func (n *Group) messageLoop() {
-	for msg := range n.Incoming {
-		switch msg.Type {
-		case nerd.CreateChildMessage:
-			n.handleCreateChild(&msg)
-		case nerd.ShutdownMessage:
-			n.handleShutdown(&msg)
-		default:
-			// Unknown message type
+	for m := range n.Incoming {
+		var a any
+		var err error
+
+		// TODO: Pre-process: authorization check
+
+		// Route based on message type
+		if m.Type < nerd.CommonMsgSeparator {
+			// Common message - handle via Identity
+			a, err = n.Identity.handleCommonMessage(&m, n)
+		} else {
+			// Node-specific message handling
+			switch m.Type {
+			default:
+				err = nerd.ErrUnknownMessageType
+			}
 		}
+
+		// Post-process: apply any response filtering, logging, etc.
+		// TODO: Add post-processing logic here
+
+		// Send response
+		m.Reply(a, err)
 	}
-}
-
-// handleCreateChild processes requests to create child nodes
-func (n *Group) handleCreateChild(msg *nerd.Message) {
-	// TODO: Implement child creation
-}
-
-// handleShutdown processes shutdown requests
-func (n *Group) handleShutdown(msg *nerd.Message) {
-	// TODO: Implement shutdown handling
 }
