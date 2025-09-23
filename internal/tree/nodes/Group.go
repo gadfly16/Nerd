@@ -24,10 +24,15 @@ func NewGroup() *Group {
 	}
 }
 
+// GetNodeTypeName returns the human-readable name for this node type
+func (n *Group) GetNodeTypeName() string {
+	return "Group"
+}
+
 // Save persists the Group node to the database
 func (n *Group) Save() error {
 	// Note: Only saves Identity, no config for Group nodes
-	return db.Create(n.Identity).Error
+	return db.Save(n.Identity).Error
 }
 
 // Load retrieves the Group node and all children from the database

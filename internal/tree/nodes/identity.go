@@ -21,7 +21,7 @@ type Identity struct {
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 
 	// Runtime fields
-	children []*nerd.Tag
+	children map[string]*nerd.Tag
 }
 
 // GetTag returns the node's tag for routing (read-only)
@@ -29,19 +29,69 @@ func (i *Identity) GetTag() *nerd.Tag {
 	return i.Tag
 }
 
+// GetID returns the node's ID
+func (i *Identity) GetID() nerd.NodeID {
+	return i.Tag.NodeID
+}
+
 // GetName returns the node's name
 func (i *Identity) GetName() string {
 	return i.Name
 }
 
-// GetNodeType returns the node's type
-func (i *Identity) GetNodeType() nerd.NodeType {
-	return i.NodeType
+// SetName sets the node's name
+func (i *Identity) SetName(name string) {
+	i.Name = name
 }
 
 // SetParentID sets the parent ID for this node
 func (i *Identity) SetParentID(parentID nerd.NodeID) {
 	i.ParentID = parentID
+}
+
+// askChildren sends a message to all children concurrently and collects their responses
+// Returns slice of answers and error if any child returned an error
+func (i *Identity) askChildren(m *nerd.Msg) ([]nerd.Answer, error) {
+	if len(i.children) == 0 {
+		return nil, nil
+	}
+
+	// Check if this message is being forwarded (already has an answer channel)
+	if m.APipe != nil {
+		// Message forwarding case: make a copy to avoid overwriting original answer channel
+		msgCopy := *m
+		m = &msgCopy
+	}
+
+	// Create shared answer pipe for all children
+	m.APipe = make(nerd.AnswerPipe, len(i.children))
+
+	// First loop: send messages to all children concurrently
+	for _, childTag := range i.children {
+		// Send message to child (non-blocking since answer pipe is buffered)
+		childTag.Incoming <- *m
+	}
+
+	// Second loop: collect all answers
+	answers := make([]nerd.Answer, 0, len(i.children))
+	hasError := false
+
+	for _ = range len(i.children) {
+		// Wait for answer from any child
+		answer := <-m.APipe
+		answers = append(answers, answer)
+
+		// Track if any child had an error
+		if answer.Error != nil {
+			hasError = true
+		}
+	}
+
+	if hasError {
+		return answers, nerd.ErrChildrenError
+	}
+
+	return answers, nil
 }
 
 // handleCommonMessage processes messages shared across all node types
@@ -77,21 +127,21 @@ func (i *Identity) handleCreateChild(m *nerd.Msg, parent nerd.Node) (any, error)
 	// Set parent-child relationship
 	child.SetParentID(i.Tag.NodeID)
 
-	// Save the child to database
+	// Generate auto name and set it, then save
+	autoName := "New " + child.GetNodeTypeName() + " #" + fmt.Sprintf("%d", child.GetID())
+	child.SetName(autoName)
 	err = child.Save()
 	if err != nil {
 		return nil, err
 	}
 
-	// Add child to parent's children list
-	i.children = append(i.children, child.GetTag())
+	// Initialize children map if needed
+	if i.children == nil {
+		i.children = make(map[string]*nerd.Tag)
+	}
 
-	// Generate auto name: "New Type #NodeID"
-	nodeTypeName := "Group" // For now, will expand this
-	autoName := fmt.Sprintf("New %s #%d", nodeTypeName, child.GetTag().NodeID)
-
-	// TODO: Update child name in database
-	_ = autoName // Silence unused variable for now
+	// Add child to parent's children map using name as key
+	i.children[autoName] = child.GetTag()
 
 	// Start the child node
 	child.Run()

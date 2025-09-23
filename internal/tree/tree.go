@@ -65,7 +65,7 @@ func (t *Tree) getNodeCount() int {
 }
 
 // NotifyNode sends a message to a node (non-blocking)
-func (t *Tree) NotifyNode(targetID nerd.NodeID, msgType nerd.MessageType, payload any) error {
+func (t *Tree) NotifyNode(targetID nerd.NodeID, msgType nerd.MsgType, payload any) error {
 	tag, exists := t.getTag(targetID)
 	if !exists {
 		return nerd.ErrNodeNotFound
@@ -75,20 +75,19 @@ func (t *Tree) NotifyNode(targetID nerd.NodeID, msgType nerd.MessageType, payloa
 }
 
 // AskNode sends a message to a node and waits for response (blocking)
-func (t *Tree) AskNode(targetID nerd.NodeID, msgType nerd.MessageType, payload any) (any, error) {
+func (t *Tree) AskNode(targetID nerd.NodeID, msgType nerd.MsgType, payload any) (any, error) {
 	tag, exists := t.getTag(targetID)
 	if !exists {
 		return nil, nerd.ErrNodeNotFound
 	}
 
 	// Prepare message struct
-	msg := &nerd.Message{
+	m := &nerd.Msg{
 		Type:    msgType,
 		Payload: payload,
-		Answer:  nil, // Will be set by Ask()
 	}
 
-	return tag.Ask(msg)
+	return tag.Ask(m)
 }
 
 // InitInstance initializes a new Nerd instance by setting up the database
@@ -112,8 +111,8 @@ func InitInstance(dbPath string) error {
 	initTree()
 	tree.addTag(root)
 
-	a, err := root.Ask(&nerd.Message{
-		Type:    nerd.CreateChildMessage,
+	a, err := root.Ask(&nerd.Msg{
+		Type:    nerd.Create_Child_Msg,
 		Payload: nerd.GroupNode,
 	})
 	if err != nil {

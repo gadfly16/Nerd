@@ -4,7 +4,7 @@ package nerd
 type Msg struct {
 	Type    MsgType
 	Payload any
-	Answer  AnswerPipe // nil for Notify mode, set for Ask mode
+	APipe   AnswerPipe // nil for Notify mode, set for Ask mode
 }
 
 // Answer represents a response with payload and error
@@ -36,13 +36,10 @@ type Pipe chan Msg
 type AnswerPipe chan Answer
 
 // Reply sends a response back on this message's answer channel
-// Does nothing if this message has no answer channel (was a Notify)
 func (m *Msg) Reply(payload any, err error) {
-	if m.Answer != nil {
-		m.Answer <- Answer{
-			Payload: payload,
-			Error:   err,
-		}
+	m.APipe <- Answer{
+		Payload: payload,
+		Error:   err,
 	}
 }
 
@@ -51,7 +48,6 @@ func (t *Tag) Notify(msgType MsgType, payload any) error {
 	m := Msg{
 		Type:    msgType,
 		Payload: payload,
-		Answer:  nil, // Notify mode - no answer expected
 	}
 
 	// Non-blocking send
@@ -66,17 +62,19 @@ func (t *Tag) Notify(msgType MsgType, payload any) error {
 // Ask sends a prepared message to this node and waits for response (blocking)
 // The message struct should already be prepared with Type and Payload
 // This function only sets up the answer channel and handles the send
+// If the message already has an answer channel (forwarding case), a copy is made
 func (t *Tag) Ask(m *Msg) (any, error) {
-	// Create answer pipe for response (buffered length 1)
-	answer := make(AnswerPipe, 1)
+	if m.APipe != nil {
+		// Message forwarding case: make a copy to avoid overwriting original answer channel
+		msgCopy := *m
+		m = &msgCopy
+	}
+	m.APipe = make(AnswerPipe, 1)
 
-	// Set the answer channel on the prepared message
-	m.Answer = answer
-
-	// Send the message (copy occurs here during channel send)
+	// Send the message
 	t.Incoming <- *m
 
 	// Wait for response
-	a := <-answer
+	a := <-m.APipe
 	return a.Payload, a.Error
 }

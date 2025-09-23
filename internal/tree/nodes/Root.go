@@ -34,19 +34,24 @@ func NewRoot(dbPath string) *Root {
 	}
 }
 
+// GetNodeTypeName returns the human-readable name for this node type
+func (n *Root) GetNodeTypeName() string {
+	return "Root"
+}
+
 // Save persists the Root node to the database
 func (n *Root) Save() error {
 	return db.Transaction(func(tx *gorm.DB) error {
-		// Save Identity record first to get auto-generated ID
-		if err := tx.Create(n.Identity).Error; err != nil {
+		// Save Identity record (handles both insert and update)
+		if err := tx.Save(n.Identity).Error; err != nil {
 			return err
 		}
 
 		// Update IdentityID reference
 		n.config.IdentityID = n.Identity.Tag.NodeID
 
-		// Save RootConfig record
-		if err := tx.Create(n.config).Error; err != nil {
+		// Save RootConfig record (handles both insert and update)
+		if err := tx.Save(n.config).Error; err != nil {
 			return err
 		}
 

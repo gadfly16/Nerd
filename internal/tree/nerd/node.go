@@ -3,8 +3,10 @@ package nerd
 // Node interface defines common methods all node types must implement
 type Node interface {
 	GetTag() *Tag
+	GetID() NodeID
 	GetName() string
-	GetNodeType() NodeType
+	SetName(name string)
+	GetNodeTypeName() string
 	SetParentID(parentID NodeID)
 	Run()
 	Save() error

@@ -21,4 +21,7 @@ var (
 
 	// ErrNotImplemented is returned for features not yet implemented
 	ErrNotImplemented = errors.New("not yet implemented")
+
+	// ErrChildrenError is returned when at least one child returned an error
+	ErrChildrenError = errors.New("one or more children returned errors")
 )
