@@ -56,19 +56,10 @@ func GetTag(nodeID NodeID) (*Tag, bool) {
 	return tag, exists
 }
 
-// isNodeAlive checks if a node exists in the tree (atomic read)
-func (t *nodeTree) IsNodeAlive(nodeID NodeID) bool {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
-
-	_, exists := t.nodes[nodeID]
-	return exists
-}
-
 // getNodeCount returns the total number of active nodes (atomic read)
-func (t *nodeTree) GetNodeCount() int {
-	t.mutex.RLock()
-	defer t.mutex.RUnlock()
+func GetNodeCount() int {
+	tree.mutex.RLock()
+	defer tree.mutex.RUnlock()
 
-	return len(t.nodes)
+	return len(tree.nodes)
 }

@@ -10,14 +10,7 @@ microservices doing things on the user's behalf.
 
 ## Quick Start
 
-```bash
-# Build and initialize
-go build -o nerd ./cmd/nerd
-./nerd init
-
-# Run tests
-go test ./...
-```
+See [Development Guide](#commands) for build and test commands.
 
 ## Core Architecture
 
@@ -55,10 +48,11 @@ the node tree as effectively as possible.
 
 ```
 internal/
-├── server/          # HTTP/WebSocket handling
-└── tree/
-    ├── nerd/        # Core types (NodeID, Message, Pipe, Tag, Node interface)
-    └── nodes/       # Node implementations (Root, Group + 5 planned types)
+├── api/             # Public API (init.go) and adapter layer (adapter.go)
+├── msg/             # Message types and constants
+├── nerd/            # Core types (NodeID, Msg, Pipe, Tag, Node interface, Tree)
+├── nodes/           # Node implementations (Root, Group + 5 planned types)
+└── server/          # HTTP/WebSocket handling
 ```
 
 **Node Types**: Currently 2 foundational types (Root, Group) with 5 more planned
@@ -67,8 +61,9 @@ including GUI nodes representing connected interfaces.
 **Database**: SQLite with Gorm using Identity/Config separation. Each node
 handles its own database operations for security and reliability.
 
-**Messaging**: `Pipe` channels carry `Message` values for efficiency, while
-handlers receive `*Message` pointers for flexibility.
+**Messaging**: `Pipe` channels carry `Msg` values for efficiency, while handlers
+receive `*Msg` pointers for flexibility. Message types are centralized in
+`internal/msg` package.
 
 ## Development Guide
 
@@ -83,8 +78,8 @@ go build -o nerd ./cmd/nerd
 
 # Run tests
 go test ./...
-go test -v ./internal/instance
-go test -run TestFunctionName ./internal/instance
+go test -v ./internal/nerd
+go test -run TestFunctionName ./internal/nerd
 ```
 
 ### Code Style
@@ -105,20 +100,24 @@ code. Don't jump straight into implementation.
 **✅ Completed:**
 
 - Database schema with Identity/Config separation
-- Node type system (22 foundationalfoundational types: Group, Root)
+- Node type system (2 foundational types: Root, Group)
 - CLI framework with `init` command
 - Message passing infrastructure with strongly-typed channels
 - Tree structure for node organization
 - Thread-safe tag-based routing system
+- Runtime-based initialization with graceful shutdown
+- Two-phase rename system with collision detection
+- Centralized message types in `internal/msg` package
+- API split into initialization and adapter layers
+- Handler separation for better code organization
+- Memory optimization with children map initialization
 
 **🚧 In Progress:**
 
-- Runtime-based initialization
-- Node goroutine lifecycle management
+- Additional node types for specialized functionality
 
 **📋 TODO:**
 
-- Remaining 5 node types (including GUI node type)
 - Remaining 5 node types (including GUI node type)
 - `run` command implementation
 - HTTP/WebSocket servers
