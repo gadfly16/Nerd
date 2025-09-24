@@ -1,0 +1,119 @@
+package nodes
+
+import (
+	"fmt"
+
+	"github.com/gadfly16/nerd/internal/nerd"
+	"gorm.io/gorm"
+)
+
+// Root represents the root node of the tree
+type Root struct {
+	*Identity
+	config *RootConfig
+}
+
+// RootConfig stores configuration for Root nodes
+type RootConfig struct {
+	ConfigModel
+	LogLevel int `gorm:"not null"`
+}
+
+// NewRoot creates a new Root node instance with specified database path
+func newRoot() *Root {
+	id := nerd.NewID()
+	if id != 1 {
+		panic("A Root node seems to already exist")
+	}
+	return &Root{
+		Identity: &Identity{
+			Tag: &nerd.Tag{
+				NodeID:   id,
+				Incoming: make(nerd.Pipe),
+			},
+			Name:     "root",
+			NodeType: RootNode,
+		},
+		config: &RootConfig{},
+	}
+}
+
+// GetNodeTypeName returns the human-readable name for this node type
+func (n *Root) GetNodeTypeName() string {
+	return "Root"
+}
+
+// Save persists the Root node to the database
+func (n *Root) Save() error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		// Save Identity record (handles both insert and update)
+		if err := tx.Save(n.Identity).Error; err != nil {
+			return err
+		}
+
+		// Update IdentityID reference
+		n.config.IdentityID = n.Identity.Tag.NodeID
+
+		// Save RootConfig record (handles both insert and update)
+		if err := tx.Save(n.config).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
+}
+
+// Load retrieves the Root node and all children from the database
+func (n *Root) Load() error {
+	// TODO: Implement database load operation
+	// 1. Load Identity and Config from database
+	// 2. Populate struct fields
+	// 3. Load all children recursively
+	// 4. Start children nodes
+	return nil
+}
+
+// Run starts the Root node goroutine and message loop
+func (n *Root) Run() {
+	// Start message loop
+	go n.messageLoop()
+}
+
+// Shutdown gracefully shuts down the Root node and all children
+func (n *Root) Shutdown() {
+	fmt.Printf("Shutting down Root node.\n")
+}
+
+// messageLoop handles incoming messages
+func (n *Root) messageLoop() {
+	for m := range n.Incoming {
+		var a any
+		var err error
+
+		// TODO: Pre-process: authorization check
+
+		// Route based on message type
+		if m.Type < nerd.CommonMsgSeparator {
+			// Common message - handle via Identity
+			a, err = n.Identity.handleCommonMessage(&m, n)
+		} else {
+			// Node-specific message handling
+			switch m.Type {
+			default:
+				err = nerd.ErrUnknownMessageType
+			}
+		}
+
+		// Post-process: apply any response filtering, logging, etc.
+		// TODO: Add post-processing logic here
+
+		// Send response
+		m.Reply(a, err)
+
+		// Exit the message loop in case of shutdown. The message is already
+		// handled as a common message
+		if m.Type == nerd.Shutdown_Msg {
+			break
+		}
+	}
+}
