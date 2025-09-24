@@ -1,7 +1,6 @@
 package nodes
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/gadfly16/nerd/internal/nerd"
@@ -92,88 +91,4 @@ func (i *Identity) askChildren(m *nerd.Msg) ([]nerd.Answer, error) {
 	}
 
 	return answers, nil
-}
-
-// handleCommonMessage processes messages shared across all node types
-// Returns true if message was handled, false if node-specific handling needed
-func (i *Identity) handleCommonMessage(m *nerd.Msg, node nerd.Node) (any, error) {
-	switch m.Type {
-	case nerd.Create_Child_Msg:
-		return i.handleCreateChild(m, node)
-	case nerd.Shutdown_Msg:
-		return i.handleShutdown(m, node)
-	case nerd.Get_Config_Msg:
-		return i.handleGetConfig(m, node)
-	default:
-		// This should never happen if CommonMsgSeparator is used correctly
-		panic(fmt.Sprintf("handleCommonMessage called with non-common message type: %d", m.Type))
-	}
-}
-
-// handleCreateChild processes requests to create child nodes (shared logic)
-func (i *Identity) handleCreateChild(m *nerd.Msg, _ nerd.Node) (any, error) {
-	// Parse message payload
-	nodeType, ok := m.Payload.(nerd.NodeType)
-	if !ok {
-		return nil, nerd.ErrInvalidPayload
-	}
-
-	// TODO: check if node type is supported as a child of this node
-
-	// Create appropriate node instance based on type
-	child := NewNode(nodeType)
-
-	// Set parent-child relationship
-	child.SetParentID(i.Tag.NodeID)
-
-	// Generate auto name and set it, then save
-	autoName := "New " + child.GetNodeTypeName() + " #" + fmt.Sprintf("%d", child.GetID())
-	child.SetName(autoName)
-	err := child.Save()
-	if err != nil {
-		return nil, err
-	}
-
-	// Initialize children map if needed
-	if i.children == nil {
-		i.children = make(map[string]*nerd.Tag)
-	}
-
-	// Add child to parent's children map using name as key
-	i.children[autoName] = child.GetTag()
-
-	// Start the child node
-	child.Run()
-
-	// Add the child to the tree
-	nerd.AddTag(child.GetTag())
-
-	return child.GetTag(), nil
-}
-
-// handleShutdown processes shutdown requests (shared logic)
-func (i *Identity) handleShutdown(_ *nerd.Msg, n nerd.Node) (any, error) {
-	// 1. Ask all children to shutdown (blocking)
-	if len(i.children) > 0 {
-		shutdownMsg := &nerd.Msg{
-			Type:    nerd.Shutdown_Msg,
-			Payload: nil,
-		}
-		_, err := i.askChildren(shutdownMsg)
-		if err != nil {
-			fmt.Printf("Error during children shutdown: %v\n", err)
-		}
-	}
-
-	// 2. Run cleanup operations (node-specific)
-	n.Shutdown()
-
-	// 3. Return response - message loop will exit in post-process
-	return nil, nil
-}
-
-// handleGetConfig processes get config requests (shared logic)
-func (i *Identity) handleGetConfig(_ *nerd.Msg, _ nerd.Node) (any, error) {
-	// TODO: Implement config retrieval
-	return nil, nerd.ErrNotImplemented
 }

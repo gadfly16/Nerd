@@ -24,4 +24,7 @@ var (
 
 	// ErrChildrenError is returned when at least one child returned an error
 	ErrChildrenError = errors.New("one or more children returned errors")
+
+	// ErrNameCollision is returned when trying to rename to an existing child name
+	ErrNameCollision = errors.New("name already exists")
 )

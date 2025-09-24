@@ -3,6 +3,7 @@ package nodes
 import (
 	"fmt"
 
+	"github.com/gadfly16/nerd/internal/msg"
 	"github.com/gadfly16/nerd/internal/nerd"
 )
 
@@ -23,6 +24,7 @@ func newGroup() *Group {
 			},
 			Name:     "group",
 			NodeType: GroupNode,
+			children: make(map[string]*nerd.Tag),
 		},
 	}
 }
@@ -67,7 +69,7 @@ func (n *Group) messageLoop() {
 		// TODO: Pre-process: authorization check
 
 		// Route based on message type
-		if m.Type < nerd.CommonMsgSeparator {
+		if m.Type < msg.CommonMsgSeparator {
 			// Common message - handle via Identity
 			a, err = n.Identity.handleCommonMessage(&m, n)
 		} else {
@@ -86,7 +88,7 @@ func (n *Group) messageLoop() {
 
 		// Exit the message loop in case of shutdown. The message is already
 		// handled as a common message
-		if m.Type == nerd.Shutdown_Msg {
+		if m.Type == msg.Shutdown {
 			break
 		}
 	}

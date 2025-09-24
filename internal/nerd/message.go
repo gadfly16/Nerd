@@ -1,8 +1,10 @@
 package nerd
 
+import "github.com/gadfly16/nerd/internal/msg"
+
 // Msg represents a message sent between nodes
 type Msg struct {
-	Type    MsgType
+	Type    msg.MsgType
 	Payload any
 	APipe   AnswerPipe // nil for Notify mode, set for Ask mode
 }
@@ -12,22 +14,6 @@ type Answer struct {
 	Payload any
 	Error   error
 }
-
-// MsgType defines the types of messages that can be sent
-type MsgType int
-
-const (
-	// Common messages (handled by Identity)
-	Create_Child_Msg MsgType = iota
-	Shutdown_Msg
-	Get_Config_Msg
-
-	// Separator - messages >= this value are node-specific
-	CommonMsgSeparator
-
-	// Node-specific messages start here
-	// Each node type can define their own starting from this point
-)
 
 // Pipe is a channel for sending messages to nodes
 type Pipe chan Msg
@@ -44,7 +30,7 @@ func (m *Msg) Reply(payload any, err error) {
 }
 
 // Notify sends a message to this node (non-blocking)
-func (t *Tag) Notify(msgType MsgType, payload any) error {
+func (t *Tag) Notify(msgType msg.MsgType, payload any) error {
 	m := Msg{
 		Type:    msgType,
 		Payload: payload,
