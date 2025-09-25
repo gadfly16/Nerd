@@ -17,7 +17,7 @@ func InitInstance(dbPath string) error {
 	nerd.InitTree()
 
 	// Bootstrap Root node
-	rootNode := nodes.NewNode(nodes.RootNode)
+	rootNode := nodes.NewNode(nodes.RootNode, "") // Root ignores name parameter
 	err = rootNode.Save()
 	if err != nil {
 		return err
@@ -28,8 +28,8 @@ func InitInstance(dbPath string) error {
 	root := rootNode.GetTag()
 	nerd.AddTag(root)
 
-	// Create new Group node
-	_, err = nerd.AskCreateChild(root, nodes.GroupNode)
+	// Create new Group node (auto-generated name)
+	_, err = nerd.AskCreateChild(root, nodes.GroupNode, "")
 	if err != nil {
 		return err
 	}

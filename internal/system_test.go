@@ -33,7 +33,7 @@ func setupTestTree(t *testing.T) *TestTree {
 	nerd.InitTree()
 
 	// Create and start root node
-	root := nodes.NewNode(nodes.RootNode)
+	root := nodes.NewNode(nodes.RootNode, "") // Root ignores name parameter
 	err = root.Save()
 	if err != nil {
 		t.Fatalf("Failed to save root node: %v", err)
@@ -80,7 +80,7 @@ func (tt *TestTree) CreateChild(parentName string, nodeType nerd.NodeType) (nerd
 	}
 
 	// Create child
-	childTag, err := nerd.AskCreateChild(parentTag, nodeType)
+	childTag, err := nerd.AskCreateChild(parentTag, nodeType, "")
 	if err != nil {
 		tt.t.Fatalf("Failed to create child of %s: %v", parentName, err)
 	}

@@ -6,10 +6,14 @@ import "github.com/gadfly16/nerd/internal/msg"
 // These provide cleaner APIs and future extension points for logging, validation, etc.
 
 // AskCreateChild sends a CreateChild message to the target node
-func AskCreateChild(target *Tag, nodeType NodeType) (*Tag, error) {
+// If name is empty, the node will auto-generate its name
+func AskCreateChild(target *Tag, nodeType NodeType, name string) (*Tag, error) {
 	result, err := target.Ask(&Msg{
-		Type:    msg.CreateChild,
-		Payload: nodeType,
+		Type: msg.CreateChild,
+		Payload: msg.CreateChildPayload{
+			NodeType: int(nodeType),
+			Name:     name,
+		},
 	})
 	if err != nil {
 		return nil, err

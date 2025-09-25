@@ -17,6 +17,12 @@ const (
 	// Each node type can define their own starting from this point
 )
 
+// CreateChildPayload contains node type and optional name for creating a child node
+type CreateChildPayload struct {
+	NodeType int    // Will be nerd.NodeType, but avoiding circular import
+	Name     string // Empty string means auto-generate name
+}
+
 // RenameChildPayload contains old and new names for renaming a child node
 type RenameChildPayload struct {
 	OldName string

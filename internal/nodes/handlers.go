@@ -28,29 +28,28 @@ func (i *Identity) handleCommonMessage(m *nerd.Msg, node nerd.Node) (any, error)
 // handleCreateChild processes requests to create child nodes (shared logic)
 func (i *Identity) handleCreateChild(m *nerd.Msg, _ nerd.Node) (any, error) {
 	// Parse message payload
-	nodeType, ok := m.Payload.(nerd.NodeType)
+	payload, ok := m.Payload.(msg.CreateChildPayload)
 	if !ok {
 		return nil, nerd.ErrInvalidPayload
 	}
 
 	// TODO: check if node type is supported as a child of this node
 
-	// Create appropriate node instance based on type
-	child := NewNode(nodeType)
+	// Create appropriate node instance based on type and name
+	child := NewNode(nerd.NodeType(payload.NodeType), payload.Name)
 
 	// Set parent-child relationship
 	child.SetParentID(i.Tag.NodeID)
 
-	// Generate auto name and set it, then save
-	autoName := "New " + child.GetNodeTypeName() + " #" + fmt.Sprintf("%d", child.GetID())
-	child.SetName(autoName)
+	// Save the child (name is already set in constructor)
 	err := child.Save()
 	if err != nil {
 		return nil, err
 	}
 
 	// Add child to parent's children map using name as key
-	i.children[autoName] = child.GetTag()
+	childName := child.GetName()
+	i.children[childName] = child.GetTag()
 
 	// Start the child node
 	child.Run()

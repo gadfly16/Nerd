@@ -13,16 +13,25 @@ type Group struct {
 	// Note: Group nodes don't have configs
 }
 
-// newGroup creates a new Group node instance
-func newGroup() *Group {
+// newGroup creates a new Group node instance with the specified name
+// If name is empty, auto-generates name based on node ID
+func newGroup(name string) *Group {
 	incoming := make(nerd.Pipe) // Unbuffered channel for synchronous message delivery
+	id := nerd.NewID()
+
+	// Use provided name or auto-generate
+	nodeName := name
+	if nodeName == "" {
+		nodeName = fmt.Sprintf("New Group #%d", id)
+	}
+
 	return &Group{
 		Identity: &Identity{
 			Tag: &nerd.Tag{
-				NodeID:   nerd.NewID(),
+				NodeID:   id,
 				Incoming: incoming,
 			},
-			Name:     "group",
+			Name:     nodeName,
 			NodeType: GroupNode,
 			children: make(map[string]*nerd.Tag),
 		},
