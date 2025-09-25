@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gadfly16/nerd/internal/msg"
 	"github.com/gadfly16/nerd/internal/nerd"
 	"github.com/gadfly16/nerd/internal/nodes"
 )
@@ -59,7 +58,7 @@ func setupTestTree(t *testing.T) *TestTree {
 // Shutdown gracefully shuts down the test tree
 func (tt *TestTree) Shutdown() {
 	rootTag := tt.Root.GetTag()
-	_, err := rootTag.Ask(&nerd.Msg{Type: msg.Shutdown})
+	err := nerd.AskShutdown(rootTag)
 	if err != nil {
 		tt.t.Errorf("Failed to shutdown test tree: %v", err)
 	}
@@ -81,15 +80,10 @@ func (tt *TestTree) CreateChild(parentName string, nodeType nerd.NodeType) (nerd
 	}
 
 	// Create child
-	result, err := parentTag.Ask(&nerd.Msg{
-		Type:    msg.CreateChild,
-		Payload: nodeType,
-	})
+	childTag, err := nerd.AskCreateChild(parentTag, nodeType)
 	if err != nil {
 		tt.t.Fatalf("Failed to create child of %s: %v", parentName, err)
 	}
-
-	childTag := result.(*nerd.Tag)
 	childID := childTag.NodeID
 
 	// Determine child name (auto-generated)
@@ -120,13 +114,7 @@ func (tt *TestTree) RenameChild(parentName, oldName, newName string) {
 	}
 
 	// Rename child
-	_, err := parentTag.Ask(&nerd.Msg{
-		Type: msg.RenameChild,
-		Payload: msg.RenameChildPayload{
-			OldName: oldName,
-			NewName: newName,
-		},
-	})
+	err := nerd.AskRenameChild(parentTag, oldName, newName)
 	if err != nil {
 		tt.t.Fatalf("Failed to rename %s to %s: %v", oldName, newName, err)
 	}
@@ -237,26 +225,14 @@ func testRenameOperations(t *testing.T, tree *TestTree) {
 func testErrorScenarios(t *testing.T, tree *TestTree) {
 	// Test rename to existing name (should fail)
 	parentTag, _ := nerd.GetTag(tree.Nodes["root"])
-	_, err := parentTag.Ask(&nerd.Msg{
-		Type: msg.RenameChild,
-		Payload: msg.RenameChildPayload{
-			OldName: "Development",
-			NewName: "System", // Already exists
-		},
-	})
+	err := nerd.AskRenameChild(parentTag, "Development", "System") // Already exists
 
 	if err != nerd.ErrNameCollision {
 		t.Errorf("Expected name collision error, got: %v", err)
 	}
 
 	// Test rename non-existent child (should fail)
-	_, err = parentTag.Ask(&nerd.Msg{
-		Type: msg.RenameChild,
-		Payload: msg.RenameChildPayload{
-			OldName: "NonExistent",
-			NewName: "SomeName",
-		},
-	})
+	err = nerd.AskRenameChild(parentTag, "NonExistent", "SomeName")
 
 	if err != nerd.ErrNodeNotFound {
 		t.Errorf("Expected node not found error, got: %v", err)

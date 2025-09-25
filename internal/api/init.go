@@ -1,7 +1,6 @@
 package api
 
 import (
-	"github.com/gadfly16/nerd/internal/msg"
 	"github.com/gadfly16/nerd/internal/nerd"
 	"github.com/gadfly16/nerd/internal/nodes"
 )
@@ -30,29 +29,18 @@ func InitInstance(dbPath string) error {
 	nerd.AddTag(root)
 
 	// Create new Group node
-	_, err = root.Ask(&nerd.Msg{
-		Type:    msg.CreateChild,
-		Payload: nodes.GroupNode,
-	})
+	_, err = nerd.AskCreateChild(root, nodes.GroupNode)
 	if err != nil {
 		return err
 	}
 
 	// Rename the Group node to "System"
-	_, err = root.Ask(&nerd.Msg{
-		Type: msg.RenameChild,
-		Payload: msg.RenameChildPayload{
-			OldName: "New Group #2",
-			NewName: "System",
-		},
-	})
+	err = nerd.AskRenameChild(root, "New Group #2", "System")
 	if err != nil {
 		return err
 	}
 
-	_, err = root.Ask(&nerd.Msg{
-		Type: msg.Shutdown,
-	})
+	err = nerd.AskShutdown(root)
 	if err != nil {
 		return err
 	}

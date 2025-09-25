@@ -107,10 +107,7 @@ func (i *Identity) handleRenameChild(m *nerd.Msg, _ nerd.Node) (any, error) {
 	}
 
 	// Ask child to rename itself
-	_, err := childTag.Ask(&nerd.Msg{
-		Type:    msg.InternalRename,
-		Payload: payload.NewName,
-	})
+	err := nerd.AskInternalRename(childTag, payload.NewName)
 	if err != nil {
 		return nil, err
 	}

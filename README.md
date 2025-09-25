@@ -80,7 +80,17 @@ go build -o nerd ./cmd/nerd
 go test ./...
 go test -v ./internal/nerd
 go test -run TestFunctionName ./internal/nerd
+
+# Run system integration tests
+go test ./internal -v
 ```
+
+### Testing
+
+Uses **persistent test tree approach** for realistic system validation. Single
+test environment accumulates state through user interaction sequences rather
+than isolated unit tests. Validates distributed message passing, parent-child
+coordination, and graceful shutdown across evolving tree structures.
 
 ### Code Style
 
