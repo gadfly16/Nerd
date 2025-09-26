@@ -6,13 +6,14 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gadfly16/nerd/internal/nerd"
-	"github.com/gadfly16/nerd/internal/nodes"
+	"github.com/gadfly16/nerd/api/nerd"
+	"github.com/gadfly16/nerd/api/node"
+	"github.com/gadfly16/nerd/internal/tree"
 )
 
 // TestTree manages a persistent test tree for system-level testing
 type TestTree struct {
-	Root   nerd.Node
+	Root   node.Node
 	DBPath string
 	Nodes  map[string]nerd.NodeID // Track nodes by name for easy reference
 	t      *testing.T
@@ -24,19 +25,9 @@ func setupTestTree(t *testing.T) *TestTree {
 	dbPath := filepath.Join(t.TempDir(), "system_test.db")
 
 	// Initialize database
-	err := nodes.InitDatabase(dbPath)
+	err := tree.InitInstance(dbPath)
 	if err != nil {
-		t.Fatalf("Failed to initialize test database: %v", err)
-	}
-
-	// Initialize tree structure
-	nerd.InitTree()
-
-	// Create and start root node
-	root := nodes.NewNode(nodes.RootNode, "") // Root ignores name parameter
-	err = root.Save()
-	if err != nil {
-		t.Fatalf("Failed to save root node: %v", err)
+		t.Fatalf("Failed to initialize test instance: %v", err)
 	}
 
 	root.Run()

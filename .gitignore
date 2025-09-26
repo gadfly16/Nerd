@@ -12,7 +12,7 @@
 *.db
 
 # Binary output
-nerd
+/nerd
 
 # Test binary, built with `go test -c`
 *.test

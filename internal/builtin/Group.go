@@ -1,23 +1,24 @@
-package nodes
+package builtin
 
 import (
 	"fmt"
 
-	"github.com/gadfly16/nerd/internal/msg"
-	"github.com/gadfly16/nerd/internal/nerd"
+	"github.com/gadfly16/nerd/api/msg"
+	"github.com/gadfly16/nerd/api/nerd"
+	"github.com/gadfly16/nerd/api/node"
 )
 
 // Group represents a group node for organizing other nodes
 type Group struct {
-	*Identity
+	*node.Identity
 	// Note: Group nodes don't have configs
 }
 
 // newGroup creates a new Group node instance with the specified name
 // If name is empty, auto-generates name based on node ID
 func newGroup(name string) *Group {
-	incoming := make(nerd.Pipe) // Unbuffered channel for synchronous message delivery
-	id := nerd.NewID()
+	incoming := make(msg.MsgChan) // Unbuffered channel for synchronous message delivery
+	id := node.NewID()
 
 	// Use provided name or auto-generate
 	nodeName := name
@@ -26,14 +27,14 @@ func newGroup(name string) *Group {
 	}
 
 	return &Group{
-		Identity: &Identity{
-			Tag: &nerd.Tag{
+		Identity: &node.Identity{
+			Tag: &msg.Tag{
 				NodeID:   id,
 				Incoming: incoming,
 			},
 			Name:     nodeName,
-			NodeType: GroupNode,
-			children: make(map[string]*nerd.Tag),
+			NodeType: node.Group,
+			Children: make(map[string]*msg.Tag),
 		},
 	}
 }
@@ -46,7 +47,7 @@ func (n *Group) GetNodeTypeName() string {
 // Save persists the Group node to the database
 func (n *Group) Save() error {
 	// Note: Only saves Identity, no config for Group nodes
-	return db.Save(n.Identity).Error
+	return node.DB.Save(n.Identity).Error
 }
 
 // Load retrieves the Group node and all children from the database
@@ -80,7 +81,7 @@ func (n *Group) messageLoop() {
 		// Route based on message type
 		if m.Type < msg.CommonMsgSeparator {
 			// Common message - handle via Identity
-			a, err = n.Identity.handleCommonMessage(&m, n)
+			a, err = handleCommonMessage(&m, n)
 		} else {
 			// Node-specific message handling
 			switch m.Type {

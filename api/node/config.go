@@ -1,9 +1,9 @@
-package nodes
+package node
 
 import (
 	"time"
 
-	"github.com/gadfly16/nerd/internal/nerd"
+	"github.com/gadfly16/nerd/api/nerd"
 	"gorm.io/gorm"
 )
 

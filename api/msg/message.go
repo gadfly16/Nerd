@@ -1,25 +1,4 @@
-package nerd
-
-import "github.com/gadfly16/nerd/internal/msg"
-
-// Msg represents a message sent between nodes
-type Msg struct {
-	Type    msg.MsgType
-	Payload any
-	APipe   AnswerPipe // nil for Notify mode, set for Ask mode
-}
-
-// Answer represents a response with payload and error
-type Answer struct {
-	Payload any
-	Error   error
-}
-
-// Pipe is a channel for sending messages to nodes
-type Pipe chan Msg
-
-// AnswerPipe is a channel for sending answers back
-type AnswerPipe chan Answer
+package msg
 
 // Reply sends a response back on this message's answer channel
 func (m *Msg) Reply(payload any, err error) {
@@ -30,19 +9,13 @@ func (m *Msg) Reply(payload any, err error) {
 }
 
 // Notify sends a message to this node (non-blocking)
-func (t *Tag) Notify(msgType msg.MsgType, payload any) error {
+func (t *Tag) Notify(msgType MsgType, payload any) {
 	m := Msg{
 		Type:    msgType,
 		Payload: payload,
 	}
 
-	// Non-blocking send
-	select {
-	case t.Incoming <- m:
-		return nil
-	default:
-		return ErrNodeBusy
-	}
+	t.Incoming <- m
 }
 
 // Ask sends a prepared message to this node and waits for response (blocking)
@@ -55,7 +28,7 @@ func (t *Tag) Ask(m *Msg) (any, error) {
 		msgCopy := *m
 		m = &msgCopy
 	}
-	m.APipe = make(AnswerPipe, 1)
+	m.APipe = make(AnswerChan, 1)
 
 	// Send the message
 	t.Incoming <- *m

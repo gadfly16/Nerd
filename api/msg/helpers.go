@@ -1,16 +1,16 @@
-package nerd
+package msg
 
-import "github.com/gadfly16/nerd/internal/msg"
+import "github.com/gadfly16/nerd/api/nerd"
 
 // Helper functions for common message operations
 // These provide cleaner APIs and future extension points for logging, validation, etc.
 
 // AskCreateChild sends a CreateChild message to the target node
 // If name is empty, the node will auto-generate its name
-func AskCreateChild(target *Tag, nodeType NodeType, name string) (*Tag, error) {
-	result, err := target.Ask(&Msg{
-		Type: msg.CreateChild,
-		Payload: msg.CreateChildPayload{
+func (t *Tag) AskCreateChild(nodeType nerd.NodeType, name string) (*Tag, error) {
+	result, err := t.Ask(&Msg{
+		Type: CreateChild,
+		Payload: CreateChildPayload{
 			NodeType: int(nodeType),
 			Name:     name,
 		},
@@ -22,10 +22,10 @@ func AskCreateChild(target *Tag, nodeType NodeType, name string) (*Tag, error) {
 }
 
 // AskRenameChild sends a RenameChild message to the target node
-func AskRenameChild(target *Tag, oldName, newName string) error {
-	_, err := target.Ask(&Msg{
-		Type: msg.RenameChild,
-		Payload: msg.RenameChildPayload{
+func (t *Tag) AskRenameChild(oldName, newName string) error {
+	_, err := t.Ask(&Msg{
+		Type: RenameChild,
+		Payload: RenameChildPayload{
 			OldName: oldName,
 			NewName: newName,
 		},
@@ -34,17 +34,17 @@ func AskRenameChild(target *Tag, oldName, newName string) error {
 }
 
 // AskShutdown sends a Shutdown message to the target node
-func AskShutdown(target *Tag) error {
-	_, err := target.Ask(&Msg{
-		Type: msg.Shutdown,
+func (t *Tag) AskShutdown() error {
+	_, err := t.Ask(&Msg{
+		Type: Shutdown,
 	})
 	return err
 }
 
 // AskInternalRename sends an InternalRename message to the target node (for parent-child coordination)
-func AskInternalRename(target *Tag, newName string) error {
-	_, err := target.Ask(&Msg{
-		Type:    msg.InternalRename,
+func (t *Tag) AskInternalRename(newName string) error {
+	_, err := t.Ask(&Msg{
+		Type:    InternalRename,
 		Payload: newName,
 	})
 	return err

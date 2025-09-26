@@ -46,14 +46,32 @@ the node tree as effectively as possible.
 
 **Package Structure:**
 
+Designed for extensibility - developers can create custom nodes while
+architectural constraints are enforced through package boundaries:
+
 ```
-internal/
-├── api/             # Public API (init.go) and adapter layer (adapter.go)
-├── msg/             # Message types and constants
-├── nerd/            # Core types (NodeID, Msg, Pipe, Tag, Node interface, Tree)
-├── nodes/           # Node implementations (Root, Group + 5 planned types)
-└── server/          # HTTP/WebSocket handling
+Part packages (core framework):
+├── tree (internal)    - orchestrates node tree, HTTP/WS → native message translation
+├── server (internal)  - HTTP/WebSocket server
+└── builtin (internal) - Nerd's built-in node implementations
+
+Message packages:
+├── msg (public)       - native message types and payloads
+├── httpMsg (internal) - HTTP message types and payloads
+└── wsMsg (internal)   - WebSocket message types and payloads
+
+Core types:
+└── nerd (public)      - basic types for native message construction
+
+SDK packages (public API):
+├── api (public)       - main entry point for registration and startup
+└── node (public)      - complete SDK for custom node development
 ```
+
+**SDK Design**: Custom nodes only import `node`, `msg`, and `nerd` packages,
+preventing access to internal framework details. The `node` package provides
+messaging functions, system coordination, and interfaces - making the "easy
+path" the "correct path".
 
 **Node Types**: Currently 2 foundational types (Root, Group) with 5 more planned
 including GUI nodes representing connected interfaces.

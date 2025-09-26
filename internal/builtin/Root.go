@@ -1,40 +1,41 @@
-package nodes
+package builtin
 
 import (
 	"fmt"
 
-	"github.com/gadfly16/nerd/internal/msg"
-	"github.com/gadfly16/nerd/internal/nerd"
+	"github.com/gadfly16/nerd/api/msg"
+	"github.com/gadfly16/nerd/api/nerd"
+	"github.com/gadfly16/nerd/api/node"
 	"gorm.io/gorm"
 )
 
 // Root represents the root node of the tree
 type Root struct {
-	*Identity
+	*node.Identity
 	config *RootConfig
 }
 
 // RootConfig stores configuration for Root nodes
 type RootConfig struct {
-	ConfigModel
+	node.ConfigModel
 	LogLevel int `gorm:"not null"`
 }
 
 // NewRoot creates a new Root node instance with specified database path
 func newRoot() *Root {
-	id := nerd.NewID()
+	id := node.NewID()
 	if id != 1 {
 		panic("A Root node seems to already exist")
 	}
 	return &Root{
-		Identity: &Identity{
-			Tag: &nerd.Tag{
+		Identity: &node.Identity{
+			Tag: &msg.Tag{
 				NodeID:   id,
-				Incoming: make(nerd.Pipe),
+				Incoming: make(msg.MsgChan),
 			},
-			Name:     "root",
-			NodeType: RootNode,
-			children: make(map[string]*nerd.Tag),
+			Name:     "Root",
+			NodeType: node.Root,
+			Children: make(map[string]*msg.Tag),
 		},
 		config: &RootConfig{},
 	}
@@ -47,7 +48,7 @@ func (n *Root) GetNodeTypeName() string {
 
 // Save persists the Root node to the database
 func (n *Root) Save() error {
-	return db.Transaction(func(tx *gorm.DB) error {
+	return node.DB.Transaction(func(tx *gorm.DB) error {
 		// Save Identity record (handles both insert and update)
 		if err := tx.Save(n.Identity).Error; err != nil {
 			return err
@@ -97,7 +98,7 @@ func (n *Root) messageLoop() {
 		// Route based on message type
 		if m.Type < msg.CommonMsgSeparator {
 			// Common message - handle via Identity
-			a, err = n.Identity.handleCommonMessage(&m, n)
+			a, err = handleCommonMessage(&m, n)
 		} else {
 			// Node-specific message handling
 			switch m.Type {

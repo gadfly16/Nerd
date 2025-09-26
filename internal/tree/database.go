@@ -1,15 +1,14 @@
-package nodes
+package tree
 
 import (
 	"fmt"
 	"os"
 
+	"github.com/gadfly16/nerd/api/node"
+	"github.com/gadfly16/nerd/internal/builtin"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )
-
-// db is the unexported global database connection for node operations
-var db *gorm.DB
 
 // InitDatabase initializes the database with node schemas and sets global connection
 // Proper initialization will be done through the node lifecycle methods
@@ -25,21 +24,12 @@ func InitDatabase(dbPath string) error {
 		return err
 	}
 
-	// Auto-migrate node schemas
-	return db.AutoMigrate(
-		&Identity{},
-		&RootConfig{},
-	)
+	return builtin.MigrateBuiltinModels()
 }
 
 // OpenDB sets the global database connection for node operations
 func OpenDB(dbPath string) error {
 	var err error
-	db, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
+	node.DB, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	return err
-}
-
-// GetDB returns a database connection for node operations
-func GetDB(dbPath string) (*gorm.DB, error) {
-	return gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 }

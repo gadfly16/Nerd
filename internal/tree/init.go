@@ -1,23 +1,23 @@
-package api
+package tree
 
 import (
-	"github.com/gadfly16/nerd/internal/nerd"
-	"github.com/gadfly16/nerd/internal/nodes"
+	"github.com/gadfly16/nerd/api/node"
+	"github.com/gadfly16/nerd/internal/builtin"
 )
 
 // InitInstance initializes a new Nerd instance by setting up the database
 // and bootstrapping the Root node using runtime infrastructure
 func InitInstance(dbPath string) error {
-	err := nodes.InitDatabase(dbPath)
+	err := InitDatabase(dbPath)
 	if err != nil {
 		return err
 	}
 
 	// Initialize the tree structure
-	nerd.InitTree()
+	initTree()
 
 	// Bootstrap Root node
-	rootNode := nodes.NewNode(nodes.RootNode, "") // Root ignores name parameter
+	rootNode := builtin.NewNode(node.Root, "") // Root ignores name parameter
 	err = rootNode.Save()
 	if err != nil {
 		return err
@@ -26,21 +26,22 @@ func InitInstance(dbPath string) error {
 	// Start Root node briefly to establish the tree structure
 	rootNode.Run()
 	root := rootNode.GetTag()
-	nerd.AddTag(root)
+	addTag(root)
 
 	// Create new Group node (auto-generated name)
-	_, err = nerd.AskCreateChild(root, nodes.GroupNode, "")
+	t, err := root.AskCreateChild(node.Group, "")
 	if err != nil {
 		return err
 	}
+	addTag(t)
 
 	// Rename the Group node to "System"
-	err = nerd.AskRenameChild(root, "New Group #2", "System")
+	err = root.AskRenameChild("New Group #2", "System")
 	if err != nil {
 		return err
 	}
 
-	err = nerd.AskShutdown(root)
+	err = root.AskShutdown()
 	if err != nil {
 		return err
 	}

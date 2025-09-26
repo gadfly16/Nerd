@@ -1,24 +1,25 @@
-package nodes
+package builtin
 
 import (
 	"fmt"
 
-	"github.com/gadfly16/nerd/internal/msg"
-	"github.com/gadfly16/nerd/internal/nerd"
+	"github.com/gadfly16/nerd/api/msg"
+	"github.com/gadfly16/nerd/api/nerd"
+	"github.com/gadfly16/nerd/api/node"
 )
 
 // handleCommonMessage processes messages shared across all node types
 // Returns true if message was handled, false if node-specific handling needed
-func (i *Identity) handleCommonMessage(m *nerd.Msg, node nerd.Node) (any, error) {
+func handleCommonMessage(m *msg.Msg, node node.Node) (any, error) {
 	switch m.Type {
 	case msg.CreateChild:
-		return i.handleCreateChild(m, node)
+		return handleCreateChild(m, node)
 	case msg.Shutdown:
-		return i.handleShutdown(m, node)
+		return handleShutdown(m, node)
 	case msg.RenameChild:
-		return i.handleRenameChild(m, node)
+		return handleRenameChild(m, node)
 	case msg.InternalRename:
-		return i.handleRename(m, node)
+		return handleRename(m, node)
 	default:
 		// This should never happen if CommonMsgSeparator is used correctly
 		panic(fmt.Sprintf("handleCommonMessage called with non-common message type: %d", m.Type))
@@ -26,9 +27,10 @@ func (i *Identity) handleCommonMessage(m *nerd.Msg, node nerd.Node) (any, error)
 }
 
 // handleCreateChild processes requests to create child nodes (shared logic)
-func (i *Identity) handleCreateChild(m *nerd.Msg, _ nerd.Node) (any, error) {
-	// Parse message payload
-	payload, ok := m.Payload.(msg.CreateChildPayload)
+func handleCreateChild(m *msg.Msg, n node.Node) (any, error) {
+	i := n.GetIdentity()
+	// Parse message pl
+	pl, ok := m.Payload.(msg.CreateChildPayload)
 	if !ok {
 		return nil, nerd.ErrInvalidPayload
 	}
@@ -36,39 +38,41 @@ func (i *Identity) handleCreateChild(m *nerd.Msg, _ nerd.Node) (any, error) {
 	// TODO: check if node type is supported as a child of this node
 
 	// Create appropriate node instance based on type and name
-	child := NewNode(nerd.NodeType(payload.NodeType), payload.Name)
+	chn := NewNode(nerd.NodeType(pl.NodeType), pl.Name)
 
 	// Set parent-child relationship
-	child.SetParentID(i.Tag.NodeID)
+	chn.SetParentID(i.Tag.NodeID)
 
 	// Save the child (name is already set in constructor)
-	err := child.Save()
+	err := chn.Save()
 	if err != nil {
 		return nil, err
 	}
 
 	// Add child to parent's children map using name as key
-	childName := child.GetName()
-	i.children[childName] = child.GetTag()
+	childName := chn.GetName()
+	i.Children[childName] = chn.GetTag()
 
 	// Start the child node
-	child.Run()
+	chn.Run()
 
 	// Add the child to the tree
-	nerd.AddTag(child.GetTag())
+	// nerd.AddTag(ch.GetTag())
 
-	return child.GetTag(), nil
+	return chn.GetTag(), nil
 }
 
 // handleShutdown processes shutdown requests (shared logic)
-func (i *Identity) handleShutdown(_ *nerd.Msg, n nerd.Node) (any, error) {
+func handleShutdown(_ *msg.Msg, n node.Node) (any, error) {
+	i := n.GetIdentity()
+
 	// 1. Ask all children to shutdown (blocking)
-	if len(i.children) > 0 {
-		shutdownMsg := &nerd.Msg{
+	if len(i.Children) > 0 {
+		shutdownMsg := &msg.Msg{
 			Type:    msg.Shutdown,
 			Payload: nil,
 		}
-		_, err := i.askChildren(shutdownMsg)
+		_, err := i.AskChildren(shutdownMsg)
 		if err != nil {
 			fmt.Printf("Error during children shutdown: %v\n", err)
 		}
@@ -82,44 +86,46 @@ func (i *Identity) handleShutdown(_ *nerd.Msg, n nerd.Node) (any, error) {
 }
 
 // handleRenameChild processes requests to rename child nodes (shared logic)
-func (i *Identity) handleRenameChild(m *nerd.Msg, _ nerd.Node) (any, error) {
-	// Parse message payload
-	payload, ok := m.Payload.(msg.RenameChildPayload)
+func handleRenameChild(m *msg.Msg, n node.Node) (any, error) {
+	i := n.GetIdentity()
+
+	// Parse message pl
+	pl, ok := m.Payload.(msg.RenameChildPayload)
 	if !ok {
 		return nil, nerd.ErrInvalidPayload
 	}
 
 	// If old name equals new name, nothing to do - return success
-	if payload.OldName == payload.NewName {
+	if pl.OldName == pl.NewName {
 		return nil, nil
 	}
 
 	// Check if old name exists in children map
-	childTag, exists := i.children[payload.OldName]
+	ch, exists := i.Children[pl.OldName]
 	if !exists {
 		return nil, nerd.ErrNodeNotFound
 	}
 
 	// Check if new name already exists (collision check)
-	if _, collision := i.children[payload.NewName]; collision {
+	if _, collision := i.Children[pl.NewName]; collision {
 		return nil, nerd.ErrNameCollision
 	}
 
 	// Ask child to rename itself
-	err := nerd.AskInternalRename(childTag, payload.NewName)
+	err := ch.AskInternalRename(pl.NewName)
 	if err != nil {
 		return nil, err
 	}
 
 	// Update parent's children map
-	delete(i.children, payload.OldName)
-	i.children[payload.NewName] = childTag
+	delete(i.Children, pl.OldName)
+	i.Children[pl.NewName] = ch
 
 	return nil, nil
 }
 
 // handleRename processes rename requests from parent (internal operation)
-func (i *Identity) handleRename(m *nerd.Msg, n nerd.Node) (any, error) {
+func handleRename(m *msg.Msg, n node.Node) (any, error) {
 	// Parse message payload
 	newName, ok := m.Payload.(string)
 	if !ok {

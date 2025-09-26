@@ -1,7 +1,35 @@
 package msg
 
+import "github.com/gadfly16/nerd/api/nerd"
+
+// Msg represents a message sent between nodes
+type Msg struct {
+	Type    MsgType
+	Payload any
+	APipe   AnswerChan // nil for Notify mode, set for Ask mode
+}
+
 // MsgType defines the types of messages that can be sent
 type MsgType int
+
+// Tag bundles information about a node for routing without direct pointers
+type Tag struct {
+	NodeID   nerd.NodeID `gorm:"primaryKey"`
+	Incoming MsgChan     `gorm:"-"` // Runtime field, not persisted
+	// Owner info omitted for now (no authentication yet)
+}
+
+// Answer represents a response with payload and error
+type Answer struct {
+	Payload any
+	Error   error
+}
+
+// MsgChan is a channel for sending messages to nodes
+type MsgChan chan Msg
+
+// AnswerChan is a channel for sending answers back
+type AnswerChan chan Answer
 
 const (
 	// Common messages (handled by Identity)

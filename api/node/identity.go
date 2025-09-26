@@ -1,30 +1,36 @@
-package nodes
+package node
 
 import (
 	"time"
 
-	"github.com/gadfly16/nerd/internal/nerd"
+	"github.com/gadfly16/nerd/api/msg"
+	"github.com/gadfly16/nerd/api/nerd"
 	"gorm.io/gorm"
 )
 
 // Identity is shared across all node types by embedding and is stored in its
 // own table in the database
 type Identity struct {
-	*nerd.Tag `gorm:"embedded"`
-	ParentID  nerd.NodeID   `gorm:"index"`
-	Name      string        `gorm:"not null"`
-	NodeType  nerd.NodeType `gorm:"not null"`
+	*msg.Tag `gorm:"embedded"`
+	ParentID nerd.NodeID   `gorm:"index"`
+	Name     string        `gorm:"not null"`
+	NodeType nerd.NodeType `gorm:"not null"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 
 	// Runtime fields
-	children map[string]*nerd.Tag
+	Children map[string]*msg.Tag `gorm:"-"`
+}
+
+// GetIdentity returns the node's identity for direct manipulation
+func (i *Identity) GetIdentity() *Identity {
+	return i
 }
 
 // GetTag returns the node's tag for routing (read-only)
-func (i *Identity) GetTag() *nerd.Tag {
+func (i *Identity) GetTag() *msg.Tag {
 	return i.Tag
 }
 
@@ -50,8 +56,8 @@ func (i *Identity) SetParentID(parentID nerd.NodeID) {
 
 // askChildren sends a message to all children concurrently and collects their responses
 // Returns slice of answers and error if any child returned an error
-func (i *Identity) askChildren(m *nerd.Msg) ([]nerd.Answer, error) {
-	if len(i.children) == 0 {
+func (i *Identity) AskChildren(m *msg.Msg) ([]msg.Answer, error) {
+	if len(i.Children) == 0 {
 		return nil, nil
 	}
 
@@ -63,19 +69,19 @@ func (i *Identity) askChildren(m *nerd.Msg) ([]nerd.Answer, error) {
 	}
 
 	// Create shared answer pipe for all children
-	m.APipe = make(nerd.AnswerPipe, len(i.children))
+	m.APipe = make(msg.AnswerChan, len(i.Children))
 
 	// First loop: send messages to all children concurrently
-	for _, childTag := range i.children {
+	for _, childTag := range i.Children {
 		// Send message to child (non-blocking since answer pipe is buffered)
 		childTag.Incoming <- *m
 	}
 
 	// Second loop: collect all answers
-	answers := make([]nerd.Answer, 0, len(i.children))
+	answers := make([]msg.Answer, 0, len(i.Children))
 	hasError := false
 
-	for range len(i.children) {
+	for range len(i.Children) {
 		// Wait for answer from any child
 		answer := <-m.APipe
 		answers = append(answers, answer)

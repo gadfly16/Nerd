@@ -1,46 +1,39 @@
-package nerd
+package tree
 
 import (
 	"sync"
-	"sync/atomic"
+
+	"github.com/gadfly16/nerd/api/msg"
+	"github.com/gadfly16/nerd/api/nerd"
 )
 
 var (
-	tree         nodeTree
-	newIDCounter *int64 = new(int64)
+	tree nodeTree
 )
 
 // nodeTree manages the overall tree coordination and runtime
 type nodeTree struct {
-	nodes map[NodeID]*Tag
+	nodes map[nerd.NodeID]*msg.Tag
 	mutex sync.RWMutex
 }
 
-func NewID() NodeID {
-	// On the GUI side we use JS's number type to handle IDs
-	if *newIDCounter >= 2<<53 {
-		panic("ID counter exceeded allowed limit.")
-	}
-	return NodeID(atomic.AddInt64(newIDCounter, 1))
-}
-
 // initTree creates a new Tree instance
-func InitTree() {
+func initTree() {
 	tree = nodeTree{
-		nodes: make(map[NodeID]*Tag),
+		nodes: make(map[nerd.NodeID]*msg.Tag),
 	}
 }
 
 // addTag adds a tag to the tree for routing (authoritative)
-func AddTag(tag *Tag) {
+func addTag(t *msg.Tag) {
 	tree.mutex.Lock()
 	defer tree.mutex.Unlock()
 
-	tree.nodes[tag.NodeID] = tag
+	tree.nodes[t.NodeID] = t
 }
 
 // removeNode removes a node from the tree (authoritative)
-func (t *nodeTree) removeTag(nodeID NodeID) {
+func (t *nodeTree) removeTag(nodeID nerd.NodeID) {
 	t.mutex.Lock()
 	defer t.mutex.Unlock()
 
@@ -48,7 +41,7 @@ func (t *nodeTree) removeTag(nodeID NodeID) {
 }
 
 // getTag returns the tag for a given node ID (thread-safe read)
-func GetTag(nodeID NodeID) (*Tag, bool) {
+func getTag(nodeID nerd.NodeID) (*msg.Tag, bool) {
 	tree.mutex.RLock()
 	defer tree.mutex.RUnlock()
 
