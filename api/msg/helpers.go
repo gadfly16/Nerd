@@ -11,7 +11,7 @@ func (t *Tag) AskCreateChild(nodeType nerd.NodeType, name string) (*Tag, error) 
 	result, err := t.Ask(&Msg{
 		Type: CreateChild,
 		Payload: CreateChildPayload{
-			NodeType: int(nodeType),
+			NodeType: nodeType,
 			Name:     name,
 		},
 	})

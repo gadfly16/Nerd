@@ -15,6 +15,5 @@ type ConfigModel struct {
 	IdentityID nerd.NodeID `gorm:"not null;index"`
 
 	CreatedAt time.Time
-	UpdatedAt time.Time
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }

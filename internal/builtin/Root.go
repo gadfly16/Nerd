@@ -21,6 +21,23 @@ type RootConfig struct {
 	LogLevel int `gorm:"not null"`
 }
 
+// LoadRoot creates a Root node from an existing Identity loaded from database
+func LoadRoot(identity *node.Identity) (node.Node, error) {
+	// Create Root node with the loaded identity
+	root := &Root{
+		Identity: identity,
+		config:   &RootConfig{},
+	}
+
+	// Load Root's specific configuration from database
+	result := node.DB.Where("identity_id = ?", identity.NodeID).First(root.config)
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to load root config: %w", result.Error)
+	}
+
+	return root, nil
+}
+
 // NewRoot creates a new Root node instance with specified database path
 func newRoot() *Root {
 	id := node.NewID()
@@ -64,16 +81,6 @@ func (n *Root) Save() error {
 
 		return nil
 	})
-}
-
-// Load retrieves the Root node and all children from the database
-func (n *Root) Load() error {
-	// TODO: Implement database load operation
-	// 1. Load Identity and Config from database
-	// 2. Populate struct fields
-	// 3. Load all children recursively
-	// 4. Start children nodes
-	return nil
 }
 
 // Run starts the Root node goroutine and message loop

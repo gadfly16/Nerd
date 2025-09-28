@@ -5,9 +5,9 @@ import (
 	"github.com/gadfly16/nerd/internal/builtin"
 )
 
-// InitInstance initializes a new Nerd instance by setting up the database
+// Init initializes a new Nerd instance by setting up the database
 // and bootstrapping the Root node using runtime infrastructure
-func InitInstance(dbPath string) error {
+func Init(dbPath string) error {
 	err := InitDatabase(dbPath)
 	if err != nil {
 		return err
@@ -28,18 +28,12 @@ func InitInstance(dbPath string) error {
 	root := rootNode.GetTag()
 	addTag(root)
 
-	// Create new Group node (auto-generated name)
-	t, err := root.AskCreateChild(node.Group, "")
+	// Create System group directly with name
+	t, err := root.AskCreateChild(node.Group, "System")
 	if err != nil {
 		return err
 	}
 	addTag(t)
-
-	// Rename the Group node to "System"
-	err = root.AskRenameChild("New Group #2", "System")
-	if err != nil {
-		return err
-	}
 
 	err = root.AskShutdown()
 	if err != nil {

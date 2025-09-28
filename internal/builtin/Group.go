@@ -14,6 +14,17 @@ type Group struct {
 	// Note: Group nodes don't have configs
 }
 
+// LoadGroup creates a Group node from an existing Identity loaded from database
+func LoadGroup(identity *node.Identity) (node.Node, error) {
+	// Create Group node with the loaded identity
+	group := &Group{
+		Identity: identity,
+	}
+
+	// Group nodes have no configuration to load
+	return group, nil
+}
+
 // newGroup creates a new Group node instance with the specified name
 // If name is empty, auto-generates name based on node ID
 func newGroup(name string) *Group {
@@ -48,16 +59,6 @@ func (n *Group) GetNodeTypeName() string {
 func (n *Group) Save() error {
 	// Note: Only saves Identity, no config for Group nodes
 	return node.DB.Save(n.Identity).Error
-}
-
-// Load retrieves the Group node and all children from the database
-func (n *Group) Load() error {
-	// TODO: Implement database load operation
-	// 1. Load Identity from database
-	// 2. Populate struct fields
-	// 3. Load all children recursively
-	// 4. Start children nodes
-	return nil
 }
 
 // Run starts the Group node goroutine and message loop

@@ -1,6 +1,7 @@
 package node
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/gadfly16/nerd/api/msg"
@@ -97,4 +98,49 @@ func (i *Identity) AskChildren(m *msg.Msg) ([]msg.Answer, error) {
 	}
 
 	return answers, nil
+}
+
+func (i *Identity) Load() ([]*msg.Tag, error) {
+	// 0. Initialize runtime fields first
+	i.Incoming = make(msg.MsgChan)
+	i.Children = make(map[string]*msg.Tag)
+
+	// 1. Create the appropriate node using registry
+	loader, exists := nodeLoaders[i.NodeType]
+	if !exists {
+		return nil, fmt.Errorf("no loader registered for node type: %d", i.NodeType)
+	}
+
+	nodeInstance, err := loader(i)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load node: %w", err)
+	}
+
+	// 2. Load children identities from database
+	var children []*Identity
+	result := DB.Where("parent_id = ?", i.NodeID).Find(&children)
+	if result.Error != nil {
+		return nil, fmt.Errorf("failed to load children: %w", result.Error)
+	}
+
+	// 3. Recursively load each child and collect tags
+	var allTags []*msg.Tag
+	for _, child := range children {
+		childTags, err := child.Load()
+		if err != nil {
+			return nil, fmt.Errorf("failed to load child %s: %w", child.Name, err)
+		}
+		allTags = append(allTags, childTags...)
+
+		// Add child to parent's children map
+		i.Children[child.Name] = childTags[len(childTags)-1] // Last tag is the child itself
+	}
+
+	// 4. Start the node
+	nodeInstance.Run()
+
+	// 5. Return all child tags + self tag
+	selfTag := nodeInstance.GetTag()
+	allTags = append(allTags, selfTag)
+	return allTags, nil
 }

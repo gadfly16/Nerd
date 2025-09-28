@@ -38,7 +38,7 @@ func handleCreateChild(m *msg.Msg, n node.Node) (any, error) {
 	// TODO: check if node type is supported as a child of this node
 
 	// Create appropriate node instance based on type and name
-	chn := NewNode(nerd.NodeType(pl.NodeType), pl.Name)
+	chn := NewNode(pl.NodeType, pl.Name)
 
 	// Set parent-child relationship
 	chn.SetParentID(i.Tag.NodeID)

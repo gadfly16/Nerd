@@ -25,10 +25,10 @@ nodes and trees.`,
 
 		err := api.Init(dbPath)
 		if err != nil {
-			return fmt.Errorf("failed to initialize database: %w", err)
+			return fmt.Errorf("failed to initialize the tree: %w", err)
 		}
 
-		fmt.Printf("Successfully initialized database at %s\n", dbPath)
+		fmt.Printf("Successfully initialized the tree with database at %s\n", dbPath)
 		return nil
 	},
 }
@@ -38,9 +38,15 @@ var runCmd = &cobra.Command{
 	Short: "Start the Nerd service",
 	Long:  "Starts the Nerd service with GUI and backend.",
 	RunE: func(cmd *cobra.Command, args []string) error {
+		dbPath, _ := cmd.Flags().GetString("database")
+
 		fmt.Println("Starting Nerd service...")
-		// TODO: Implement service startup
-		return fmt.Errorf("run command not yet implemented")
+		err := api.Run(dbPath)
+		if err != nil {
+			return fmt.Errorf("failed to start service: %w", err)
+		}
+
+		return nil
 	},
 }
 
@@ -50,6 +56,7 @@ func init() {
 
 	// Add flags to commands
 	initCmd.Flags().StringP("database", "d", "./nerd.db", "Path to the SQLite database file")
+	runCmd.Flags().StringP("database", "d", "./nerd.db", "Path to the SQLite database file")
 }
 
 func main() {
