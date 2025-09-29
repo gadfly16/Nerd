@@ -27,4 +27,7 @@ var (
 
 	// ErrNameCollision is returned when trying to rename to an existing child name
 	ErrNameCollision = errors.New("name already exists")
+
+	// ErrMalformedHttpMessage is returned for invalid HTTP message format
+	ErrMalformedHttpMessage = errors.New("malformed http message")
 )

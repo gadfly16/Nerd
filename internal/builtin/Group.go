@@ -14,8 +14,8 @@ type Group struct {
 	// Note: Group nodes don't have configs
 }
 
-// LoadGroup creates a Group node from an existing Identity loaded from database
-func LoadGroup(identity *node.Identity) (node.Node, error) {
+// loadGroup creates a Group node from an existing Identity loaded from database
+func loadGroup(identity *node.Identity) (node.Node, error) {
 	// Create Group node with the loaded identity
 	group := &Group{
 		Identity: identity,

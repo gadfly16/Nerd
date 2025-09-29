@@ -1,34 +1,44 @@
 package tree
 
 import (
-	"github.com/gadfly16/nerd/api/msg"
 	"github.com/gadfly16/nerd/api/nerd"
+	"github.com/gadfly16/nerd/internal/builtin"
+	"github.com/gadfly16/nerd/internal/httpmsg"
 )
 
-// NotifyNode sends a message to a node (non-blocking)
-func NotifyNode(targetID nerd.NodeID, msgType msg.MsgType, payload any) error {
-	tag, exists := getTag(targetID)
+// NotifyNode translates HTTP message to native message and sends non-blocking
+func NotifyNode(httpMsg httpmsg.HttpMsg) error {
+	// Validate target exists
+	tag, exists := getTag(httpMsg.TargetID)
 	if !exists {
 		return nerd.ErrNodeNotFound
 	}
 
-	tag.Notify(msgType, payload)
+	// Translate HTTP message to native message
+	nativeMsg, err := builtin.TranslateHttpMessage(httpMsg)
+	if err != nil {
+		return err
+	}
 
+	// Send to target node
+	tag.Notify(nativeMsg.Type, nativeMsg.Payload)
 	return nil
 }
 
-// AskNode sends a message to a node and waits for response (blocking)
-func AskNode(targetID nerd.NodeID, msgType msg.MsgType, payload any) (any, error) {
-	tag, exists := getTag(targetID)
+// AskNode translates HTTP message to native message and sends blocking
+func AskNode(httpMsg httpmsg.HttpMsg) (any, error) {
+	// Validate target exists
+	tag, exists := getTag(httpMsg.TargetID)
 	if !exists {
 		return nil, nerd.ErrNodeNotFound
 	}
 
-	// Prepare message struct
-	m := &msg.Msg{
-		Type:    msgType,
-		Payload: payload,
+	// Translate HTTP message to native message
+	nativeMsg, err := builtin.TranslateHttpMessage(httpMsg)
+	if err != nil {
+		return nil, err
 	}
 
-	return tag.Ask(m)
+	// Send to target node and return response
+	return tag.Ask(nativeMsg)
 }

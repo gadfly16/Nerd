@@ -49,3 +49,18 @@ func (t *Tag) AskInternalRename(newName string) error {
 	})
 	return err
 }
+
+// AskGetTree sends a GetTree message to the target node
+// depth: negative means full depth, 0 means node + children, positive means that many levels down
+func (t *Tag) AskGetTree(depth int) (*TreeEntry, error) {
+	result, err := t.Ask(&Msg{
+		Type: GetTree,
+		Payload: GetTreePayload{
+			Depth: depth,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*TreeEntry), nil
+}

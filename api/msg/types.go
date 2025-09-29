@@ -37,6 +37,7 @@ const (
 	Shutdown
 	RenameChild
 	InternalRename // internal operation only
+	GetTree        // get tree structure for GUI
 
 	// Separator - messages >= this value are node-specific
 	CommonMsgSeparator
@@ -55,4 +56,16 @@ type CreateChildPayload struct {
 type RenameChildPayload struct {
 	OldName string
 	NewName string
+}
+
+// GetTreePayload contains the depth for tree traversal
+type GetTreePayload struct {
+	Depth int // negative means full depth, 0 means node + children, 1 means node + children + grandchildren, etc.
+}
+
+// TreeEntry represents a node and its children in the tree structure
+type TreeEntry struct {
+	NodeID   nerd.NodeID  `json:"nodeId"`
+	Name     string       `json:"name"`
+	Children []*TreeEntry `json:"children"`
 }

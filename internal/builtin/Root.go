@@ -21,8 +21,8 @@ type RootConfig struct {
 	LogLevel int `gorm:"not null"`
 }
 
-// LoadRoot creates a Root node from an existing Identity loaded from database
-func LoadRoot(identity *node.Identity) (node.Node, error) {
+// loadRoot creates a Root node from an existing Identity loaded from database
+func loadRoot(identity *node.Identity) (node.Node, error) {
 	// Create Root node with the loaded identity
 	root := &Root{
 		Identity: identity,

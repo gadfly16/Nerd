@@ -20,6 +20,8 @@ func handleCommonMessage(m *msg.Msg, node node.Node) (any, error) {
 		return handleRenameChild(m, node)
 	case msg.InternalRename:
 		return handleRename(m, node)
+	case msg.GetTree:
+		return handleGetTree(m, node)
 	default:
 		// This should never happen if CommonMsgSeparator is used correctly
 		panic(fmt.Sprintf("handleCommonMessage called with non-common message type: %d", m.Type))
@@ -83,6 +85,63 @@ func handleShutdown(_ *msg.Msg, n node.Node) (any, error) {
 
 	// 3. Return response - message loop will exit in post-process
 	return nil, nil
+}
+
+// handleGetTree processes requests for tree structure (shared logic)
+func handleGetTree(m *msg.Msg, n node.Node) (any, error) {
+	// Parse message payload
+	pl, ok := m.Payload.(msg.GetTreePayload)
+	if !ok {
+		return nil, nerd.ErrInvalidPayload
+	}
+
+	// Build tree entry for this node
+	identity := n.GetIdentity()
+	entry := &msg.TreeEntry{
+		NodeID: identity.NodeID,
+		Name:   identity.Name,
+	}
+
+	// If depth is 0, return just this node without children
+	if pl.Depth == 0 {
+		entry.Children = []*msg.TreeEntry{}
+		return entry, nil
+	}
+
+	// Build children entries if depth allows
+	var children []*msg.TreeEntry
+	if pl.Depth < 0 || pl.Depth > 0 {
+		// Calculate remaining depth for children
+		childDepth := pl.Depth
+		if pl.Depth > 0 {
+			childDepth = pl.Depth - 1
+		}
+
+		// Ask each child for its tree structure
+		for _, childTag := range identity.Children {
+			childMsg := &msg.Msg{
+				Type: msg.GetTree,
+				Payload: msg.GetTreePayload{
+					Depth: childDepth,
+				},
+			}
+
+			result, err := childTag.Ask(childMsg)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get tree from child: %w", err)
+			}
+
+			childEntry, ok := result.(*msg.TreeEntry)
+			if !ok {
+				return nil, fmt.Errorf("child returned invalid tree entry type")
+			}
+
+			children = append(children, childEntry)
+		}
+	}
+
+	entry.Children = children
+	return entry, nil
 }
 
 // handleRenameChild processes requests to rename child nodes (shared logic)
