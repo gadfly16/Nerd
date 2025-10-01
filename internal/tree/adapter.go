@@ -21,7 +21,7 @@ func NotifyNode(httpMsg httpmsg.HttpMsg) error {
 	}
 
 	// Send to target node
-	tag.Notify(nativeMsg.Type, nativeMsg.Payload)
+	tag.Notify(nativeMsg)
 	return nil
 }
 

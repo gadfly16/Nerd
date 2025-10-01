@@ -56,48 +56,60 @@ func (i *Identity) SetParentID(parentID nerd.NodeID) {
 }
 
 // askChildren sends a message to all children concurrently and collects their responses
-// Returns slice of answers and error if any child returned an error
-func (i *Identity) AskChildren(m *msg.Msg) ([]msg.Answer, error) {
-	if len(i.Children) == 0 {
-		return nil, nil
+// Returns slice of payloads and error if any child returned an error
+// ChildrenQuery represents a query to be sent to all children
+type ChildrenQuery struct {
+	identity *Identity
+	message  *msg.Msg
+}
+
+// AskChildren creates a query builder for sending messages to all children
+func (i *Identity) AskChildren(m *msg.Msg) *ChildrenQuery {
+	return &ChildrenQuery{identity: i, message: m}
+}
+
+// Reduce executes the query and reduces successful responses using the provided function
+func (cq *ChildrenQuery) Reduce(reduce func(payload any)) error {
+	if len(cq.identity.Children) == 0 {
+		return nil
 	}
 
 	// Check if this message is being forwarded (already has an answer channel)
-	if m.APipe != nil {
+	if cq.message.APipe != nil {
 		// Message forwarding case: make a copy to avoid overwriting original answer channel
-		msgCopy := *m
-		m = &msgCopy
+		msgCopy := *cq.message
+		cq.message = &msgCopy
 	}
 
 	// Create shared answer pipe for all children
-	m.APipe = make(msg.AnswerChan, len(i.Children))
+	cq.message.APipe = make(msg.AnswerChan, len(cq.identity.Children))
 
 	// First loop: send messages to all children concurrently
-	for _, childTag := range i.Children {
+	for _, childTag := range cq.identity.Children {
 		// Send message to child (non-blocking since answer pipe is buffered)
-		childTag.Incoming <- *m
+		childTag.Incoming <- *cq.message
 	}
 
-	// Second loop: collect all answers
-	answers := make([]msg.Answer, 0, len(i.Children))
+	// Second loop: collect all answers and accumulate successful ones
 	hasError := false
 
-	for range len(i.Children) {
+	for range len(cq.identity.Children) {
 		// Wait for answer from any child
-		answer := <-m.APipe
-		answers = append(answers, answer)
+		answer := <-cq.message.APipe
 
 		// Track if any child had an error
 		if answer.Error != nil {
 			hasError = true
+		} else {
+			reduce(answer.Payload)
 		}
 	}
 
 	if hasError {
-		return answers, nerd.ErrChildrenError
+		return nerd.ErrChildrenError
 	}
 
-	return answers, nil
+	return nil
 }
 
 func (i *Identity) Load() ([]*msg.Tag, error) {
@@ -106,12 +118,8 @@ func (i *Identity) Load() ([]*msg.Tag, error) {
 	i.Children = make(map[string]*msg.Tag)
 
 	// 1. Create the appropriate node using registry
-	loader, exists := nodeLoaders[i.NodeType]
-	if !exists {
-		return nil, fmt.Errorf("no loader registered for node type: %d", i.NodeType)
-	}
-
-	nodeInstance, err := loader(i)
+	// 1. Create the appropriate node using switch-based loader
+	nodeInstance, err := LoadNodeFromIdentity(i)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load node: %w", err)
 	}

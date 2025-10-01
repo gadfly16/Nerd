@@ -9,13 +9,9 @@ func (m *Msg) Reply(payload any, err error) {
 }
 
 // Notify sends a message to this node (non-blocking)
-func (t *Tag) Notify(msgType MsgType, payload any) {
-	m := Msg{
-		Type:    msgType,
-		Payload: payload,
-	}
-
-	t.Incoming <- m
+func (t *Tag) Notify(m *Msg) {
+	// Send the message directly (no answer channel needed for notify)
+	t.Incoming <- *m
 }
 
 // Ask sends a prepared message to this node and waits for response (blocking)

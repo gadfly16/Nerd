@@ -74,7 +74,9 @@ func handleShutdown(_ *msg.Msg, n node.Node) (any, error) {
 			Type:    msg.Shutdown,
 			Payload: nil,
 		}
-		_, err := i.AskChildren(shutdownMsg)
+		err := i.AskChildren(shutdownMsg).Reduce(func(payload any) {
+			// No accumulation needed for shutdown - just ignore responses
+		})
 		if err != nil {
 			fmt.Printf("Error during children shutdown: %v\n", err)
 		}
@@ -89,6 +91,8 @@ func handleShutdown(_ *msg.Msg, n node.Node) (any, error) {
 
 // handleGetTree processes requests for tree structure (shared logic)
 func handleGetTree(m *msg.Msg, n node.Node) (any, error) {
+	i := n.GetIdentity()
+
 	// Parse message payload
 	pl, ok := m.Payload.(msg.GetTreePayload)
 	if !ok {
@@ -96,10 +100,9 @@ func handleGetTree(m *msg.Msg, n node.Node) (any, error) {
 	}
 
 	// Build tree entry for this node
-	identity := n.GetIdentity()
 	entry := &msg.TreeEntry{
-		NodeID: identity.NodeID,
-		Name:   identity.Name,
+		NodeID: i.NodeID,
+		Name:   i.Name,
 	}
 
 	// If depth is 0, return just this node without children
@@ -110,33 +113,25 @@ func handleGetTree(m *msg.Msg, n node.Node) (any, error) {
 
 	// Build children entries if depth allows
 	var children []*msg.TreeEntry
-	if pl.Depth < 0 || pl.Depth > 0 {
+	if (pl.Depth < 0 || pl.Depth > 0) && len(i.Children) > 0 {
 		// Calculate remaining depth for children
 		childDepth := pl.Depth
 		if pl.Depth > 0 {
 			childDepth = pl.Depth - 1
 		}
 
-		// Ask each child for its tree structure
-		for _, childTag := range identity.Children {
-			childMsg := &msg.Msg{
-				Type: msg.GetTree,
-				Payload: msg.GetTreePayload{
-					Depth: childDepth,
-				},
-			}
+		// Ask all children concurrently for their tree structure using builder pattern
+		err := i.AskChildren(&msg.Msg{
+			Type: msg.GetTree,
+			Payload: msg.GetTreePayload{
+				Depth: childDepth,
+			},
+		}).Reduce(func(payload any) {
+			children = append(children, payload.(*msg.TreeEntry))
+		})
 
-			result, err := childTag.Ask(childMsg)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get tree from child: %w", err)
-			}
-
-			childEntry, ok := result.(*msg.TreeEntry)
-			if !ok {
-				return nil, fmt.Errorf("child returned invalid tree entry type")
-			}
-
-			children = append(children, childEntry)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get tree from children: %w", err)
 		}
 	}
 
