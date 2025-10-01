@@ -1,6 +1,7 @@
 package tree
 
 import (
+	"github.com/gadfly16/nerd/api/msg"
 	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/internal/builtin"
 	"github.com/gadfly16/nerd/internal/httpmsg"
@@ -39,6 +40,16 @@ func AskNode(httpMsg httpmsg.HttpMsg) (any, error) {
 		return nil, err
 	}
 
-	// Send to target node and return response
-	return tag.Ask(nativeMsg)
+	// Send to target node and get response
+	result, err := tag.Ask(nativeMsg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Post-processing: if this was CreateChild, register the new node in tree
+	if httpMsg.Type == httpmsg.HttpCreateChild {
+		addTag(result.(*msg.Tag))
+	}
+
+	return result, nil
 }

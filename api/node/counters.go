@@ -17,3 +17,8 @@ func NewID() nerd.NodeID {
 	}
 	return nerd.NodeID(atomic.AddInt64(newIDCounter, 1))
 }
+
+// ResetIDCounter resets the ID counter to 0 (for testing)
+func ResetIDCounter() {
+	atomic.StoreInt64(newIDCounter, 0)
+}

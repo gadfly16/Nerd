@@ -5,11 +5,15 @@ import (
 	"testing"
 
 	"github.com/gadfly16/nerd/api/msg"
+	"github.com/gadfly16/nerd/api/node"
 	"github.com/gadfly16/nerd/internal/httpmsg"
 	"github.com/gadfly16/nerd/internal/tree"
 )
 
 func TestGetTree(t *testing.T) {
+	// Reset ID counter for test isolation
+	node.ResetIDCounter()
+
 	// Step 1: Initialize database with test data
 	testDB := "./test_gettree.db"
 	defer os.Remove(testDB) // Cleanup

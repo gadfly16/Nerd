@@ -37,6 +37,13 @@ func handleCreateChild(m *msg.Msg, n node.Node) (any, error) {
 		return nil, nerd.ErrInvalidPayload
 	}
 
+	// Check for name collision
+	if pl.Name != "" {
+		if _, exists := i.Children[pl.Name]; exists {
+			return nil, fmt.Errorf("child with name '%s' already exists", pl.Name)
+		}
+	}
+
 	// TODO: check if node type is supported as a child of this node
 
 	// Create appropriate node instance based on type and name
@@ -57,9 +64,6 @@ func handleCreateChild(m *msg.Msg, n node.Node) (any, error) {
 
 	// Start the child node
 	chn.Run()
-
-	// Add the child to the tree
-	// nerd.AddTag(ch.GetTag())
 
 	return chn.GetTag(), nil
 }
