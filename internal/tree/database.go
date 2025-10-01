@@ -10,16 +10,16 @@ import (
 	"gorm.io/gorm"
 )
 
-// InitDatabase initializes the database with node schemas and sets global connection
-// Proper initialization will be done through the node lifecycle methods
+// InitDatabase initializes a new database with node schemas and sets global connection
 func InitDatabase(dbPath string) error {
 	// Check if database file already exists
 	if _, err := os.Stat(dbPath); err == nil {
 		return fmt.Errorf("database file %s already exists", dbPath)
 	}
 
-	// Set global database connection
-	err := OpenDB(dbPath)
+	// Create and set global database connection
+	var err error
+	node.DB, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	if err != nil {
 		return err
 	}
@@ -27,8 +27,14 @@ func InitDatabase(dbPath string) error {
 	return builtin.MigrateBuiltinModels()
 }
 
-// OpenDB sets the global database connection for node operations
-func OpenDB(dbPath string) error {
+// OpenDatabase opens an existing database and sets global connection
+func OpenDatabase(dbPath string) error {
+	// Check if database exists
+	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+		return fmt.Errorf("database does not exist: %s (use InitInstance to create)", dbPath)
+	}
+
+	// Open and set global database connection
 	var err error
 	node.DB, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 	return err

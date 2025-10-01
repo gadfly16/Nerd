@@ -5,20 +5,16 @@ import (
 	"testing"
 
 	"github.com/gadfly16/nerd/api/msg"
-	"github.com/gadfly16/nerd/api/node"
 	"github.com/gadfly16/nerd/internal/httpmsg"
 	"github.com/gadfly16/nerd/internal/tree"
 )
 
 func TestGetTree(t *testing.T) {
-	// Reset ID counter for test isolation
-	node.ResetIDCounter()
-
 	// Step 1: Initialize database with test data
 	testDB := "./test_gettree.db"
 	defer os.Remove(testDB) // Cleanup
 
-	err := tree.Init(testDB)
+	err := tree.InitInstance(testDB)
 	if err != nil {
 		t.Fatalf("Failed to initialize database: %v", err)
 	}
@@ -28,6 +24,19 @@ func TestGetTree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to run tree: %v", err)
 	}
+
+	// Ensure tree shutdown for clean test isolation
+	defer func() {
+		_, err := tree.AskNode(httpmsg.HttpMsg{
+			Type:     httpmsg.HttpShutdown,
+			TargetID: 1, // Root node
+			UserID:   1,
+			Payload:  map[string]any{},
+		})
+		if err != nil {
+			t.Logf("Shutdown error: %v", err)
+		}
+	}()
 
 	// Step 3: Send GetTree message to root node (ID=1) via HTTP adapter
 	httpMsg := httpmsg.HttpMsg{

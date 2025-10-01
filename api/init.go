@@ -3,7 +3,7 @@ package api
 import "github.com/gadfly16/nerd/internal/tree"
 
 func Init(dbPath string) error {
-	return tree.Init(dbPath)
+	return tree.InitInstance(dbPath)
 }
 
 func Run(dbPath string) error {

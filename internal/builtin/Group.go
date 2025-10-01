@@ -68,7 +68,7 @@ func (n *Group) Run() {
 
 // Shutdown gracefully shuts down the Group node and all children
 func (n *Group) Shutdown() {
-	fmt.Printf("Shutting down Group node %s\n", n.Identity.Name)
+	// Node-specific cleanup can be added here
 }
 
 // messageLoop handles incoming messages

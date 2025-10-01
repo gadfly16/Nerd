@@ -5,9 +5,9 @@ import (
 	"github.com/gadfly16/nerd/internal/builtin"
 )
 
-// Init initializes a new Nerd instance by setting up the database
+// InitInstance initializes a new Nerd instance by setting up the database
 // and bootstrapping the Root node using runtime infrastructure
-func Init(dbPath string) error {
+func InitInstance(dbPath string) error {
 	err := InitDatabase(dbPath)
 	if err != nil {
 		return err

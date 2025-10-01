@@ -2,6 +2,7 @@ package internal_test
 
 import (
 	"os"
+	"runtime"
 	"testing"
 
 	"github.com/gadfly16/nerd/api/msg"
@@ -12,14 +13,11 @@ import (
 )
 
 func TestComprehensiveTreeOperations(t *testing.T) {
-	// Reset ID counter for test isolation
-	node.ResetIDCounter()
-
 	// Setup: Initialize and run tree
 	testDB := "./test_comprehensive.db"
 	defer os.Remove(testDB)
 
-	err := tree.Init(testDB)
+	err := tree.InitInstance(testDB)
 	if err != nil {
 		t.Fatalf("Failed to initialize database: %v", err)
 	}
@@ -28,6 +26,19 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to run tree: %v", err)
 	}
+
+	// Ensure tree shutdown for clean test isolation
+	defer func() {
+		_, err := tree.AskNode(httpmsg.HttpMsg{
+			Type:     httpmsg.HttpShutdown,
+			TargetID: 1, // Root node
+			UserID:   1,
+			Payload:  map[string]any{},
+		})
+		if err != nil {
+			t.Logf("Shutdown error: %v", err)
+		}
+	}()
 
 	// Phase 1: Add "Projects" group under Root
 	t.Log("Phase 1: Creating Projects group under Root")
@@ -164,8 +175,52 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 		t.Fatalf("Failed to rename Logs to SystemLogs: %v", err)
 	}
 
-	// Phase 6: Final tree verification
-	t.Log("Phase 6: Verifying final tree structure")
+	// Phase 6: Mid-test shutdown and state verification
+	t.Log("Phase 6: Shutting down system and verifying clean state")
+
+	// Record goroutine count before shutdown
+	goroutinesBefore := runtime.NumGoroutine()
+	t.Logf("Goroutines before shutdown: %d", goroutinesBefore)
+
+	// Shutdown the entire tree
+	_, err = tree.AskNode(httpmsg.HttpMsg{
+		Type:     httpmsg.HttpShutdown,
+		TargetID: 1, // Root node
+		UserID:   1,
+		Payload:  map[string]any{},
+	})
+	if err != nil {
+		t.Fatalf("Failed to shutdown tree: %v", err)
+	}
+
+	// Verify system is in clean state after shutdown
+	nodeCount := tree.GetNodeCount()
+	if nodeCount != 0 {
+		t.Errorf("Expected 0 active nodes after shutdown, got %d", nodeCount)
+	}
+
+	if node.DB != nil {
+		t.Error("Expected node.DB to be nil after shutdown")
+	}
+
+	// Check for goroutine cleanup (should be fewer than before)
+	goroutinesAfter := runtime.NumGoroutine()
+	t.Logf("Goroutines after shutdown: %d", goroutinesAfter)
+	if goroutinesAfter >= goroutinesBefore {
+		t.Errorf("Expected fewer goroutines after shutdown, before: %d, after: %d", goroutinesBefore, goroutinesAfter)
+	}
+
+	// Phase 7: Restart and verify persistence
+	t.Log("Phase 7: Restarting system and verifying data persistence")
+
+	// Restart the tree
+	err = tree.Run(testDB)
+	if err != nil {
+		t.Fatalf("Failed to restart tree: %v", err)
+	}
+
+	// Phase 8: Final tree verification
+	t.Log("Phase 8: Verifying final tree structure after restart")
 	finalResult, err := tree.AskNode(httpmsg.HttpMsg{
 		Type:     httpmsg.HttpGetTree,
 		TargetID: 1, // Root

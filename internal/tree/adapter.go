@@ -3,6 +3,7 @@ package tree
 import (
 	"github.com/gadfly16/nerd/api/msg"
 	"github.com/gadfly16/nerd/api/nerd"
+	"github.com/gadfly16/nerd/api/node"
 	"github.com/gadfly16/nerd/internal/builtin"
 	"github.com/gadfly16/nerd/internal/httpmsg"
 )
@@ -46,9 +47,25 @@ func AskNode(httpMsg httpmsg.HttpMsg) (any, error) {
 		return nil, err
 	}
 
-	// Post-processing: if this was CreateChild, register the new node in tree
-	if httpMsg.Type == httpmsg.HttpCreateChild {
+	// Post-processing based on message type
+	switch httpMsg.Type {
+	case httpmsg.HttpCreateChild:
+		// Register newly created node in tree
 		addTag(result.(*msg.Tag))
+	case httpmsg.HttpShutdown:
+		// Remove all shutdown nodes from tree
+		shutdownTags := result.([]*msg.Tag)
+		for _, tag := range shutdownTags {
+			tree.removeTag(tag.NodeID)
+		}
+		// If Root node was shut down, clean up global state for restart
+		for _, tag := range shutdownTags {
+			if tag.NodeID == 1 {
+				node.ResetIDCounter()
+				node.CloseDatabase()
+				break
+			}
+		}
 	}
 
 	return result, nil

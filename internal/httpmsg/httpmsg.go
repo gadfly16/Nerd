@@ -9,6 +9,7 @@ const (
 	HttpGetTree HttpMsgType = iota
 	HttpCreateChild
 	HttpRenameChild
+	HttpShutdown
 	// Future HTTP message types can be added here
 )
 

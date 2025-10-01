@@ -37,6 +37,8 @@ func TranslateHttpMessage(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
 		return translateHttpCreateChild(httpMsg)
 	case httpmsg.HttpRenameChild:
 		return translateHttpRenameChild(httpMsg)
+	case httpmsg.HttpShutdown:
+		return translateHttpShutdown(httpMsg)
 	default:
 		return nil, nerd.ErrMalformedHttpMessage
 	}
@@ -104,5 +106,13 @@ func translateHttpRenameChild(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
 			OldName: oldNameStr,
 			NewName: newNameStr,
 		},
+	}, nil
+}
+
+// translateHttpShutdown converts HttpShutdown message to native Shutdown message
+func translateHttpShutdown(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
+	return &msg.Msg{
+		Type:    msg.Shutdown,
+		Payload: nil,
 	}, nil
 }

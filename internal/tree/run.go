@@ -8,14 +8,17 @@ import (
 
 // Run loads the existing tree from database and starts all nodes
 func Run(dbPath string) error {
-	// Open database connection
-	err := OpenDB(dbPath)
+	// Open existing database
+	err := OpenDatabase(dbPath)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
 
 	// Initialize the tree structure
 	initTree()
+
+	// Initialize ID counter to highest existing ID
+	node.InitIDCounter()
 
 	// Load Root identity from database
 	var rootIdentity node.Identity
@@ -35,6 +38,5 @@ func Run(dbPath string) error {
 		addTag(tag)
 	}
 
-	fmt.Printf("Successfully loaded and started tree with %d nodes\n", len(allTags))
 	return nil
 }

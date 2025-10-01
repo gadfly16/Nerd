@@ -91,7 +91,7 @@ func (n *Root) Run() {
 
 // Shutdown gracefully shuts down the Root node and all children
 func (n *Root) Shutdown() {
-	fmt.Printf("Shutting down Root node.\n")
+	// Node-specific cleanup can be added here
 }
 
 // messageLoop handles incoming messages

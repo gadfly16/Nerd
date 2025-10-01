@@ -18,7 +18,18 @@ func NewID() nerd.NodeID {
 	return nerd.NodeID(atomic.AddInt64(newIDCounter, 1))
 }
 
-// ResetIDCounter resets the ID counter to 0 (for testing)
+// InitIDCounter initializes the ID counter to the highest existing ID in database
+func InitIDCounter() {
+	var maxID int64
+	result := DB.Raw("SELECT COALESCE(MAX(node_id), 0) FROM identities").Scan(&maxID)
+	if result.Error != nil {
+		// If query fails, start from 0 (empty database case)
+		maxID = 0
+	}
+	atomic.StoreInt64(newIDCounter, maxID)
+}
+
+// ResetIDCounter resets the ID counter to 0 (for clean restart after shutdown)
 func ResetIDCounter() {
 	atomic.StoreInt64(newIDCounter, 0)
 }

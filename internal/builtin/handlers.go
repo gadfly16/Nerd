@@ -72,25 +72,32 @@ func handleCreateChild(m *msg.Msg, n node.Node) (any, error) {
 func handleShutdown(_ *msg.Msg, n node.Node) (any, error) {
 	i := n.GetIdentity()
 
-	// 1. Ask all children to shutdown (blocking)
+	// 1. Collect tags of all shutdown nodes (start with this node)
+	var shutdownTags []*msg.Tag
+	shutdownTags = append(shutdownTags, i.Tag)
+
+	// 2. Ask all children to shutdown and accumulate their shutdown tags
 	if len(i.Children) > 0 {
 		shutdownMsg := &msg.Msg{
 			Type:    msg.Shutdown,
 			Payload: nil,
 		}
 		err := i.AskChildren(shutdownMsg).Reduce(func(payload any) {
-			// No accumulation needed for shutdown - just ignore responses
+			// Each child returns its own list of shutdown tags
+			if childTags, ok := payload.([]*msg.Tag); ok {
+				shutdownTags = append(shutdownTags, childTags...)
+			}
 		})
 		if err != nil {
 			fmt.Printf("Error during children shutdown: %v\n", err)
 		}
 	}
 
-	// 2. Run cleanup operations (node-specific)
+	// 3. Run cleanup operations (node-specific)
 	n.Shutdown()
 
-	// 3. Return response - message loop will exit in post-process
-	return nil, nil
+	// 4. Return all shutdown tags
+	return shutdownTags, nil
 }
 
 // handleGetTree processes requests for tree structure (shared logic)
