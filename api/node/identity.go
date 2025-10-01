@@ -2,12 +2,27 @@ package node
 
 import (
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/gadfly16/nerd/api/msg"
 	"github.com/gadfly16/nerd/api/nerd"
 	"gorm.io/gorm"
 )
+
+// CacheValidity manages cache invalidation for tree entries
+type CacheValidity struct {
+	TreeEntry atomic.Bool
+	Parent    *CacheValidity
+}
+
+// InvalidateTreeEntry invalidates this node's cache and all ancestors
+func (cv *CacheValidity) InvalidateTreeEntry() {
+	for cv != nil {
+		cv.TreeEntry.Store(false)
+		cv = cv.Parent
+	}
+}
 
 // Identity is shared across all node types by embedding and is stored in its
 // own table in the database
@@ -23,6 +38,10 @@ type Identity struct {
 
 	// Runtime fields
 	Children map[string]*msg.Tag `gorm:"-"`
+
+	// Cache fields
+	CacheValidity   `gorm:"-"`
+	CachedTreeEntry *msg.TreeEntry `gorm:"-"`
 }
 
 // GetIdentity returns the node's identity for direct manipulation

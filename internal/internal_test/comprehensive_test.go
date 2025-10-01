@@ -4,6 +4,7 @@ import (
 	"os"
 	"runtime"
 	"testing"
+	"time"
 
 	"github.com/gadfly16/nerd/api/msg"
 	"github.com/gadfly16/nerd/api/nerd"
@@ -89,9 +90,7 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 		Type:     httpmsg.HttpGetTree,
 		TargetID: 1, // Root
 		UserID:   1,
-		Payload: map[string]any{
-			"depth": float64(-1),
-		},
+		Payload:  map[string]any{}, // No payload needed - always returns full tree
 	})
 	if err != nil {
 		t.Fatalf("Failed to get tree: %v", err)
@@ -225,9 +224,7 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 		Type:     httpmsg.HttpGetTree,
 		TargetID: 1, // Root
 		UserID:   1,
-		Payload: map[string]any{
-			"depth": float64(-1),
-		},
+		Payload:  map[string]any{}, // No payload needed - always returns full tree
 	})
 	if err != nil {
 		t.Fatalf("Failed to get final tree: %v", err)
@@ -302,6 +299,42 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 		if !hasProjectB {
 			t.Error("ProjectB node not found under Projects")
 		}
+	}
+
+	// Phase 9: Performance measurement for cache effectiveness
+	t.Log("Phase 9: Measuring GetTree performance - first call vs cached call")
+
+	getTreeMsg := httpmsg.HttpMsg{
+		Type:     httpmsg.HttpGetTree,
+		TargetID: 1, // Root
+		UserID:   1,
+		Payload:  map[string]any{},
+	}
+
+	// First call - should compute and cache
+	start1 := time.Now()
+	_, err = tree.AskNode(getTreeMsg)
+	duration1 := time.Since(start1)
+	if err != nil {
+		t.Fatalf("Failed first GetTree call: %v", err)
+	}
+
+	// Second call - should return from cache
+	start2 := time.Now()
+	_, err = tree.AskNode(getTreeMsg)
+	duration2 := time.Since(start2)
+	if err != nil {
+		t.Fatalf("Failed second GetTree call: %v", err)
+	}
+
+	t.Logf("First GetTree call (compute): %v", duration1)
+	t.Logf("Second GetTree call (cached): %v", duration2)
+
+	if duration2 < duration1 {
+		speedup := float64(duration1) / float64(duration2)
+		t.Logf("Cache speedup: %.2fx faster", speedup)
+	} else {
+		t.Logf("Cache performance: cached call took %v vs %v", duration2, duration1)
 	}
 
 	t.Log("Comprehensive tree operations test completed successfully")

@@ -58,9 +58,8 @@ type RenameChildPayload struct {
 	NewName string
 }
 
-// GetTreePayload contains the depth for tree traversal
+// GetTreePayload is an empty payload - GetTree always returns full subtree
 type GetTreePayload struct {
-	Depth int // negative means full depth, 0 means node + children, 1 means node + children + grandchildren, etc.
 }
 
 // TreeEntry represents a node and its children in the tree structure

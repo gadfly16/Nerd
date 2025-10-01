@@ -8,23 +8,10 @@ import (
 
 // translateHttpGetTree converts HttpGetTree message to native GetTree message
 func translateHttpGetTree(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
-	// Validate payload contains depth field
-	depth, ok := httpMsg.Payload["depth"]
-	if !ok {
-		return nil, nerd.ErrMalformedHttpMessage
-	}
-
-	// Validate depth is numeric
-	depthFloat, ok := depth.(float64) // JSON numbers come as float64
-	if !ok {
-		return nil, nerd.ErrMalformedHttpMessage
-	}
-
+	// No payload validation needed - GetTree always returns full subtree
 	return &msg.Msg{
-		Type: msg.GetTree,
-		Payload: msg.GetTreePayload{
-			Depth: int(depthFloat),
-		},
+		Type:    msg.GetTree,
+		Payload: msg.GetTreePayload{},
 	}, nil
 }
 

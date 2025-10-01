@@ -52,6 +52,9 @@ func handleCreateChild(m *msg.Msg, n node.Node) (any, error) {
 	// Set parent-child relationship
 	chn.SetParentID(i.Tag.NodeID)
 
+	// Link child's cache validity to parent's
+	chn.GetIdentity().CacheValidity.Parent = &i.CacheValidity
+
 	// Save the child (name is already set in constructor)
 	err := chn.Save()
 	if err != nil {
@@ -61,6 +64,9 @@ func handleCreateChild(m *msg.Msg, n node.Node) (any, error) {
 	// Add child to parent's children map using name as key
 	childName := chn.GetName()
 	i.Children[childName] = chn.GetTag()
+
+	// Invalidate parent's cache since tree structure changed
+	i.CacheValidity.InvalidateTreeEntry()
 
 	// Start the child node
 	chn.Run()
@@ -105,9 +111,14 @@ func handleGetTree(m *msg.Msg, n node.Node) (any, error) {
 	i := n.GetIdentity()
 
 	// Parse message payload
-	pl, ok := m.Payload.(msg.GetTreePayload)
+	_, ok := m.Payload.(msg.GetTreePayload)
 	if !ok {
 		return nil, nerd.ErrInvalidPayload
+	}
+
+	// Check cache first
+	if i.CacheValidity.TreeEntry.Load() {
+		return i.CachedTreeEntry, nil
 	}
 
 	// Build tree entry for this node
@@ -116,27 +127,13 @@ func handleGetTree(m *msg.Msg, n node.Node) (any, error) {
 		Name:   i.Name,
 	}
 
-	// If depth is 0, return just this node without children
-	if pl.Depth == 0 {
-		entry.Children = []*msg.TreeEntry{}
-		return entry, nil
-	}
-
-	// Build children entries if depth allows
+	// Build children entries (always full subtree)
 	var children []*msg.TreeEntry
-	if (pl.Depth < 0 || pl.Depth > 0) && len(i.Children) > 0 {
-		// Calculate remaining depth for children
-		childDepth := pl.Depth
-		if pl.Depth > 0 {
-			childDepth = pl.Depth - 1
-		}
-
-		// Ask all children concurrently for their tree structure using builder pattern
+	if len(i.Children) > 0 {
+		// Ask all children concurrently for their tree structure
 		err := i.AskChildren(&msg.Msg{
-			Type: msg.GetTree,
-			Payload: msg.GetTreePayload{
-				Depth: childDepth,
-			},
+			Type:    msg.GetTree,
+			Payload: msg.GetTreePayload{},
 		}).Reduce(func(payload any) {
 			children = append(children, payload.(*msg.TreeEntry))
 		})
@@ -147,6 +144,11 @@ func handleGetTree(m *msg.Msg, n node.Node) (any, error) {
 	}
 
 	entry.Children = children
+
+	// Cache the result and mark as valid
+	i.CachedTreeEntry = entry
+	i.CacheValidity.TreeEntry.Store(true)
+
 	return entry, nil
 }
 
@@ -185,6 +187,9 @@ func handleRenameChild(m *msg.Msg, n node.Node) (any, error) {
 	// Update parent's children map
 	delete(i.Children, pl.OldName)
 	i.Children[pl.NewName] = ch
+
+	// Invalidate parent's cache since tree structure changed
+	i.CacheValidity.InvalidateTreeEntry()
 
 	return nil, nil
 }

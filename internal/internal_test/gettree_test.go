@@ -41,11 +41,9 @@ func TestGetTree(t *testing.T) {
 	// Step 3: Send GetTree message to root node (ID=1) via HTTP adapter
 	httpMsg := httpmsg.HttpMsg{
 		Type:     httpmsg.HttpGetTree,
-		TargetID: 1, // Root node ID
-		UserID:   1, // Using root as user for now
-		Payload: map[string]any{
-			"depth": float64(-1), // Full tree - JSON numbers are float64
-		},
+		TargetID: 1,                // Root node ID
+		UserID:   1,                // Using root as user for now
+		Payload:  map[string]any{}, // No payload needed - always returns full tree
 	}
 
 	result, err := tree.AskNode(httpMsg)
