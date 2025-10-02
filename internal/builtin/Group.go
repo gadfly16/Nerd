@@ -1,8 +1,6 @@
 package builtin
 
 import (
-	"fmt"
-
 	"github.com/gadfly16/nerd/api/msg"
 	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/api/node"
@@ -10,43 +8,25 @@ import (
 
 // Group represents a group node for organizing other nodes
 type Group struct {
-	*node.Identity
+	*node.Entity
 	// Note: Group nodes don't have configs
 }
 
-// loadGroup creates a Group node from an existing Identity loaded from database
-func loadGroup(identity *node.Identity) (node.Node, error) {
+// loadGroup creates a Group node from an existing Entity loaded from database
+func loadGroup(identity *node.Entity) (node.Node, error) {
 	// Create Group node with the loaded identity
 	group := &Group{
-		Identity: identity,
+		Entity: identity,
 	}
 
 	// Group nodes have no configuration to load
 	return group, nil
 }
 
-// newGroup creates a new Group node instance with the specified name
-// If name is empty, auto-generates name based on node ID
-func newGroup(name string) *Group {
-	incoming := make(msg.MsgChan) // Unbuffered channel for synchronous message delivery
-	id := node.NewID()
-
-	// Use provided name or auto-generate
-	nodeName := name
-	if nodeName == "" {
-		nodeName = fmt.Sprintf("New Group #%d", id)
-	}
-
+// newGroup creates a new Group node instance
+func newGroup(entity *node.Entity) *Group {
 	return &Group{
-		Identity: &node.Identity{
-			Tag: &msg.Tag{
-				NodeID:   id,
-				Incoming: incoming,
-			},
-			Name:     nodeName,
-			NodeType: node.Group,
-			Children: make(map[string]*msg.Tag),
-		},
+		Entity: entity,
 	}
 }
 
@@ -57,8 +37,8 @@ func (n *Group) GetNodeTypeName() string {
 
 // Save persists the Group node to the database
 func (n *Group) Save() error {
-	// Note: Only saves Identity, no config for Group nodes
-	return node.DB.Save(n.Identity).Error
+	// Note: Only saves Entity, no config for Group nodes
+	return node.DB.Save(n.Entity).Error
 }
 
 // Run starts the Group node goroutine and message loop
@@ -81,7 +61,7 @@ func (n *Group) messageLoop() {
 
 		// Route based on message type
 		if m.Type < msg.CommonMsgSeparator {
-			// Common message - handle via Identity
+			// Common message - handle via Entity
 			a, err = handleCommonMessage(&m, n)
 		} else {
 			// Node-specific message handling

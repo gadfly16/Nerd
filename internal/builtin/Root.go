@@ -11,7 +11,7 @@ import (
 
 // Root represents the root node of the tree
 type Root struct {
-	*node.Identity
+	*node.Entity
 	config *RootConfig
 }
 
@@ -21,12 +21,12 @@ type RootConfig struct {
 	LogLevel int `gorm:"not null"`
 }
 
-// loadRoot creates a Root node from an existing Identity loaded from database
-func loadRoot(identity *node.Identity) (node.Node, error) {
+// loadRoot creates a Root node from an existing Entity loaded from database
+func loadRoot(identity *node.Entity) (node.Node, error) {
 	// Create Root node with the loaded identity
 	root := &Root{
-		Identity: identity,
-		config:   &RootConfig{},
+		Entity: identity,
+		config: &RootConfig{},
 	}
 
 	// Load Root's specific configuration from database
@@ -38,22 +38,15 @@ func loadRoot(identity *node.Identity) (node.Node, error) {
 	return root, nil
 }
 
-// NewRoot creates a new Root node instance with specified database path
-func newRoot() *Root {
-	id := node.NewID()
-	if id != 1 {
+// newRoot creates a new Root node instance
+func newRoot(entity *node.Entity) *Root {
+	if entity.Tag.NodeID != 1 {
 		panic("A Root node seems to already exist")
 	}
+	entity.Name = "Root" // Override auto-generated name
+
 	return &Root{
-		Identity: &node.Identity{
-			Tag: &msg.Tag{
-				NodeID:   id,
-				Incoming: make(msg.MsgChan),
-			},
-			Name:     "Root",
-			NodeType: node.Root,
-			Children: make(map[string]*msg.Tag),
-		},
+		Entity: entity,
 		config: &RootConfig{},
 	}
 }
@@ -66,13 +59,13 @@ func (n *Root) GetNodeTypeName() string {
 // Save persists the Root node to the database
 func (n *Root) Save() error {
 	return node.DB.Transaction(func(tx *gorm.DB) error {
-		// Save Identity record (handles both insert and update)
-		if err := tx.Save(n.Identity).Error; err != nil {
+		// Save Entity record (handles both insert and update)
+		if err := tx.Save(n.Entity).Error; err != nil {
 			return err
 		}
 
 		// Update IdentityID reference
-		n.config.IdentityID = n.Identity.Tag.NodeID
+		n.config.IdentityID = n.Entity.Tag.NodeID
 
 		// Save RootConfig record (handles both insert and update)
 		if err := tx.Save(n.config).Error; err != nil {
@@ -104,7 +97,7 @@ func (n *Root) messageLoop() {
 
 		// Route based on message type
 		if m.Type < msg.CommonMsgSeparator {
-			// Common message - handle via Identity
+			// Common message - handle via Entity
 			a, err = handleCommonMessage(&m, n)
 		} else {
 			// Node-specific message handling

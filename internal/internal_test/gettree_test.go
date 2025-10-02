@@ -62,13 +62,28 @@ func TestGetTree(t *testing.T) {
 		t.Errorf("Expected root name 'Root', got '%s'", treeEntry.Name)
 	}
 
-	if len(treeEntry.Children) != 1 {
-		t.Errorf("Expected 1 child, got %d", len(treeEntry.Children))
+	if len(treeEntry.Children) != 2 {
+		t.Errorf("Expected 2 children (System and Authenticator), got %d", len(treeEntry.Children))
 	}
 
-	if len(treeEntry.Children) > 0 && treeEntry.Children[0].Name != "System" {
-		t.Errorf("Expected child name 'System', got '%s'", treeEntry.Children[0].Name)
+	// Check that System and Authenticator exist
+	hasSystem := false
+	hasAuthenticator := false
+	for _, child := range treeEntry.Children {
+		if child.Name == "System" {
+			hasSystem = true
+		}
+		if child.Name == "Authenticator" {
+			hasAuthenticator = true
+		}
 	}
 
-	t.Logf("GetTree test passed! Tree structure: %s -> %s", treeEntry.Name, treeEntry.Children[0].Name)
+	if !hasSystem {
+		t.Errorf("Expected to find System child")
+	}
+	if !hasAuthenticator {
+		t.Errorf("Expected to find Authenticator child")
+	}
+
+	t.Logf("GetTree test passed! Tree structure verified with System and Authenticator children")
 }

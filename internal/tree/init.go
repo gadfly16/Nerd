@@ -35,6 +35,13 @@ func InitInstance(dbPath string) error {
 	}
 	addTag(t)
 
+	// Create Authenticator singleton
+	t, err = root.AskCreateChild(node.Authenticator, "")
+	if err != nil {
+		return err
+	}
+	addTag(t)
+
 	err = root.AskShutdown()
 	if err != nil {
 		return err

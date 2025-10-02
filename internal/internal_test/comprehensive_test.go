@@ -233,9 +233,9 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 	// Verify the final tree structure
 	finalTree := finalResult.(*msg.TreeEntry)
 
-	// Root should have 2 children: System and Projects
-	if len(finalTree.Children) != 2 {
-		t.Errorf("Expected Root to have 2 children, got %d", len(finalTree.Children))
+	// Root should have 3 children: System, Projects, and Authenticator
+	if len(finalTree.Children) != 3 {
+		t.Errorf("Expected Root to have 3 children, got %d", len(finalTree.Children))
 	}
 
 	// Find System and Projects nodes

@@ -8,12 +8,14 @@ import (
 const (
 	Group nerd.NodeType = iota
 	Root
+	Authenticator
+	User
 	BuiltinSeparator
 )
 
 // Node interface defines common methods all node types must implement
 type Node interface {
-	GetIdentity() *Identity
+	GetEntity() *Entity
 	GetTag() *msg.Tag
 	GetID() nerd.NodeID
 	GetName() string

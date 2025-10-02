@@ -21,7 +21,7 @@ func Run(dbPath string) error {
 	node.InitIDCounter()
 
 	// Load Root identity from database
-	var rootIdentity node.Identity
+	var rootIdentity node.Entity
 	result := node.DB.Where("node_id = ?", 1).First(&rootIdentity)
 	if result.Error != nil {
 		return fmt.Errorf("failed to load root identity: %w", result.Error)

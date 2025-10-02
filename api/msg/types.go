@@ -16,7 +16,7 @@ type MsgType int
 type Tag struct {
 	NodeID   nerd.NodeID `gorm:"primaryKey"`
 	Incoming MsgChan     `gorm:"-"` // Runtime field, not persisted
-	// Owner info omitted for now (no authentication yet)
+	Admin    bool        // True if this node represents an admin user
 }
 
 // Answer represents a response with payload and error
@@ -32,18 +32,21 @@ type MsgChan chan Msg
 type AnswerChan chan Answer
 
 const (
-	// Common messages (handled by Identity)
+	// Common messages (handled by Entity)
 	CreateChild MsgType = iota
 	Shutdown
 	RenameChild
-	InternalRename // internal operation only
-	GetTree        // get tree structure for GUI
+	Rename  // internal operation only
+	GetTree // get tree structure for GUI
 
 	// Separator - messages >= this value are node-specific
 	CommonMsgSeparator
 
 	// Node-specific messages start here
 	// Each node type can define their own starting from this point
+	AuthenticateChild // Authenticator: authenticate user by username/password
+	Authenticate      // User: password verification
+	CreateUser        // Authenticator: create new user
 )
 
 // CreateChildPayload contains node type and optional name for creating a child node
@@ -63,4 +66,10 @@ type TreeEntry struct {
 	NodeID   nerd.NodeID  `json:"nodeId"`
 	Name     string       `json:"name"`
 	Children []*TreeEntry `json:"children"`
+}
+
+// CredentialsPayload contains username and password for authentication and user creation
+type CredentialsPayload struct {
+	Username string
+	Password string
 }

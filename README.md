@@ -27,7 +27,7 @@ See [Development Guide](#commands) for build and test commands.
 **Node-Centric Organization**: Everything is organized as trees of communicating
 nodes (one node = one goroutine). Each node has:
 
-- **Identity**: Tree position and routing information
+- **Entity**: Tree position and routing information
 - **Status**: Read-only runtime state and performance data
 - **Config**: User-controllable settings
 
@@ -76,7 +76,7 @@ path" the "correct path".
 **Node Types**: Currently 2 foundational types (Root, Group) with 5 more planned
 including GUI nodes representing connected interfaces.
 
-**Database**: SQLite with Gorm using Identity/Config separation. Each node
+**Database**: SQLite with Gorm using Entity/Config separation. Each node
 handles its own database operations for security and reliability.
 
 **Messaging**: `Pipe` channels carry `Msg` values for efficiency, while handlers
@@ -127,7 +127,7 @@ code. Don't jump straight into implementation.
 
 **✅ Completed:**
 
-- Database schema with Identity/Config separation
+- Database schema with Entity/Config separation
 - Node type system (2 foundational types: Root, Group)
 - CLI framework with `init` command
 - Message passing infrastructure with strongly-typed channels
@@ -253,7 +253,7 @@ let it go."
 **Decision**: Distributed database access where each node handles its own
 operations.
 
-**Pattern**: SQLite with Gorm enables safe concurrent access. Identity/Config
+**Pattern**: SQLite with Gorm enables safe concurrent access. Entity/Config
 struct separation with manual composition.
 
 **Benefits**:

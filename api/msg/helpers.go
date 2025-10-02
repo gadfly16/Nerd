@@ -41,10 +41,10 @@ func (t *Tag) AskShutdown() error {
 	return err
 }
 
-// AskInternalRename sends an InternalRename message to the target node (for parent-child coordination)
-func (t *Tag) AskInternalRename(newName string) error {
+// AskRename sends a Rename message to the target node (for parent-child coordination)
+func (t *Tag) AskRename(newName string) error {
 	_, err := t.Ask(&Msg{
-		Type:    InternalRename,
+		Type:    Rename,
 		Payload: newName,
 	})
 	return err
@@ -59,4 +59,46 @@ func (t *Tag) AskGetTree() (*TreeEntry, error) {
 		return nil, err
 	}
 	return result.(*TreeEntry), nil
+}
+
+// AskAuthenticateChild sends an AuthenticateChild message to the Authenticator node
+func (t *Tag) AskAuthenticateChild(username, password string) (*Tag, error) {
+	result, err := t.Ask(&Msg{
+		Type: AuthenticateChild,
+		Payload: CredentialsPayload{
+			Username: username,
+			Password: password,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*Tag), nil
+}
+
+// AskCreateUser sends a CreateUser message to the Authenticator node
+func (t *Tag) AskCreateUser(username, password string) (*Tag, error) {
+	result, err := t.Ask(&Msg{
+		Type: CreateUser,
+		Payload: CredentialsPayload{
+			Username: username,
+			Password: password,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*Tag), nil
+}
+
+// AskAuthenticate sends an Authenticate message to a User node
+func (t *Tag) AskAuthenticate(password string) (*Tag, error) {
+	result, err := t.Ask(&Msg{
+		Type:    Authenticate,
+		Payload: password,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*Tag), nil
 }

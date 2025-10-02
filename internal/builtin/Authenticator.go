@@ -1,0 +1,155 @@
+package builtin
+
+import (
+	"fmt"
+
+	"github.com/gadfly16/nerd/api/msg"
+	"github.com/gadfly16/nerd/api/nerd"
+	"github.com/gadfly16/nerd/api/node"
+)
+
+// Authenticator represents the authentication singleton node
+type Authenticator struct {
+	*node.Entity
+	// Note: Authenticator nodes don't have configs
+}
+
+// loadAuthenticator creates an Authenticator node from an existing Entity loaded from database
+func loadAuthenticator(identity *node.Entity) (node.Node, error) {
+	// Create Authenticator node with the loaded identity
+	auth := &Authenticator{
+		Entity: identity,
+	}
+
+	// Authenticator nodes have no configuration to load
+	return auth, nil
+}
+
+// newAuthenticator creates a new Authenticator node instance
+func newAuthenticator(entity *node.Entity) *Authenticator {
+	entity.Name = "Authenticator" // Override auto-generated name
+
+	return &Authenticator{
+		Entity: entity,
+	}
+}
+
+// GetNodeTypeName returns the human-readable name for this node type
+func (n *Authenticator) GetNodeTypeName() string {
+	return "Authenticator"
+}
+
+// Save persists the Authenticator node to the database
+func (n *Authenticator) Save() error {
+	// Note: Only saves Entity, no config for Authenticator nodes
+	return node.DB.Save(n.Entity).Error
+}
+
+// Run starts the Authenticator node goroutine and message loop
+func (n *Authenticator) Run() {
+	go n.messageLoop()
+}
+
+// Shutdown gracefully shuts down the Authenticator node and all children
+func (n *Authenticator) Shutdown() {
+	// Node-specific cleanup can be added here
+}
+
+// messageLoop handles incoming messages
+func (n *Authenticator) messageLoop() {
+	for m := range n.Incoming {
+		var a any
+		var err error
+
+		// TODO: Pre-process: authorization check
+
+		// Route based on message type
+		if m.Type < msg.CommonMsgSeparator {
+			// Common message - handle via Entity
+			a, err = handleCommonMessage(&m, n)
+		} else {
+			// Node-specific message handling
+			switch m.Type {
+			case msg.AuthenticateChild:
+				a, err = n.handleAuthenticateChild(&m)
+			case msg.CreateUser:
+				a, err = n.handleCreateUser(&m)
+			default:
+				err = nerd.ErrUnknownMessageType
+			}
+		}
+
+		// Post-process: apply any response filtering, logging, etc.
+		// TODO: Add post-processing logic here
+
+		// Send response
+		m.Reply(a, err)
+
+		// Exit the message loop in case of shutdown. The message is already
+		// handled as a common message
+		if m.Type == msg.Shutdown {
+			break
+		}
+	}
+}
+
+// handleAuthenticateChild authenticates a user by username and password
+func (n *Authenticator) handleAuthenticateChild(m *msg.Msg) (any, error) {
+	pl, ok := m.Payload.(msg.CredentialsPayload)
+	if !ok {
+		return nil, fmt.Errorf("invalid pl type for AuthenticateChild")
+	}
+
+	// Look up user by name
+	userTag, exists := n.Children[pl.Username]
+	if !exists {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	// Forward Authenticate message to user
+	return userTag.AskAuthenticate(pl.Password)
+}
+
+// handleCreateUser creates a new user node
+func (n *Authenticator) handleCreateUser(m *msg.Msg) (any, error) {
+	pl, ok := m.Payload.(msg.CredentialsPayload)
+	if !ok {
+		return nil, fmt.Errorf("invalid pl type for CreateUser")
+	}
+
+	// Check if user already exists
+	if _, exists := n.Children[pl.Username]; exists {
+		return nil, fmt.Errorf("user already exists")
+	}
+
+	// First user is automatically admin
+	isAdmin := len(n.Children) == 0
+
+	// Create new user node
+	user, err := newUser(pl.Username, pl.Password, isAdmin)
+	if err != nil {
+		return nil, err
+	}
+
+	// Save user to database
+	if err := user.Save(); err != nil {
+		return nil, fmt.Errorf("failed to save user: %w", err)
+	}
+
+	// Add to children map
+	n.Children[pl.Username] = user.Tag
+
+	// Update parent-child relationship in database
+	user.SetParentID(n.GetID())
+	if err := user.Save(); err != nil {
+		return nil, fmt.Errorf("failed to update user parent: %w", err)
+	}
+
+	// Invalidate tree cache
+	n.InvalidateTreeEntry()
+
+	// Start user node
+	user.Run()
+
+	return user.Tag, nil
+}

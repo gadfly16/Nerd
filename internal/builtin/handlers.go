@@ -18,7 +18,7 @@ func handleCommonMessage(m *msg.Msg, node node.Node) (any, error) {
 		return handleShutdown(m, node)
 	case msg.RenameChild:
 		return handleRenameChild(m, node)
-	case msg.InternalRename:
+	case msg.Rename:
 		return handleRename(m, node)
 	case msg.GetTree:
 		return handleGetTree(m, node)
@@ -30,7 +30,7 @@ func handleCommonMessage(m *msg.Msg, node node.Node) (any, error) {
 
 // handleCreateChild processes requests to create child nodes (shared logic)
 func handleCreateChild(m *msg.Msg, n node.Node) (any, error) {
-	i := n.GetIdentity()
+	e := n.GetEntity()
 	// Parse message pl
 	pl, ok := m.Payload.(msg.CreateChildPayload)
 	if !ok {
@@ -39,7 +39,7 @@ func handleCreateChild(m *msg.Msg, n node.Node) (any, error) {
 
 	// Check for name collision
 	if pl.Name != "" {
-		if _, exists := i.Children[pl.Name]; exists {
+		if _, exists := e.Children[pl.Name]; exists {
 			return nil, fmt.Errorf("child with name '%s' already exists", pl.Name)
 		}
 	}
@@ -50,10 +50,10 @@ func handleCreateChild(m *msg.Msg, n node.Node) (any, error) {
 	chn := NewNode(pl.NodeType, pl.Name)
 
 	// Set parent-child relationship
-	chn.SetParentID(i.Tag.NodeID)
+	chn.SetParentID(e.Tag.NodeID)
 
 	// Link child's cache validity to parent's
-	chn.GetIdentity().CacheValidity.Parent = &i.CacheValidity
+	chn.GetEntity().CacheValidity.Parent = &e.CacheValidity
 
 	// Save the child (name is already set in constructor)
 	err := chn.Save()
@@ -62,11 +62,10 @@ func handleCreateChild(m *msg.Msg, n node.Node) (any, error) {
 	}
 
 	// Add child to parent's children map using name as key
-	childName := chn.GetName()
-	i.Children[childName] = chn.GetTag()
+	e.Children[chn.GetName()] = chn.GetTag()
 
 	// Invalidate parent's cache since tree structure changed
-	i.CacheValidity.InvalidateTreeEntry()
+	e.CacheValidity.InvalidateTreeEntry()
 
 	// Start the child node
 	chn.Run()
@@ -76,19 +75,18 @@ func handleCreateChild(m *msg.Msg, n node.Node) (any, error) {
 
 // handleShutdown processes shutdown requests (shared logic)
 func handleShutdown(_ *msg.Msg, n node.Node) (any, error) {
-	i := n.GetIdentity()
+	e := n.GetEntity()
 
 	// 1. Collect tags of all shutdown nodes (start with this node)
 	var shutdownTags []*msg.Tag
-	shutdownTags = append(shutdownTags, i.Tag)
+	shutdownTags = append(shutdownTags, e.Tag)
 
 	// 2. Ask all children to shutdown and accumulate their shutdown tags
-	if len(i.Children) > 0 {
-		shutdownMsg := &msg.Msg{
+	if len(e.Children) > 0 {
+		err := e.AskChildren(&msg.Msg{
 			Type:    msg.Shutdown,
 			Payload: nil,
-		}
-		err := i.AskChildren(shutdownMsg).Reduce(func(payload any) {
+		}).Reduce(func(payload any) {
 			// Each child returns its own list of shutdown tags
 			if childTags, ok := payload.([]*msg.Tag); ok {
 				shutdownTags = append(shutdownTags, childTags...)
@@ -108,24 +106,24 @@ func handleShutdown(_ *msg.Msg, n node.Node) (any, error) {
 
 // handleGetTree processes requests for tree structure (shared logic)
 func handleGetTree(_ *msg.Msg, n node.Node) (any, error) {
-	i := n.GetIdentity()
+	e := n.GetEntity()
 
 	// Check cache first
-	if i.CacheValidity.TreeEntry.Load() {
-		return i.CachedTreeEntry, nil
+	if e.CacheValidity.TreeEntry.Load() {
+		return e.CachedTreeEntry, nil
 	}
 
 	// Build tree entry for this node
 	entry := &msg.TreeEntry{
-		NodeID: i.NodeID,
-		Name:   i.Name,
+		NodeID: e.NodeID,
+		Name:   e.Name,
 	}
 
 	// Build children entries (always full subtree)
 	var children []*msg.TreeEntry
-	if len(i.Children) > 0 {
+	if len(e.Children) > 0 {
 		// Ask all children concurrently for their tree structure
-		err := i.AskChildren(&msg.Msg{
+		err := e.AskChildren(&msg.Msg{
 			Type: msg.GetTree,
 		}).Reduce(func(payload any) {
 			children = append(children, payload.(*msg.TreeEntry))
@@ -139,15 +137,15 @@ func handleGetTree(_ *msg.Msg, n node.Node) (any, error) {
 	entry.Children = children
 
 	// Cache the result and mark as valid
-	i.CachedTreeEntry = entry
-	i.CacheValidity.TreeEntry.Store(true)
+	e.CachedTreeEntry = entry
+	e.CacheValidity.TreeEntry.Store(true)
 
 	return entry, nil
 }
 
 // handleRenameChild processes requests to rename child nodes (shared logic)
 func handleRenameChild(m *msg.Msg, n node.Node) (any, error) {
-	i := n.GetIdentity()
+	e := n.GetEntity()
 
 	// Parse message pl
 	pl, ok := m.Payload.(msg.RenameChildPayload)
@@ -161,28 +159,28 @@ func handleRenameChild(m *msg.Msg, n node.Node) (any, error) {
 	}
 
 	// Check if old name exists in children map
-	ch, exists := i.Children[pl.OldName]
+	ch, exists := e.Children[pl.OldName]
 	if !exists {
 		return nil, nerd.ErrNodeNotFound
 	}
 
 	// Check if new name already exists (collision check)
-	if _, collision := i.Children[pl.NewName]; collision {
+	if _, collision := e.Children[pl.NewName]; collision {
 		return nil, nerd.ErrNameCollision
 	}
 
 	// Ask child to rename itself
-	err := ch.AskInternalRename(pl.NewName)
+	err := ch.AskRename(pl.NewName)
 	if err != nil {
 		return nil, err
 	}
 
 	// Update parent's children map
-	delete(i.Children, pl.OldName)
-	i.Children[pl.NewName] = ch
+	delete(e.Children, pl.OldName)
+	e.Children[pl.NewName] = ch
 
 	// Invalidate parent's cache since tree structure changed
-	i.CacheValidity.InvalidateTreeEntry()
+	e.CacheValidity.InvalidateTreeEntry()
 
 	return nil, nil
 }
