@@ -1,29 +1,22 @@
 // Root GUI Component - Top-level container for the entire Nerd interface
-
-import "./nerd-auth"
-
+import "./nerd-auth";
 class NerdGui extends HTMLElement {
-  private userId: number = 0
-
-  constructor() {
-    super()
-    this.attachShadow({ mode: "open" })
-  }
-
-  connectedCallback() {
-    // Read userid from attribute
-    const userIdAttr = this.getAttribute("userid")
-    this.userId = userIdAttr ? parseInt(userIdAttr, 10) : 0
-
-    this.render()
-  }
-
-  private render() {
-    if (!this.shadowRoot) return
-
-    const needsAuth = this.userId === 0
-
-    this.shadowRoot.innerHTML = `
+    userId = 0;
+    constructor() {
+        super();
+        this.attachShadow({ mode: "open" });
+    }
+    connectedCallback() {
+        // Read userid from attribute
+        const userIdAttr = this.getAttribute("userid");
+        this.userId = userIdAttr ? parseInt(userIdAttr, 10) : 0;
+        this.render();
+    }
+    render() {
+        if (!this.shadowRoot)
+            return;
+        const needsAuth = this.userId === 0;
+        this.shadowRoot.innerHTML = `
             <style>
                 :host {
                     display: block;
@@ -59,16 +52,14 @@ class NerdGui extends HTMLElement {
                     Nerd - Personal Software Agent
                 </div>
                 <div class="content">
-                    ${
-                      needsAuth
-                        ? "<nerd-auth></nerd-auth>"
-                        : `<p>Welcome, User ${this.userId}!</p><p>Main UI coming soon...</p>`
-                    }
+                    ${needsAuth
+            ? "<nerd-auth></nerd-auth>"
+            : `<p>Welcome, User ${this.userId}!</p><p>Main UI coming soon...</p>`}
                 </div>
             </div>
-        `
-  }
+        `;
+    }
 }
-
 // Register the custom element
-customElements.define("nerd-gui", NerdGui)
+customElements.define("nerd-gui", NerdGui);
+//# sourceMappingURL=nerd-gui.js.map

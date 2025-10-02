@@ -22,7 +22,7 @@ type Tag struct {
 // ToMap converts Tag to map[string]any for HTTP responses
 func (t *Tag) ToMap() map[string]any {
 	return map[string]any{
-		"nodeId": t.NodeID,
+		"nodeId": float64(t.NodeID),
 		"admin":  t.Admin,
 	}
 }

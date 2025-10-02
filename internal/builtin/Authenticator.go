@@ -21,6 +21,9 @@ func loadAuthenticator(identity *node.Entity) (node.Node, error) {
 		Entity: identity,
 	}
 
+	// Register as system singleton
+	System.Authenticator = identity.Tag
+
 	// Authenticator nodes have no configuration to load
 	return auth, nil
 }
