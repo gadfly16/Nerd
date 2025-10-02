@@ -195,11 +195,13 @@ func (s *Server) handleAuthenticateUser(w http.ResponseWriter, m *httpmsg.HttpMs
 		return
 	}
 
-	// Result is httpmsg.WebTag
-	webTag := result.(httpmsg.WebTag)
+	// Result is map[string]any with nodeId and admin fields
+	resultMap := result.(map[string]any)
+	userID := nerd.NodeID(resultMap["nodeId"].(float64))
+	admin := resultMap["admin"].(bool)
 
 	// Set JWT cookie
-	if err := s.setJWTCookie(w, webTag.NodeID, webTag.Admin); err != nil {
+	if err := s.setJWTCookie(w, userID, admin); err != nil {
 		log.Printf("Failed to set JWT cookie: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -208,7 +210,7 @@ func (s *Server) handleAuthenticateUser(w http.ResponseWriter, m *httpmsg.HttpMs
 	// Return success with user info
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(webTag)
+	json.NewEncoder(w).Encode(resultMap)
 }
 
 // setJWTCookie generates a JWT token and sets it as an HTTP-only cookie
@@ -253,11 +255,13 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, m *httpmsg.HttpMsg) {
 		return
 	}
 
-	// Result is httpmsg.WebTag
-	webTag := result.(httpmsg.WebTag)
+	// Result is map[string]any with nodeId and admin fields
+	resultMap := result.(map[string]any)
+	userID := nerd.NodeID(resultMap["nodeId"].(float64))
+	admin := resultMap["admin"].(bool)
 
 	// Set JWT cookie (auto-login after registration)
-	if err := s.setJWTCookie(w, webTag.NodeID, webTag.Admin); err != nil {
+	if err := s.setJWTCookie(w, userID, admin); err != nil {
 		log.Printf("Failed to set JWT cookie: %v", err)
 		http.Error(w, "Internal server error", http.StatusInternalServerError)
 		return
@@ -266,5 +270,5 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, m *httpmsg.HttpMsg) {
 	// Return success with user info
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(webTag)
+	json.NewEncoder(w).Encode(resultMap)
 }

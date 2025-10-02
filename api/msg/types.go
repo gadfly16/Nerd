@@ -1,9 +1,6 @@
 package msg
 
-import (
-	"github.com/gadfly16/nerd/api/nerd"
-	"github.com/gadfly16/nerd/internal/httpmsg"
-)
+import "github.com/gadfly16/nerd/api/nerd"
 
 // Msg represents a message sent between nodes
 type Msg struct {
@@ -22,11 +19,11 @@ type Tag struct {
 	Admin    bool        // True if this node represents an admin user
 }
 
-// ToWebTag converts Tag to WebTag for HTTP responses
-func (t *Tag) ToWebTag() httpmsg.WebTag {
-	return httpmsg.WebTag{
-		NodeID: t.NodeID,
-		Admin:  t.Admin,
+// ToMap converts Tag to map[string]any for HTTP responses
+func (t *Tag) ToMap() map[string]any {
+	return map[string]any{
+		"nodeId": t.NodeID,
+		"admin":  t.Admin,
 	}
 }
 

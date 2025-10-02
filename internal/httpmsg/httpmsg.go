@@ -22,9 +22,3 @@ type HttpMsg struct {
 	UserID   nerd.NodeID    `json:"userId"` // Authentication context
 	Payload  map[string]any `json:"payload"`
 }
-
-// WebTag is a stripped-down version of Tag for HTTP responses
-type WebTag struct {
-	NodeID nerd.NodeID `json:"nodeId"`
-	Admin  bool        `json:"admin"`
-}

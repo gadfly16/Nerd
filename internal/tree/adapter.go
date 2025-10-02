@@ -85,9 +85,8 @@ func AskAuth(httpMsg httpmsg.HttpMsg) (any, error) {
 		return nil, err
 	}
 
-	// Convert Tag to WebTag for HTTP response
+	// Convert Tag to map for server
 	tag := result.(*msg.Tag)
-	webTag := tag.ToWebTag()
 
 	// Post-processing based on message type
 	switch httpMsg.Type {
@@ -96,5 +95,5 @@ func AskAuth(httpMsg httpmsg.HttpMsg) (any, error) {
 		addTag(tag)
 	}
 
-	return webTag, nil
+	return tag.ToMap(), nil
 }
