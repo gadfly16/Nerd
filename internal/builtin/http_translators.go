@@ -7,11 +7,10 @@ import (
 )
 
 // translateHttpGetTree converts HttpGetTree message to native GetTree message
-func translateHttpGetTree(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
+func translateHttpGetTree(_ httpmsg.HttpMsg) (*msg.Msg, error) {
 	// No payload validation needed - GetTree always returns full subtree
 	return &msg.Msg{
-		Type:    msg.GetTree,
-		Payload: msg.GetTreePayload{},
+		Type: msg.GetTree,
 	}, nil
 }
 
@@ -97,9 +96,8 @@ func translateHttpRenameChild(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
 }
 
 // translateHttpShutdown converts HttpShutdown message to native Shutdown message
-func translateHttpShutdown(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
+func translateHttpShutdown(_ httpmsg.HttpMsg) (*msg.Msg, error) {
 	return &msg.Msg{
-		Type:    msg.Shutdown,
-		Payload: nil,
+		Type: msg.Shutdown,
 	}, nil
 }

@@ -58,10 +58,6 @@ type RenameChildPayload struct {
 	NewName string
 }
 
-// GetTreePayload is an empty payload - GetTree always returns full subtree
-type GetTreePayload struct {
-}
-
 // TreeEntry represents a node and its children in the tree structure
 type TreeEntry struct {
 	NodeID   nerd.NodeID  `json:"nodeId"`

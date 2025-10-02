@@ -107,14 +107,8 @@ func handleShutdown(_ *msg.Msg, n node.Node) (any, error) {
 }
 
 // handleGetTree processes requests for tree structure (shared logic)
-func handleGetTree(m *msg.Msg, n node.Node) (any, error) {
+func handleGetTree(_ *msg.Msg, n node.Node) (any, error) {
 	i := n.GetIdentity()
-
-	// Parse message payload
-	_, ok := m.Payload.(msg.GetTreePayload)
-	if !ok {
-		return nil, nerd.ErrInvalidPayload
-	}
 
 	// Check cache first
 	if i.CacheValidity.TreeEntry.Load() {
@@ -132,8 +126,7 @@ func handleGetTree(m *msg.Msg, n node.Node) (any, error) {
 	if len(i.Children) > 0 {
 		// Ask all children concurrently for their tree structure
 		err := i.AskChildren(&msg.Msg{
-			Type:    msg.GetTree,
-			Payload: msg.GetTreePayload{},
+			Type: msg.GetTree,
 		}).Reduce(func(payload any) {
 			children = append(children, payload.(*msg.TreeEntry))
 		})

@@ -53,8 +53,7 @@ func (t *Tag) AskInternalRename(newName string) error {
 // AskGetTree sends a GetTree message to the target node (always returns full subtree)
 func (t *Tag) AskGetTree() (*TreeEntry, error) {
 	result, err := t.Ask(&Msg{
-		Type:    GetTree,
-		Payload: GetTreePayload{},
+		Type: GetTree,
 	})
 	if err != nil {
 		return nil, err

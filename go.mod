@@ -3,6 +3,7 @@ module github.com/gadfly16/nerd
 go 1.24.6
 
 require (
+	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/spf13/cobra v1.10.1
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.0
