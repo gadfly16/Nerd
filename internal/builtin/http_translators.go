@@ -25,6 +25,10 @@ func TranslateHttpMessage(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
 		return translateHttpRenameChild(httpMsg)
 	case httpmsg.HttpShutdown:
 		return translateHttpShutdown(httpMsg)
+	case httpmsg.HttpAuthenticateUser:
+		return translateHttpAuthenticateUser(httpMsg)
+	case httpmsg.HttpCreateUser:
+		return translateHttpCreateUser(httpMsg)
 	default:
 		return nil, nerd.ErrMalformedHttpMessage
 	}
@@ -99,5 +103,49 @@ func translateHttpRenameChild(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
 func translateHttpShutdown(_ httpmsg.HttpMsg) (*msg.Msg, error) {
 	return &msg.Msg{
 		Type: msg.Shutdown,
+	}, nil
+}
+
+// translateHttpAuthenticateUser converts HttpAuthenticateUser to native AuthenticateUser message
+func translateHttpAuthenticateUser(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
+	// Extract username and password from payload
+	username, ok := httpMsg.Payload["username"].(string)
+	if !ok {
+		return nil, nerd.ErrMalformedHttpMessage
+	}
+
+	password, ok := httpMsg.Payload["password"].(string)
+	if !ok {
+		return nil, nerd.ErrMalformedHttpMessage
+	}
+
+	return &msg.Msg{
+		Type: msg.AuthenticateUser,
+		Payload: msg.CredentialsPayload{
+			Username: username,
+			Password: password,
+		},
+	}, nil
+}
+
+// translateHttpCreateUser converts HttpCreateUser to native CreateUser message
+func translateHttpCreateUser(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
+	// Extract username and password from payload
+	username, ok := httpMsg.Payload["username"].(string)
+	if !ok {
+		return nil, nerd.ErrMalformedHttpMessage
+	}
+
+	password, ok := httpMsg.Payload["password"].(string)
+	if !ok {
+		return nil, nerd.ErrMalformedHttpMessage
+	}
+
+	return &msg.Msg{
+		Type: msg.CreateUser,
+		Payload: msg.CredentialsPayload{
+			Username: username,
+			Password: password,
+		},
 	}, nil
 }

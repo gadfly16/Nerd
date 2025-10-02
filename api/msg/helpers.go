@@ -61,10 +61,10 @@ func (t *Tag) AskGetTree() (*TreeEntry, error) {
 	return result.(*TreeEntry), nil
 }
 
-// AskAuthenticateChild sends an AuthenticateChild message to the Authenticator node
-func (t *Tag) AskAuthenticateChild(username, password string) (*Tag, error) {
+// AskAuthenticateUser sends an AuthenticateUser message to the Authenticator node
+func (t *Tag) AskAuthenticateUser(username, password string) (*Tag, error) {
 	result, err := t.Ask(&Msg{
-		Type: AuthenticateChild,
+		Type: AuthenticateUser,
 		Payload: CredentialsPayload{
 			Username: username,
 			Password: password,

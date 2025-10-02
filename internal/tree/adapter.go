@@ -70,3 +70,31 @@ func AskNode(httpMsg httpmsg.HttpMsg) (any, error) {
 
 	return result, nil
 }
+
+// AskAuth routes authentication messages to the Authenticator node
+func AskAuth(httpMsg httpmsg.HttpMsg) (any, error) {
+	// Translate HTTP message to native message
+	nativeMsg, err := builtin.TranslateHttpMessage(httpMsg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Send to Authenticator node and get response
+	result, err := builtin.System.Authenticator.Ask(nativeMsg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert Tag to WebTag for HTTP response
+	tag := result.(*msg.Tag)
+	webTag := tag.ToWebTag()
+
+	// Post-processing based on message type
+	switch httpMsg.Type {
+	case httpmsg.HttpCreateUser:
+		// Register newly created user in tree
+		addTag(tag)
+	}
+
+	return webTag, nil
+}

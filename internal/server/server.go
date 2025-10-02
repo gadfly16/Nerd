@@ -1,14 +1,18 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gadfly16/nerd/api/nerd"
+	"github.com/gadfly16/nerd/internal/httpmsg"
+	"github.com/gadfly16/nerd/internal/tree"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -36,7 +40,10 @@ func (s *Server) Start() error {
 	// Static file serving and root route
 	mux.HandleFunc("/", s.handleRoot)
 
-	// API endpoint for messages
+	// Authentication endpoint (unauthenticated)
+	mux.HandleFunc("/auth", s.handleAuth)
+
+	// API endpoint for authenticated messages
 	mux.HandleFunc("/api", s.handleAPI)
 
 	addr := ":" + s.port
@@ -148,4 +155,116 @@ func (s *Server) getUserFromJWT(r *http.Request) (nerd.NodeID, error) {
 	}
 
 	return nerd.NodeID(userIDFloat), nil
+}
+
+// handleAuth processes unauthenticated operations (login, user creation)
+func (s *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
+	// Only allow POST requests
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Parse HTTP message
+	var httpMsg httpmsg.HttpMsg
+	if err := json.NewDecoder(r.Body).Decode(&httpMsg); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Route based on message type
+	switch httpMsg.Type {
+	case httpmsg.HttpAuthenticateUser:
+		s.handleAuthenticateUser(w, &httpMsg)
+	case httpmsg.HttpCreateUser:
+		s.handleCreateUser(w, &httpMsg)
+	default:
+		http.Error(w, "Invalid auth message type", http.StatusBadRequest)
+	}
+}
+
+// handleAuthenticateUser processes user authentication
+func (s *Server) handleAuthenticateUser(w http.ResponseWriter, m *httpmsg.HttpMsg) {
+	// Send authentication request to Authenticator
+	result, err := tree.AskAuth(*m)
+	if err != nil {
+		log.Printf("Authentication failed: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		json.NewEncoder(w).Encode(map[string]string{"error": "authentication failed"})
+		return
+	}
+
+	// Result is httpmsg.WebTag
+	webTag := result.(httpmsg.WebTag)
+
+	// Set JWT cookie
+	if err := s.setJWTCookie(w, webTag.NodeID, webTag.Admin); err != nil {
+		log.Printf("Failed to set JWT cookie: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Return success with user info
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(webTag)
+}
+
+// setJWTCookie generates a JWT token and sets it as an HTTP-only cookie
+func (s *Server) setJWTCookie(w http.ResponseWriter, userID nerd.NodeID, admin bool) error {
+	// Create JWT claims
+	claims := jwt.MapClaims{
+		"user_id": float64(userID),
+		"admin":   admin,
+		"exp":     time.Now().Add(24 * time.Hour).Unix(),
+	}
+
+	// Create token
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(s.jwtSecret))
+	if err != nil {
+		return fmt.Errorf("failed to sign token: %w", err)
+	}
+
+	// Set HTTP-only cookie
+	http.SetCookie(w, &http.Cookie{
+		Name:     "nerd_token",
+		Value:    tokenString,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false, // Set to true in production with HTTPS
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   86400, // 24 hours
+	})
+
+	return nil
+}
+
+// handleCreateUser processes user creation
+func (s *Server) handleCreateUser(w http.ResponseWriter, m *httpmsg.HttpMsg) {
+	// Send user creation request to Authenticator
+	result, err := tree.AskAuth(*m)
+	if err != nil {
+		log.Printf("User creation failed: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	// Result is httpmsg.WebTag
+	webTag := result.(httpmsg.WebTag)
+
+	// Set JWT cookie (auto-login after registration)
+	if err := s.setJWTCookie(w, webTag.NodeID, webTag.Admin); err != nil {
+		log.Printf("Failed to set JWT cookie: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Return success with user info
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(webTag)
 }

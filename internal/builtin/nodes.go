@@ -8,6 +8,14 @@ import (
 	"github.com/gadfly16/nerd/api/node"
 )
 
+// System holds references to system nodes for easy access
+type SystemNodes struct {
+	Authenticator *msg.Tag
+}
+
+// System provides access to system node tags
+var System = &SystemNodes{}
+
 // NewNode creates a new node instance based on the specified type and name
 // If name is empty, auto-generation will be used
 func NewNode(nodeType nerd.NodeType, name string) node.Node {

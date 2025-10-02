@@ -1,6 +1,9 @@
 package msg
 
-import "github.com/gadfly16/nerd/api/nerd"
+import (
+	"github.com/gadfly16/nerd/api/nerd"
+	"github.com/gadfly16/nerd/internal/httpmsg"
+)
 
 // Msg represents a message sent between nodes
 type Msg struct {
@@ -17,6 +20,14 @@ type Tag struct {
 	NodeID   nerd.NodeID `gorm:"primaryKey"`
 	Incoming MsgChan     `gorm:"-"` // Runtime field, not persisted
 	Admin    bool        // True if this node represents an admin user
+}
+
+// ToWebTag converts Tag to WebTag for HTTP responses
+func (t *Tag) ToWebTag() httpmsg.WebTag {
+	return httpmsg.WebTag{
+		NodeID: t.NodeID,
+		Admin:  t.Admin,
+	}
 }
 
 // Answer represents a response with payload and error
@@ -44,9 +55,9 @@ const (
 
 	// Node-specific messages start here
 	// Each node type can define their own starting from this point
-	AuthenticateChild // Authenticator: authenticate user by username/password
-	Authenticate      // User: password verification
-	CreateUser        // Authenticator: create new user
+	AuthenticateUser // Authenticator: authenticate user by username/password
+	Authenticate     // User: password verification
+	CreateUser       // Authenticator: create new user
 )
 
 // CreateChildPayload contains node type and optional name for creating a child node

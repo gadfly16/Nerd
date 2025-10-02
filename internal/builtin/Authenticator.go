@@ -29,9 +29,14 @@ func loadAuthenticator(identity *node.Entity) (node.Node, error) {
 func newAuthenticator(entity *node.Entity) *Authenticator {
 	entity.Name = "Authenticator" // Override auto-generated name
 
-	return &Authenticator{
+	auth := &Authenticator{
 		Entity: entity,
 	}
+
+	// Register as system node for easy access
+	System.Authenticator = entity.Tag
+
+	return auth
 }
 
 // GetNodeTypeName returns the human-readable name for this node type
@@ -70,8 +75,8 @@ func (n *Authenticator) messageLoop() {
 		} else {
 			// Node-specific message handling
 			switch m.Type {
-			case msg.AuthenticateChild:
-				a, err = n.handleAuthenticateChild(&m)
+			case msg.AuthenticateUser:
+				a, err = n.handleAuthenticateUser(&m)
 			case msg.CreateUser:
 				a, err = n.handleCreateUser(&m)
 			default:
@@ -93,11 +98,11 @@ func (n *Authenticator) messageLoop() {
 	}
 }
 
-// handleAuthenticateChild authenticates a user by username and password
-func (n *Authenticator) handleAuthenticateChild(m *msg.Msg) (any, error) {
+// handleAuthenticateUser authenticates a user by username and password
+func (n *Authenticator) handleAuthenticateUser(m *msg.Msg) (any, error) {
 	pl, ok := m.Payload.(msg.CredentialsPayload)
 	if !ok {
-		return nil, fmt.Errorf("invalid pl type for AuthenticateChild")
+		return nil, fmt.Errorf("invalid pl type for AuthenticateUser")
 	}
 
 	// Look up user by name
