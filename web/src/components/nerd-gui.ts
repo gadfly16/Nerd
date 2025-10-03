@@ -1,65 +1,62 @@
 // Root GUI Component - Top-level container for the entire Nerd interface
 
 import "./nerd-auth"
+import "./nerd-header"
+import "./nerd-workbench"
+import { system } from "../system"
 
-class NerdGui extends HTMLElement {
-  private userId: number = 0
+export class NerdGui extends HTMLElement {
+  userId: number = 0
+  private auth = document.createElement("nerd-auth")
 
   connectedCallback() {
-    // Read userid from attribute
-    const userIdAttr = this.getAttribute("userid")
-    this.userId = userIdAttr ? parseInt(userIdAttr, 10) : 0
-
+    this.userId = parseInt(this.getAttribute("userid")!, 10)
+    system.gui = this
     this.render()
+    this.updateAuthState()
   }
 
   private render() {
-    const needsAuth = this.userId === 0
-
     this.innerHTML = `
-            <style>
-                :host {
-                    display: block;
-                    width: 100%;
-                    height: 100vh;
-                    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                    background: #fafafa;
-                }
+			<style>
+				:host {
+					display: block;
+					width: 100%;
+					height: 100vh;
+					font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+					background: #fafafa;
+				}
 
-                .container {
-                    display: flex;
-                    flex-direction: column;
-                    height: 100%;
-                }
+				.nerd-gui {
+					display: flex;
+					flex-direction: column;
+					height: 100%;
+				}
 
-                .header {
-                    background: #2c3e50;
-                    color: white;
-                    padding: 1rem;
-                    font-size: 1.2rem;
-                    font-weight: bold;
-                }
+				.hidden {
+					display: none;
+				}
+			</style>
 
-                .content {
-                    flex: 1;
-                    padding: 1rem;
-                    overflow: auto;
-                }
-            </style>
+			<div class="nerd-gui">
+				<nerd-header></nerd-header>
+				<nerd-workbench></nerd-workbench>
+			</div>
+		`
+  }
 
-            <div class="container">
-                <div class="header">
-                    Nerd - Personal Software Agent
-                </div>
-                <div class="content">
-                    ${
-                      needsAuth
-                        ? "<nerd-auth></nerd-auth>"
-                        : `<p>Welcome, User ${this.userId}!</p><p>Main UI coming soon...</p>`
-                    }
-                </div>
-            </div>
-        `
+  updateAuthState() {
+    const workbench = this.querySelector("nerd-workbench")!
+
+    if (this.userId === 0) {
+      // Hide workbench, insert nerd-auth
+      workbench.classList.add("hidden")
+      this.appendChild(this.auth)
+    } else {
+      // Show workbench, remove nerd-auth
+      workbench.classList.remove("hidden")
+      this.auth.remove()
+    }
   }
 }
 

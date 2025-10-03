@@ -1,4 +1,5 @@
 import { imsg } from "../imsg"
+import { system } from "../system"
 
 export class NerdAuth extends HTMLElement {
   private mode: "login" | "register" = "login"
@@ -85,8 +86,10 @@ export class NerdAuth extends HTMLElement {
         return
       }
 
-      // Success - JWT cookie is set, reload to update userid
-      window.location.reload()
+      // Success - JWT cookie is set, update GUI state
+      const data = await response.json()
+      system.gui.userId = data.userid
+      system.gui.updateAuthState()
     } catch (err) {
       this.showError("Network error. Please try again.")
     }

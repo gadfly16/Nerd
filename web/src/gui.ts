@@ -2,4 +2,9 @@
 // Vanilla TypeScript with Web Components architecture
 
 // Import components to register custom elements
-import "./components/nerd-gui"
+import { NerdGui } from "./components/nerd-gui"
+
+// Global system state
+export const system = {
+  gui: null as NerdGui | null,
+}
