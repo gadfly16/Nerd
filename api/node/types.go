@@ -13,6 +13,22 @@ const (
 	BuiltinSeparator
 )
 
+// NodeTypeName returns the string representation of a NodeType
+func NodeTypeName(nt nerd.NodeType) string {
+	switch nt {
+	case Group:
+		return "Group"
+	case Root:
+		return "Root"
+	case Authenticator:
+		return "Authenticator"
+	case User:
+		return "User"
+	default:
+		return "Unknown"
+	}
+}
+
 // Node interface defines common methods all node types must implement
 type Node interface {
 	GetEntity() *Entity

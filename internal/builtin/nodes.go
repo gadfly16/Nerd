@@ -23,7 +23,7 @@ func NewNode(nodeType nerd.NodeType, name string) node.Node {
 
 	// Auto-generate name if not provided
 	if name == "" {
-		name = fmt.Sprintf("New %s #%d", nodeType, id)
+		name = fmt.Sprintf("New %s #%d", node.NodeTypeName(nodeType), id)
 	}
 
 	// Create base Entity with common fields initialized
