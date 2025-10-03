@@ -3,11 +3,11 @@ package builtin
 import (
 	"github.com/gadfly16/nerd/api/msg"
 	"github.com/gadfly16/nerd/api/nerd"
-	"github.com/gadfly16/nerd/internal/httpmsg"
+	"github.com/gadfly16/nerd/internal/imsg"
 )
 
 // translateHttpGetTree converts HttpGetTree message to native GetTree message
-func translateHttpGetTree(_ httpmsg.HttpMsg) (*msg.Msg, error) {
+func translateHttpGetTree(_ imsg.IMsg) (*msg.Msg, error) {
 	// No payload validation needed - GetTree always returns full subtree
 	return &msg.Msg{
 		Type: msg.GetTree,
@@ -15,19 +15,19 @@ func translateHttpGetTree(_ httpmsg.HttpMsg) (*msg.Msg, error) {
 }
 
 // TranslateHttpMessage converts HTTP message to native message using appropriate translator
-func TranslateHttpMessage(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
+func TranslateHttpMessage(httpMsg imsg.IMsg) (*msg.Msg, error) {
 	switch httpMsg.Type {
-	case httpmsg.HttpGetTree:
+	case imsg.HttpGetTree:
 		return translateHttpGetTree(httpMsg)
-	case httpmsg.HttpCreateChild:
+	case imsg.HttpCreateChild:
 		return translateHttpCreateChild(httpMsg)
-	case httpmsg.HttpRenameChild:
+	case imsg.HttpRenameChild:
 		return translateHttpRenameChild(httpMsg)
-	case httpmsg.HttpShutdown:
+	case imsg.HttpShutdown:
 		return translateHttpShutdown(httpMsg)
-	case httpmsg.HttpAuthenticateUser:
+	case imsg.HttpAuthenticateUser:
 		return translateHttpAuthenticateUser(httpMsg)
-	case httpmsg.HttpCreateUser:
+	case imsg.HttpCreateUser:
 		return translateHttpCreateUser(httpMsg)
 	default:
 		return nil, nerd.ErrMalformedHttpMessage
@@ -35,7 +35,7 @@ func TranslateHttpMessage(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
 }
 
 // translateHttpCreateChild converts HttpCreateChild message to native CreateChild message
-func translateHttpCreateChild(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
+func translateHttpCreateChild(httpMsg imsg.IMsg) (*msg.Msg, error) {
 	// Validate payload contains nodeType field
 	nodeType, ok := httpMsg.Payload["nodeType"]
 	if !ok {
@@ -67,7 +67,7 @@ func translateHttpCreateChild(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
 }
 
 // translateHttpRenameChild converts HttpRenameChild message to native RenameChild message
-func translateHttpRenameChild(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
+func translateHttpRenameChild(httpMsg imsg.IMsg) (*msg.Msg, error) {
 	// Validate payload contains oldName field
 	oldName, ok := httpMsg.Payload["oldName"]
 	if !ok {
@@ -100,14 +100,14 @@ func translateHttpRenameChild(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
 }
 
 // translateHttpShutdown converts HttpShutdown message to native Shutdown message
-func translateHttpShutdown(_ httpmsg.HttpMsg) (*msg.Msg, error) {
+func translateHttpShutdown(_ imsg.IMsg) (*msg.Msg, error) {
 	return &msg.Msg{
 		Type: msg.Shutdown,
 	}, nil
 }
 
 // translateHttpAuthenticateUser converts HttpAuthenticateUser to native AuthenticateUser message
-func translateHttpAuthenticateUser(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
+func translateHttpAuthenticateUser(httpMsg imsg.IMsg) (*msg.Msg, error) {
 	// Extract username and password from payload
 	username, ok := httpMsg.Payload["username"].(string)
 	if !ok {
@@ -129,7 +129,7 @@ func translateHttpAuthenticateUser(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
 }
 
 // translateHttpCreateUser converts HttpCreateUser to native CreateUser message
-func translateHttpCreateUser(httpMsg httpmsg.HttpMsg) (*msg.Msg, error) {
+func translateHttpCreateUser(httpMsg imsg.IMsg) (*msg.Msg, error) {
 	// Extract username and password from payload
 	username, ok := httpMsg.Payload["username"].(string)
 	if !ok {

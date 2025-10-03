@@ -5,11 +5,11 @@ import (
 	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/api/node"
 	"github.com/gadfly16/nerd/internal/builtin"
-	"github.com/gadfly16/nerd/internal/httpmsg"
+	"github.com/gadfly16/nerd/internal/imsg"
 )
 
 // NotifyNode translates HTTP message to native message and sends non-blocking
-func NotifyNode(httpMsg httpmsg.HttpMsg) error {
+func NotifyNode(httpMsg imsg.IMsg) error {
 	// Validate target exists
 	tag, exists := getTag(httpMsg.TargetID)
 	if !exists {
@@ -28,7 +28,7 @@ func NotifyNode(httpMsg httpmsg.HttpMsg) error {
 }
 
 // AskNode translates HTTP message to native message and sends blocking
-func AskNode(httpMsg httpmsg.HttpMsg) (any, error) {
+func AskNode(httpMsg imsg.IMsg) (any, error) {
 	// Validate target exists
 	tag, exists := getTag(httpMsg.TargetID)
 	if !exists {
@@ -49,10 +49,10 @@ func AskNode(httpMsg httpmsg.HttpMsg) (any, error) {
 
 	// Post-processing based on message type
 	switch httpMsg.Type {
-	case httpmsg.HttpCreateChild:
+	case imsg.HttpCreateChild:
 		// Register newly created node in tree
 		addTag(result.(*msg.Tag))
-	case httpmsg.HttpShutdown:
+	case imsg.HttpShutdown:
 		// Remove all shutdown nodes from tree
 		shutdownTags := result.([]*msg.Tag)
 		for _, tag := range shutdownTags {
@@ -72,7 +72,7 @@ func AskNode(httpMsg httpmsg.HttpMsg) (any, error) {
 }
 
 // AskAuth routes authentication messages to the Authenticator node
-func AskAuth(httpMsg httpmsg.HttpMsg) (any, error) {
+func AskAuth(httpMsg imsg.IMsg) (any, error) {
 	// Translate HTTP message to native message
 	nativeMsg, err := builtin.TranslateHttpMessage(httpMsg)
 	if err != nil {
@@ -90,7 +90,7 @@ func AskAuth(httpMsg httpmsg.HttpMsg) (any, error) {
 
 	// Post-processing based on message type
 	switch httpMsg.Type {
-	case httpmsg.HttpCreateUser:
+	case imsg.HttpCreateUser:
 		// Register newly created user in tree
 		addTag(tag)
 	}

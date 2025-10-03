@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/gadfly16/nerd/api/msg"
-	"github.com/gadfly16/nerd/internal/httpmsg"
+	"github.com/gadfly16/nerd/internal/imsg"
 	"github.com/gadfly16/nerd/internal/tree"
 )
 
@@ -27,8 +27,8 @@ func TestGetTree(t *testing.T) {
 
 	// Ensure tree shutdown for clean test isolation
 	defer func() {
-		_, err := tree.AskNode(httpmsg.HttpMsg{
-			Type:     httpmsg.HttpShutdown,
+		_, err := tree.AskNode(imsg.HttpMsg{
+			Type:     imsg.HttpShutdown,
 			TargetID: 1, // Root node
 			UserID:   1,
 			Payload:  map[string]any{},
@@ -39,8 +39,8 @@ func TestGetTree(t *testing.T) {
 	}()
 
 	// Step 3: Send GetTree message to root node (ID=1) via HTTP adapter
-	httpMsg := httpmsg.HttpMsg{
-		Type:     httpmsg.HttpGetTree,
+	httpMsg := imsg.HttpMsg{
+		Type:     imsg.HttpGetTree,
 		TargetID: 1,                // Root node ID
 		UserID:   1,                // Using root as user for now
 		Payload:  map[string]any{}, // No payload needed - always returns full tree

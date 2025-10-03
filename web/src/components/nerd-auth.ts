@@ -1,4 +1,4 @@
-import { httpMsg } from "../httpmsg"
+import { imsg } from "../imsg"
 
 export class NerdAuth extends HTMLElement {
   private mode: "login" | "register" = "login"
@@ -69,7 +69,7 @@ export class NerdAuth extends HTMLElement {
     const password = formData.get("password") as string
 
     const msgType =
-      this.mode === "login" ? httpMsg.AuthenticateUser : httpMsg.CreateUser
+      this.mode === "login" ? imsg.AuthenticateUser : imsg.CreateUser
 
     try {
       const response = await fetch("/auth", {

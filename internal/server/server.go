@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/gadfly16/nerd/api/nerd"
-	"github.com/gadfly16/nerd/internal/httpmsg"
+	"github.com/gadfly16/nerd/internal/imsg"
 	"github.com/gadfly16/nerd/internal/tree"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -166,7 +166,7 @@ func (s *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Parse HTTP message
-	var httpMsg httpmsg.HttpMsg
+	var httpMsg imsg.IMsg
 	if err := json.NewDecoder(r.Body).Decode(&httpMsg); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
@@ -174,9 +174,9 @@ func (s *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 
 	// Route based on message type
 	switch httpMsg.Type {
-	case httpmsg.HttpAuthenticateUser:
+	case imsg.HttpAuthenticateUser:
 		s.handleAuthenticateUser(w, &httpMsg)
-	case httpmsg.HttpCreateUser:
+	case imsg.HttpCreateUser:
 		s.handleCreateUser(w, &httpMsg)
 	default:
 		http.Error(w, "Invalid auth message type", http.StatusBadRequest)
@@ -184,7 +184,7 @@ func (s *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleAuthenticateUser processes user authentication
-func (s *Server) handleAuthenticateUser(w http.ResponseWriter, m *httpmsg.HttpMsg) {
+func (s *Server) handleAuthenticateUser(w http.ResponseWriter, m *imsg.IMsg) {
 	// Send authentication request to Authenticator
 	result, err := tree.AskAuth(*m)
 	if err != nil {
@@ -244,7 +244,7 @@ func (s *Server) setJWTCookie(w http.ResponseWriter, userID nerd.NodeID, admin b
 }
 
 // handleCreateUser processes user creation
-func (s *Server) handleCreateUser(w http.ResponseWriter, m *httpmsg.HttpMsg) {
+func (s *Server) handleCreateUser(w http.ResponseWriter, m *imsg.IMsg) {
 	// Send user creation request to Authenticator
 	result, err := tree.AskAuth(*m)
 	if err != nil {
