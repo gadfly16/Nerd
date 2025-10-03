@@ -30,11 +30,6 @@ func newGroup(entity *node.Entity) *Group {
 	}
 }
 
-// GetNodeTypeName returns the human-readable name for this node type
-func (n *Group) GetNodeTypeName() string {
-	return "Group"
-}
-
 // Save persists the Group node to the database
 func (n *Group) Save() error {
 	// Note: Only saves Entity, no config for Group nodes

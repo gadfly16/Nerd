@@ -41,12 +41,6 @@ func newAuthenticator(entity *node.Entity) *Authenticator {
 
 	return auth
 }
-
-// GetNodeTypeName returns the human-readable name for this node type
-func (n *Authenticator) GetNodeTypeName() string {
-	return "Authenticator"
-}
-
 // Save persists the Authenticator node to the database
 func (n *Authenticator) Save() error {
 	// Note: Only saves Entity, no config for Authenticator nodes

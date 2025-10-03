@@ -67,11 +67,6 @@ func newUser(name string, password string, admin bool) (*User, error) {
 	}, nil
 }
 
-// GetNodeTypeName returns the human-readable name for this node type
-func (n *User) GetNodeTypeName() string {
-	return "User"
-}
-
 // Save persists the User node to the database
 func (n *User) Save() error {
 	return node.DB.Transaction(func(tx *gorm.DB) error {

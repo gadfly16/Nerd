@@ -64,6 +64,11 @@ func (e *Entity) GetName() string {
 	return e.Name
 }
 
+// GetNodeTypeName returns the string representation of the node's type
+func (e *Entity) GetNodeTypeName() string {
+	return NodeTypeName(e.NodeType)
+}
+
 // SetName sets the node's name
 func (e *Entity) SetName(name string) {
 	e.Name = name

@@ -51,11 +51,6 @@ func newRoot(entity *node.Entity) *Root {
 	}
 }
 
-// GetNodeTypeName returns the human-readable name for this node type
-func (n *Root) GetNodeTypeName() string {
-	return "Root"
-}
-
 // Save persists the Root node to the database
 func (n *Root) Save() error {
 	return node.DB.Transaction(func(tx *gorm.DB) error {
