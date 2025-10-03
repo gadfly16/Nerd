@@ -3,73 +3,67 @@ import { system } from "../system"
 
 export class NerdAuth extends HTMLElement {
   private register = false
-  private authHeader = undefined as unknown as HTMLHeadingElement
-  private submitButton = undefined as unknown as HTMLButtonElement
-  private toggleButton = undefined as unknown as HTMLButtonElement
+  private loginForm = undefined as unknown as HTMLFormElement
+  private registerForm = undefined as unknown as HTMLFormElement
   private errorDiv = undefined as unknown as HTMLDivElement
-  private form = undefined as unknown as HTMLFormElement
 
   connectedCallback() {
     this.innerHTML = `
 			<style>
 				.nerd-auth { padding: 1rem; }
-				.nerd-auth .auth-header { margin: 0 0 1rem 0; }
+				.nerd-auth h2 { margin: 0 0 1rem 0; }
 				.nerd-auth .auth-form { display: flex; flex-direction: column; gap: 0.5rem; }
 				.nerd-auth .toggle { margin-top: 1rem; }
 				.nerd-auth .error { color: red; margin-top: 0.5rem; }
+				.nerd-auth .hidden { display: none; }
 			</style>
 			<div class="nerd-auth">
-				<h2 class="auth-header"></h2>
-				<form class="auth-form">
-					<input
-						type="text"
-						name="username"
-						placeholder="Username"
-						required
-						autocomplete="username"
-					/>
-					<input
-						type="password"
-						name="password"
-						placeholder="Password"
-						required
-						autocomplete="current-password"
-					/>
+				<form class="auth-form login-form">
+					<h2>Login</h2>
+					<input type="text" name="username" placeholder="Username" required />
+					<input type="password" name="password" placeholder="Password" required />
 					<button type="submit">Login</button>
+					<button type="button" class="toggle">Need an account? Register</button>
 				</form>
-				<button class="toggle"></button>
+				<form class="auth-form register-form hidden">
+					<h2>Create Account</h2>
+					<input type="text" name="username" placeholder="Username" required />
+					<input type="password" name="password" placeholder="Password" required />
+					<button type="submit">Register</button>
+					<button type="button" class="toggle">Have an account? Login</button>
+				</form>
 				<div class="error"></div>
 			</div>
 		`
-    this.authHeader = this.querySelector(".auth-header")!
-    this.submitButton = this.querySelector(".auth-form button")!
-    this.toggleButton = this.querySelector(".toggle")!
+    this.loginForm = this.querySelector(".login-form")!
+    this.registerForm = this.querySelector(".register-form")!
     this.errorDiv = this.querySelector(".error")!
-    this.form = this.querySelector(".auth-form")!
 
-    this.updateMode()
     this.attachEventListeners()
   }
 
-  private updateMode() {
-    this.authHeader.textContent = this.register ? "Create Account" : "Login"
-    this.submitButton.textContent = this.register ? "Register" : "Login"
-    this.toggleButton.textContent = this.register
-      ? "Have an account? Login"
-      : "Need an account? Register"
-  }
-
   private attachEventListeners() {
-    this.form.addEventListener("submit", (e) => this.handleSubmit(e))
-    this.toggleButton.addEventListener("click", () => this.toggleMode())
+    this.loginForm.addEventListener("submit", (e) =>
+      this.handleSubmit(e, false),
+    )
+    this.registerForm.addEventListener("submit", (e) =>
+      this.handleSubmit(e, true),
+    )
+    this.loginForm
+      .querySelector(".toggle")!
+      .addEventListener("click", () => this.toggleMode())
+    this.registerForm
+      .querySelector(".toggle")!
+      .addEventListener("click", () => this.toggleMode())
   }
 
   private toggleMode() {
     this.register = !this.register
-    this.updateMode()
+    this.loginForm.classList.toggle("hidden")
+    this.registerForm.classList.toggle("hidden")
   }
 
-  private async handleSubmit(e: Event) {
+  private async handleSubmit(e: Event, register: boolean) {
     e.preventDefault()
     const formData = new FormData(e.target as HTMLFormElement)
     const payload = Object.fromEntries(formData)
@@ -79,7 +73,7 @@ export class NerdAuth extends HTMLElement {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: this.register ? imsg.CreateUser : imsg.AuthenticateUser,
+          type: register ? imsg.CreateUser : imsg.AuthenticateUser,
           payload,
         }),
       })
