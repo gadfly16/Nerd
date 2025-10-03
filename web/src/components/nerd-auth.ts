@@ -1,11 +1,11 @@
-import { imsg } from "../imsg"
+import { imsg, ask } from "../imsg"
 import { system } from "../system"
 
 export class NerdAuth extends HTMLElement {
-  private register = false
-  private loginForm = undefined as unknown as HTMLFormElement
-  private registerForm = undefined as unknown as HTMLFormElement
-  private errorDiv = undefined as unknown as HTMLDivElement
+  private regmode = false
+  private login = undefined as unknown as HTMLFormElement
+  private register = undefined as unknown as HTMLFormElement
+  private error = undefined as unknown as HTMLDivElement
 
   connectedCallback() {
     this.innerHTML = `
@@ -18,14 +18,14 @@ export class NerdAuth extends HTMLElement {
 				.nerd-auth .hidden { display: none; }
 			</style>
 			<div class="nerd-auth">
-				<form class="auth-form login-form">
+				<form class="login">
 					<h2>Login</h2>
 					<input type="text" name="username" placeholder="Username" required />
 					<input type="password" name="password" placeholder="Password" required />
 					<button type="submit">Login</button>
 					<button type="button" class="toggle">Need an account? Register</button>
 				</form>
-				<form class="auth-form register-form hidden">
+				<form class="register hidden">
 					<h2>Create Account</h2>
 					<input type="text" name="username" placeholder="Username" required />
 					<input type="password" name="password" placeholder="Password" required />
@@ -35,64 +35,48 @@ export class NerdAuth extends HTMLElement {
 				<div class="error"></div>
 			</div>
 		`
-    this.loginForm = this.querySelector(".login-form")!
-    this.registerForm = this.querySelector(".register-form")!
-    this.errorDiv = this.querySelector(".error")!
+    this.login = this.querySelector(".login")!
+    this.register = this.querySelector(".register")!
+    this.error = this.querySelector(".error")!
 
     this.attachEventListeners()
   }
 
   private attachEventListeners() {
-    this.loginForm.addEventListener("submit", (e) =>
-      this.handleSubmit(e, false),
-    )
-    this.registerForm.addEventListener("submit", (e) =>
-      this.handleSubmit(e, true),
-    )
-    this.loginForm
+    this.login.addEventListener("submit", (e) => this.handleSubmit(e, false))
+    this.register.addEventListener("submit", (e) => this.handleSubmit(e, true))
+    this.login
       .querySelector(".toggle")!
       .addEventListener("click", () => this.toggleMode())
-    this.registerForm
+    this.register
       .querySelector(".toggle")!
       .addEventListener("click", () => this.toggleMode())
   }
 
   private toggleMode() {
-    this.register = !this.register
-    this.loginForm.classList.toggle("hidden")
-    this.registerForm.classList.toggle("hidden")
+    this.regmode = !this.regmode
+    this.login.classList.toggle("hidden")
+    this.register.classList.toggle("hidden")
   }
 
-  private async handleSubmit(e: Event, register: boolean) {
+  private async handleSubmit(e: Event, regmode: boolean) {
     e.preventDefault()
     const formData = new FormData(e.target as HTMLFormElement)
-    const payload = Object.fromEntries(formData)
+    const pl = Object.fromEntries(formData)
 
     try {
-      const response = await fetch("/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: register ? imsg.CreateUser : imsg.AuthenticateUser,
-          payload,
-        }),
-      })
-
-      if (!response.ok) {
-        this.showError((await response.text()) || "Authentication failed")
-        return
-      }
-
-      const data = await response.json()
-      system.gui.userId = data.userid
+      const a = await ask(regmode ? imsg.CreateUser : imsg.AuthenticateUser, pl)
+      system.gui.userId = a.userid
       system.gui.updateAuthState()
     } catch (err) {
-      this.showError("Network error. Please try again.")
+      this.showError(
+        err instanceof Error ? err.message : "Network error. Please try again.",
+      )
     }
   }
 
-  private showError(message: string) {
-    this.errorDiv.textContent = message
+  private showError(error: string) {
+    this.error.textContent = error
   }
 }
 

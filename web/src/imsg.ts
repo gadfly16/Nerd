@@ -7,3 +7,17 @@ export enum imsg {
   AuthenticateUser,
   CreateUser,
 }
+
+export async function ask(type: imsg, pl: any): Promise<any> {
+  const response = await fetch("/auth", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type, payload: pl }),
+  })
+
+  if (!response.ok) {
+    throw new Error((await response.text()) || "Request failed")
+  }
+
+  return await response.json()
+}
