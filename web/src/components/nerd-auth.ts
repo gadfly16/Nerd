@@ -14,13 +14,13 @@ export class NerdAuth extends HTMLElement {
 			<style>
 				.nerd-auth { padding: 1rem; }
 				.nerd-auth h2 { margin: 0 0 1rem 0; }
-				.nerd-auth__form { display: flex; flex-direction: column; gap: 0.5rem; }
-				.nerd-auth__toggle { margin-top: 1rem; }
-				.nerd-auth__error { color: red; margin-top: 0.5rem; }
+				.nerd-auth form { display: flex; flex-direction: column; gap: 0.5rem; }
+				.nerd-auth .toggle { margin-top: 1rem; }
+				.nerd-auth .error { color: red; margin-top: 0.5rem; }
 			</style>
 			<div class="nerd-auth">
 				<h2>${isLogin ? "Login" : "Create Account"}</h2>
-				<form class="nerd-auth__form">
+				<form>
 					<input
 						type="text"
 						name="username"
@@ -37,19 +37,17 @@ export class NerdAuth extends HTMLElement {
 					/>
 					<button type="submit">${isLogin ? "Login" : "Register"}</button>
 				</form>
-				<button class="nerd-auth__toggle">
+				<button class="toggle">
 					${isLogin ? "Need an account? Register" : "Have an account? Login"}
 				</button>
-				<div class="nerd-auth__error"></div>
+				<div class="error"></div>
 			</div>
 		`
   }
 
   private attachEventListeners() {
-    const form = this.querySelector(".nerd-auth__form") as HTMLFormElement
-    const toggleBtn = this.querySelector(
-      ".nerd-auth__toggle",
-    ) as HTMLButtonElement
+    const form = this.querySelector("form") as HTMLFormElement
+    const toggleBtn = this.querySelector(".toggle") as HTMLButtonElement
 
     form.addEventListener("submit", (e) => this.handleSubmit(e))
     toggleBtn.addEventListener("click", () => this.toggleMode())
@@ -95,7 +93,7 @@ export class NerdAuth extends HTMLElement {
   }
 
   private showError(message: string) {
-    const errorEl = this.querySelector(".nerd-auth__error") as HTMLElement
+    const errorEl = this.querySelector(".error") as HTMLElement
     if (!errorEl) return
     errorEl.textContent = message
   }
