@@ -2,26 +2,25 @@ import { imsg } from "../imsg"
 import { system } from "../system"
 
 export class NerdAuth extends HTMLElement {
-  private mode: "login" | "register" = "login"
+  private register = false
+  private authHeader = undefined as unknown as HTMLHeadingElement
+  private submitButton = undefined as unknown as HTMLButtonElement
+  private toggleButton = undefined as unknown as HTMLButtonElement
+  private errorDiv = undefined as unknown as HTMLDivElement
+  private form = undefined as unknown as HTMLFormElement
 
   connectedCallback() {
-    this.render()
-    this.attachEventListeners()
-  }
-
-  private render() {
-    const isLogin = this.mode === "login"
     this.innerHTML = `
 			<style>
 				.nerd-auth { padding: 1rem; }
-				.nerd-auth h2 { margin: 0 0 1rem 0; }
-				.nerd-auth form { display: flex; flex-direction: column; gap: 0.5rem; }
+				.nerd-auth .auth-header { margin: 0 0 1rem 0; }
+				.nerd-auth .auth-form { display: flex; flex-direction: column; gap: 0.5rem; }
 				.nerd-auth .toggle { margin-top: 1rem; }
 				.nerd-auth .error { color: red; margin-top: 0.5rem; }
 			</style>
 			<div class="nerd-auth">
-				<h2>${isLogin ? "Login" : "Create Account"}</h2>
-				<form>
+				<h2 class="auth-header"></h2>
+				<form class="auth-form">
 					<input
 						type="text"
 						name="username"
@@ -34,59 +33,62 @@ export class NerdAuth extends HTMLElement {
 						name="password"
 						placeholder="Password"
 						required
-						autocomplete="${isLogin ? "current-password" : "new-password"}"
+						autocomplete="current-password"
 					/>
-					<button type="submit">${isLogin ? "Login" : "Register"}</button>
+					<button type="submit">Login</button>
 				</form>
-				<button class="toggle">
-					${isLogin ? "Need an account? Register" : "Have an account? Login"}
-				</button>
+				<button class="toggle"></button>
 				<div class="error"></div>
 			</div>
 		`
+    this.authHeader = this.querySelector(".auth-header")!
+    this.submitButton = this.querySelector(".auth-form button")!
+    this.toggleButton = this.querySelector(".toggle")!
+    this.errorDiv = this.querySelector(".error")!
+    this.form = this.querySelector(".auth-form")!
+
+    this.updateMode()
+    this.attachEventListeners()
+  }
+
+  private updateMode() {
+    this.authHeader.textContent = this.register ? "Create Account" : "Login"
+    this.submitButton.textContent = this.register ? "Register" : "Login"
+    this.toggleButton.textContent = this.register
+      ? "Have an account? Login"
+      : "Need an account? Register"
   }
 
   private attachEventListeners() {
-    const form = this.querySelector("form") as HTMLFormElement
-    const toggleBtn = this.querySelector(".toggle") as HTMLButtonElement
-
-    form.addEventListener("submit", (e) => this.handleSubmit(e))
-    toggleBtn.addEventListener("click", () => this.toggleMode())
+    this.form.addEventListener("submit", (e) => this.handleSubmit(e))
+    this.toggleButton.addEventListener("click", () => this.toggleMode())
   }
 
   private toggleMode() {
-    this.mode = this.mode === "login" ? "register" : "login"
-    this.render()
-    this.attachEventListeners()
+    this.register = !this.register
+    this.updateMode()
   }
 
   private async handleSubmit(e: Event) {
     e.preventDefault()
-    const form = e.target as HTMLFormElement
-    const formData = new FormData(form)
-    const username = formData.get("username") as string
-    const password = formData.get("password") as string
-
-    const msgType =
-      this.mode === "login" ? imsg.AuthenticateUser : imsg.CreateUser
+    const formData = new FormData(e.target as HTMLFormElement)
+    const payload = Object.fromEntries(formData)
 
     try {
       const response = await fetch("/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          type: msgType,
-          payload: { username, password },
+          type: this.register ? imsg.CreateUser : imsg.AuthenticateUser,
+          payload,
         }),
       })
 
       if (!response.ok) {
-        const errorText = await response.text()
-        this.showError(errorText || "Authentication failed")
+        this.showError((await response.text()) || "Authentication failed")
         return
       }
 
-      // Success - JWT cookie is set, update GUI state
       const data = await response.json()
       system.gui.userId = data.userid
       system.gui.updateAuthState()
@@ -96,9 +98,7 @@ export class NerdAuth extends HTMLElement {
   }
 
   private showError(message: string) {
-    const errorEl = this.querySelector(".error") as HTMLElement
-    if (!errorEl) return
-    errorEl.textContent = message
+    this.errorDiv.textContent = message
   }
 }
 
