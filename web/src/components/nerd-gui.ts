@@ -5,11 +5,6 @@ import "./nerd-auth"
 class NerdGui extends HTMLElement {
   private userId: number = 0
 
-  constructor() {
-    super()
-    this.attachShadow({ mode: "open" })
-  }
-
   connectedCallback() {
     // Read userid from attribute
     const userIdAttr = this.getAttribute("userid")
@@ -19,11 +14,9 @@ class NerdGui extends HTMLElement {
   }
 
   private render() {
-    if (!this.shadowRoot) return
-
     const needsAuth = this.userId === 0
 
-    this.shadowRoot.innerHTML = `
+    this.innerHTML = `
             <style>
                 :host {
                     display: block;

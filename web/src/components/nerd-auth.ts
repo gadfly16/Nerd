@@ -1,17 +1,26 @@
+import { HttpMsgType } from "../httpmsg"
+
 export class NerdAuth extends HTMLElement {
-	private mode: 'login' | 'register' = 'login';
+  private mode: "login" | "register" = "login"
 
-	connectedCallback() {
-		this.render();
-		this.attachEventListeners();
-	}
+  connectedCallback() {
+    this.render()
+    this.attachEventListeners()
+  }
 
-	private render() {
-		const isLogin = this.mode === 'login';
-		this.innerHTML = `
-			<div class="auth-container">
-				<h2>${isLogin ? 'Login' : 'Create Account'}</h2>
-				<form class="auth-form">
+  private render() {
+    const isLogin = this.mode === "login"
+    this.innerHTML = `
+			<style>
+				.nerd-auth { padding: 1rem; }
+				.nerd-auth h2 { margin: 0 0 1rem 0; }
+				.nerd-auth__form { display: flex; flex-direction: column; gap: 0.5rem; }
+				.nerd-auth__toggle { margin-top: 1rem; }
+				.nerd-auth__error { color: red; margin-top: 0.5rem; }
+			</style>
+			<div class="nerd-auth">
+				<h2>${isLogin ? "Login" : "Create Account"}</h2>
+				<form class="nerd-auth__form">
 					<input
 						type="text"
 						name="username"
@@ -24,70 +33,74 @@ export class NerdAuth extends HTMLElement {
 						name="password"
 						placeholder="Password"
 						required
-						autocomplete="${isLogin ? 'current-password' : 'new-password'}"
+						autocomplete="${isLogin ? "current-password" : "new-password"}"
 					/>
-					<button type="submit">${isLogin ? 'Login' : 'Register'}</button>
+					<button type="submit">${isLogin ? "Login" : "Register"}</button>
 				</form>
-				<button class="toggle-mode">
-					${isLogin ? 'Need an account? Register' : 'Have an account? Login'}
+				<button class="nerd-auth__toggle">
+					${isLogin ? "Need an account? Register" : "Have an account? Login"}
 				</button>
-				<div class="error-message"></div>
+				<div class="nerd-auth__error"></div>
 			</div>
-		`;
-	}
+		`
+  }
 
-	private attachEventListeners() {
-		const form = this.querySelector('.auth-form') as HTMLFormElement;
-		const toggleBtn = this.querySelector('.toggle-mode') as HTMLButtonElement;
+  private attachEventListeners() {
+    const form = this.querySelector(".nerd-auth__form") as HTMLFormElement
+    const toggleBtn = this.querySelector(
+      ".nerd-auth__toggle",
+    ) as HTMLButtonElement
 
-		form.addEventListener('submit', (e) => this.handleSubmit(e));
-		toggleBtn.addEventListener('click', () => this.toggleMode());
-	}
+    form.addEventListener("submit", (e) => this.handleSubmit(e))
+    toggleBtn.addEventListener("click", () => this.toggleMode())
+  }
 
-	private toggleMode() {
-		this.mode = this.mode === 'login' ? 'register' : 'login';
-		this.render();
-		this.attachEventListeners();
-	}
+  private toggleMode() {
+    this.mode = this.mode === "login" ? "register" : "login"
+    this.render()
+    this.attachEventListeners()
+  }
 
-	private async handleSubmit(e: Event) {
-		e.preventDefault();
-		const form = e.target as HTMLFormElement;
-		const formData = new FormData(form);
-		const username = formData.get('username') as string;
-		const password = formData.get('password') as string;
+  private async handleSubmit(e: Event) {
+    e.preventDefault()
+    const form = e.target as HTMLFormElement
+    const formData = new FormData(form)
+    const username = formData.get("username") as string
+    const password = formData.get("password") as string
 
-		const msgType = this.mode === 'login' ? 'HttpAuthenticateUser' : 'HttpCreateUser';
+    const msgType =
+      this.mode === "login"
+        ? HttpMsgType.HttpAuthenticateUser
+        : HttpMsgType.HttpCreateUser
 
-		try {
-			const response = await fetch('/auth', {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					type: msgType,
-					payload: { username, password }
-				})
-			});
+    try {
+      const response = await fetch("/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: msgType,
+          payload: { username, password },
+        }),
+      })
 
-			if (!response.ok) {
-				const errorText = await response.text();
-				this.showError(errorText || 'Authentication failed');
-				return;
-			}
+      if (!response.ok) {
+        const errorText = await response.text()
+        this.showError(errorText || "Authentication failed")
+        return
+      }
 
-			// Success - JWT cookie is set, reload to update userid
-			window.location.reload();
-		} catch (err) {
-			this.showError('Network error. Please try again.');
-		}
-	}
+      // Success - JWT cookie is set, reload to update userid
+      window.location.reload()
+    } catch (err) {
+      this.showError("Network error. Please try again.")
+    }
+  }
 
-	private showError(message: string) {
-		const errorEl = this.querySelector('.error-message') as HTMLElement;
-		errorEl.textContent = message;
-		errorEl.style.color = 'red';
-		errorEl.style.marginTop = '1rem';
-	}
+  private showError(message: string) {
+    const errorEl = this.querySelector(".nerd-auth__error") as HTMLElement
+    if (!errorEl) return
+    errorEl.textContent = message
+  }
 }
 
-customElements.define('nerd-auth', NerdAuth);
+customElements.define("nerd-auth", NerdAuth)
