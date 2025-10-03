@@ -49,10 +49,10 @@ func AskNode(httpMsg imsg.IMsg) (any, error) {
 
 	// Post-processing based on message type
 	switch httpMsg.Type {
-	case imsg.HttpCreateChild:
+	case imsg.CreateChild:
 		// Register newly created node in tree
 		addTag(result.(*msg.Tag))
-	case imsg.HttpShutdown:
+	case imsg.Shutdown:
 		// Remove all shutdown nodes from tree
 		shutdownTags := result.([]*msg.Tag)
 		for _, tag := range shutdownTags {
@@ -90,7 +90,7 @@ func AskAuth(httpMsg imsg.IMsg) (any, error) {
 
 	// Post-processing based on message type
 	switch httpMsg.Type {
-	case imsg.HttpCreateUser:
+	case imsg.CreateUser:
 		// Register newly created user in tree
 		addTag(tag)
 	}

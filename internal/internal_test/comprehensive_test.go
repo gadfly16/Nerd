@@ -30,11 +30,10 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 
 	// Ensure tree shutdown for clean test isolation
 	defer func() {
-		_, err := tree.AskNode(imsg.HttpMsg{
-			Type:     imsg.HttpShutdown,
+		_, err := tree.AskNode(imsg.IMsg{
+			Type:     imsg.Shutdown,
 			TargetID: 1, // Root node
 			UserID:   1,
-			Payload:  map[string]any{},
 		})
 		if err != nil {
 			t.Logf("Shutdown error: %v", err)
@@ -43,8 +42,8 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 
 	// Phase 1: Add "Projects" group under Root
 	t.Log("Phase 1: Creating Projects group under Root")
-	_, err = tree.AskNode(imsg.HttpMsg{
-		Type:     imsg.HttpCreateChild,
+	_, err = tree.AskNode(imsg.IMsg{
+		Type:     imsg.CreateChild,
 		TargetID: 1, // Root node
 		UserID:   1,
 		Payload: map[string]any{
@@ -58,8 +57,8 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 
 	// Phase 2: Add children under System
 	t.Log("Phase 2: Creating Config and Logs under System")
-	_, err = tree.AskNode(imsg.HttpMsg{
-		Type:     imsg.HttpCreateChild,
+	_, err = tree.AskNode(imsg.IMsg{
+		Type:     imsg.CreateChild,
 		TargetID: 2, // System node
 		UserID:   1,
 		Payload: map[string]any{
@@ -71,8 +70,8 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 		t.Fatalf("Failed to create Config group: %v", err)
 	}
 
-	_, err = tree.AskNode(imsg.HttpMsg{
-		Type:     imsg.HttpCreateChild,
+	_, err = tree.AskNode(imsg.IMsg{
+		Type:     imsg.CreateChild,
 		TargetID: 2, // System node
 		UserID:   1,
 		Payload: map[string]any{
@@ -86,11 +85,10 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 
 	// Phase 3: Add children under Projects (need to find Projects node ID)
 	// First get the tree to find Projects node ID
-	result, err := tree.AskNode(imsg.HttpMsg{
-		Type:     imsg.HttpGetTree,
+	result, err := tree.AskNode(imsg.IMsg{
+		Type:     imsg.GetTree,
 		TargetID: 1, // Root
 		UserID:   1,
-		Payload:  map[string]any{}, // No payload needed - always returns full tree
 	})
 	if err != nil {
 		t.Fatalf("Failed to get tree: %v", err)
@@ -116,8 +114,8 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 	}
 
 	t.Log("Phase 3: Creating ProjectA and ProjectB under Projects")
-	_, err = tree.AskNode(imsg.HttpMsg{
-		Type:     imsg.HttpCreateChild,
+	_, err = tree.AskNode(imsg.IMsg{
+		Type:     imsg.CreateChild,
 		TargetID: projectsNodeID,
 		UserID:   1,
 		Payload: map[string]any{
@@ -129,8 +127,8 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 		t.Fatalf("Failed to create ProjectA: %v", err)
 	}
 
-	_, err = tree.AskNode(imsg.HttpMsg{
-		Type:     imsg.HttpCreateChild,
+	_, err = tree.AskNode(imsg.IMsg{
+		Type:     imsg.CreateChild,
 		TargetID: projectsNodeID,
 		UserID:   1,
 		Payload: map[string]any{
@@ -144,8 +142,8 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 
 	// Phase 4: Test name collision
 	t.Log("Phase 4: Testing name collision")
-	_, err = tree.AskNode(imsg.HttpMsg{
-		Type:     imsg.HttpCreateChild,
+	_, err = tree.AskNode(imsg.IMsg{
+		Type:     imsg.CreateChild,
 		TargetID: 2, // System node
 		UserID:   1,
 		Payload: map[string]any{
@@ -161,8 +159,8 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 
 	// Phase 5: Test rename operation
 	t.Log("Phase 5: Testing rename operation")
-	_, err = tree.AskNode(imsg.HttpMsg{
-		Type:     imsg.HttpRenameChild,
+	_, err = tree.AskNode(imsg.IMsg{
+		Type:     imsg.RenameChild,
 		TargetID: 2, // System node
 		UserID:   1,
 		Payload: map[string]any{
@@ -182,11 +180,10 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 	t.Logf("Goroutines before shutdown: %d", goroutinesBefore)
 
 	// Shutdown the entire tree
-	_, err = tree.AskNode(imsg.HttpMsg{
-		Type:     imsg.HttpShutdown,
+	_, err = tree.AskNode(imsg.IMsg{
+		Type:     imsg.Shutdown,
 		TargetID: 1, // Root node
 		UserID:   1,
-		Payload:  map[string]any{},
 	})
 	if err != nil {
 		t.Fatalf("Failed to shutdown tree: %v", err)
@@ -220,11 +217,10 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 
 	// Phase 8: Final tree verification
 	t.Log("Phase 8: Verifying final tree structure after restart")
-	finalResult, err := tree.AskNode(imsg.HttpMsg{
-		Type:     imsg.HttpGetTree,
+	finalResult, err := tree.AskNode(imsg.IMsg{
+		Type:     imsg.GetTree,
 		TargetID: 1, // Root
 		UserID:   1,
-		Payload:  map[string]any{}, // No payload needed - always returns full tree
 	})
 	if err != nil {
 		t.Fatalf("Failed to get final tree: %v", err)
@@ -304,11 +300,10 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 	// Phase 9: Performance measurement for cache effectiveness
 	t.Log("Phase 9: Measuring GetTree performance - first call vs cached call")
 
-	getTreeMsg := imsg.HttpMsg{
-		Type:     imsg.HttpGetTree,
+	getTreeMsg := imsg.IMsg{
+		Type:     imsg.GetTree,
 		TargetID: 1, // Root
 		UserID:   1,
-		Payload:  map[string]any{},
 	}
 
 	// First call - should compute and cache

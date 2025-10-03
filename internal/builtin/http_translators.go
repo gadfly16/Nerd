@@ -17,17 +17,17 @@ func translateHttpGetTree(_ imsg.IMsg) (*msg.Msg, error) {
 // TranslateHttpMessage converts HTTP message to native message using appropriate translator
 func TranslateHttpMessage(httpMsg imsg.IMsg) (*msg.Msg, error) {
 	switch httpMsg.Type {
-	case imsg.HttpGetTree:
+	case imsg.GetTree:
 		return translateHttpGetTree(httpMsg)
-	case imsg.HttpCreateChild:
+	case imsg.CreateChild:
 		return translateHttpCreateChild(httpMsg)
-	case imsg.HttpRenameChild:
+	case imsg.RenameChild:
 		return translateHttpRenameChild(httpMsg)
-	case imsg.HttpShutdown:
+	case imsg.Shutdown:
 		return translateHttpShutdown(httpMsg)
-	case imsg.HttpAuthenticateUser:
+	case imsg.AuthenticateUser:
 		return translateHttpAuthenticateUser(httpMsg)
-	case imsg.HttpCreateUser:
+	case imsg.CreateUser:
 		return translateHttpCreateUser(httpMsg)
 	default:
 		return nil, nerd.ErrMalformedHttpMessage

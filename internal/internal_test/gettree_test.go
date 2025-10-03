@@ -27,11 +27,10 @@ func TestGetTree(t *testing.T) {
 
 	// Ensure tree shutdown for clean test isolation
 	defer func() {
-		_, err := tree.AskNode(imsg.HttpMsg{
-			Type:     imsg.HttpShutdown,
+		_, err := tree.AskNode(imsg.IMsg{
+			Type:     imsg.Shutdown,
 			TargetID: 1, // Root node
 			UserID:   1,
-			Payload:  map[string]any{},
 		})
 		if err != nil {
 			t.Logf("Shutdown error: %v", err)
@@ -39,11 +38,10 @@ func TestGetTree(t *testing.T) {
 	}()
 
 	// Step 3: Send GetTree message to root node (ID=1) via HTTP adapter
-	httpMsg := imsg.HttpMsg{
-		Type:     imsg.HttpGetTree,
-		TargetID: 1,                // Root node ID
-		UserID:   1,                // Using root as user for now
-		Payload:  map[string]any{}, // No payload needed - always returns full tree
+	httpMsg := imsg.IMsg{
+		Type:     imsg.GetTree,
+		TargetID: 1, // Root node ID
+		UserID:   1, // Using root as user for now
 	}
 
 	result, err := tree.AskNode(httpMsg)

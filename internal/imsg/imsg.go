@@ -2,22 +2,22 @@ package imsg
 
 import "github.com/gadfly16/nerd/api/nerd"
 
-// HttpMsgType defines the types of interface messages for external API
-type HttpMsgType int
+// Type defines the types of interface messages for external API
+type Type int
 
 const (
-	HttpGetTree HttpMsgType = iota
-	HttpCreateChild
-	HttpRenameChild
-	HttpShutdown
-	HttpAuthenticateUser
-	HttpCreateUser
+	GetTree Type = iota
+	CreateChild
+	RenameChild
+	Shutdown
+	AuthenticateUser
+	CreateUser
 	// Future interface message types can be added here
 )
 
 // IMsg represents a generic interface message with flexible payload
 type IMsg struct {
-	Type     HttpMsgType    `json:"type"`
+	Type     Type           `json:"type"`
 	TargetID nerd.NodeID    `json:"targetId"`
 	UserID   nerd.NodeID    `json:"userId"` // Authentication context
 	Payload  map[string]any `json:"payload"`
