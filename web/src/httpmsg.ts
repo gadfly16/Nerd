@@ -1,9 +1,9 @@
 // HTTP Message Types - Must match internal/httpmsg/httpmsg.go
-export enum HttpMsgType {
-  HttpGetTree = 0,
-  HttpCreateChild,
-  HttpRenameChild,
-  HttpShutdown,
-  HttpAuthenticateUser,
-  HttpCreateUser,
+export enum httpMsg {
+  GetTree = 0,
+  CreateChild,
+  RenameChild,
+  Shutdown,
+  AuthenticateUser,
+  CreateUser,
 }
