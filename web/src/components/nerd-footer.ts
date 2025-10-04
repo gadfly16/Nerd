@@ -1,25 +1,23 @@
-const style = `
-	nerd-footer {
-		display: block;
-		background: #2c3e50;
-		color: white;
-		padding: 1rem;
-		text-align: center;
-	}
-`
+import nerd from "../nerd"
 
-const html = `
-	Footer
-`
+export class NerdFooter extends nerd.NerdComponent {
+  static style = `
+		nerd-footer {
+			display: block;
+			background: #2c3e50;
+			color: white;
+			padding: 1rem;
+			text-align: center;
+		}
+	`
 
-export class NerdFooter extends HTMLElement {
+  static html = `
+		Footer
+	`
+
   connectedCallback() {
-    this.innerHTML = html
+    this.innerHTML = NerdFooter.html
   }
 }
 
-// Register component and append style
-const styleElement = document.createElement("style")
-styleElement.textContent = style
-document.head.appendChild(styleElement)
-customElements.define("nerd-footer", NerdFooter)
+NerdFooter.register("nerd-footer")

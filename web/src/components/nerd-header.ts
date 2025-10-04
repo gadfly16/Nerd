@@ -1,26 +1,24 @@
-const style = `
-	nerd-header {
-		display: block;
-		background: #2c3e50;
-		color: white;
-		padding: 1rem;
-		font-size: 1.2rem;
-		font-weight: bold;
-	}
-`
+import nerd from "../nerd"
 
-const html = `
-	Nerd - Personal Software Agent Framework
-`
+export class NerdHeader extends nerd.NerdComponent {
+  static style = `
+		nerd-header {
+			display: block;
+			background: #2c3e50;
+			color: white;
+			padding: 1rem;
+			font-size: 1.2rem;
+			font-weight: bold;
+		}
+	`
 
-export class NerdHeader extends HTMLElement {
+  static html = `
+		Nerd - Personal Software Agent Framework
+	`
+
   connectedCallback() {
-    this.innerHTML = html
+    this.innerHTML = NerdHeader.html
   }
 }
 
-// Register component and append style
-const styleElement = document.createElement("style")
-styleElement.textContent = style
-document.head.appendChild(styleElement)
-customElements.define("nerd-header", NerdHeader)
+NerdHeader.register("nerd-header")

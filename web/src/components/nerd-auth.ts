@@ -1,60 +1,62 @@
+import nerd from "../nerd"
 import { imsg, ask } from "../imsg"
-import { system } from "../system"
-import "./nerd-action"
 
-const style = `
-	nerd-auth {
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		width: 100vw;
-		height: 100vh;
-	}
+export class NerdAuth extends nerd.NerdComponent {
+  static style = `
+		nerd-auth {
+			display: flex;
+			justify-content: center;
+			align-items: center;
+			width: 100vw;
+			height: 100vh;
+		}
 
-	nerd-auth .auth-box {
-		width: 20em;
-		padding: 1.5em;
-		border: 1px solid #ddd;
-		border-radius: 0.5em;
-		background: white;
-	}
+		nerd-auth .auth-box {
+			width: 20em;
+			padding: 1.5em;
+			border: 1px solid #ddd;
+			border-radius: 0.5em;
+			background: white;
+		}
 
-	nerd-auth form {
-		display: flex;
-		flex-direction: column;
-		gap: 0.666em;
-	}
+		nerd-auth form {
+			display: flex;
+			flex-direction: column;
+			gap: 0.666em;
+		}
 
-`
+		nerd-auth .error {
+			margin-top: 1em;
+		}
+	`
 
-const html = `
-	<div class="auth-box">
-		<form class="login">
-			<h2>Login</h2>
-			<input type="text" name="username" placeholder="Username" required />
-			<input type="password" name="password" placeholder="Password" required />
-			<button type="submit">Login</button>
-			<nerd-action class="toggle">Need an account? Register</nerd-action>
-		</form>
-		<form class="register hidden">
-			<h2>Create Account</h2>
-			<input type="text" name="username" placeholder="Username" required />
-			<input type="password" name="password" placeholder="Password" required />
-			<button type="submit">Register</button>
-			<nerd-action class="toggle">Have an account? Login</nerd-action>
-		</form>
-		<div class="error"></div>
-	</div>
-`
+  static html = `
+		<div class="auth-box">
+			<form class="login">
+				<h2>Login</h2>
+				<input type="text" name="username" placeholder="Username" required />
+				<input type="password" name="password" placeholder="Password" required />
+				<button type="submit">Login</button>
+				<nerd-action class="toggle">Need an account? Register</nerd-action>
+			</form>
+			<form class="register hidden">
+				<h2>Create Account</h2>
+				<input type="text" name="username" placeholder="Username" required />
+				<input type="password" name="password" placeholder="Password" required />
+				<button type="submit">Register</button>
+				<nerd-action class="toggle">Have an account? Login</nerd-action>
+			</form>
+			<div class="error"></div>
+		</div>
+	`
 
-export class NerdAuth extends HTMLElement {
   private regmode = false
   private login = undefined as unknown as HTMLFormElement
   private register = undefined as unknown as HTMLFormElement
   private error = undefined as unknown as HTMLDivElement
 
   connectedCallback() {
-    this.innerHTML = html
+    this.innerHTML = NerdAuth.html
     this.login = this.querySelector(".login")!
     this.register = this.querySelector(".register")!
     this.error = this.querySelector(".error")!
@@ -85,8 +87,8 @@ export class NerdAuth extends HTMLElement {
 
     try {
       const a = await ask(regmode ? imsg.CreateUser : imsg.AuthenticateUser, pl)
-      system.gui.userId = a.userid
-      system.gui.updateAuthState()
+      nerd.gui.userId = a.userid
+      nerd.gui.updateAuthState()
     } catch (err) {
       this.showError(
         err instanceof Error ? err.message : "Network error. Please try again.",
@@ -99,8 +101,4 @@ export class NerdAuth extends HTMLElement {
   }
 }
 
-// Register component and append style
-const styleElement = document.createElement("style")
-styleElement.textContent = style
-document.head.appendChild(styleElement)
-customElements.define("nerd-auth", NerdAuth)
+NerdAuth.register("nerd-auth")
