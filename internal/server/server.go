@@ -178,6 +178,8 @@ func (s *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 		s.handleAuthenticateUser(w, &httpMsg)
 	case imsg.CreateUser:
 		s.handleCreateUser(w, &httpMsg)
+	case imsg.Logout:
+		s.handleLogout(w)
 	default:
 		http.Error(w, "Invalid auth message type", http.StatusBadRequest)
 	}
@@ -211,6 +213,23 @@ func (s *Server) handleAuthenticateUser(w http.ResponseWriter, m *imsg.IMsg) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(resultMap)
+}
+
+// handleLogout clears the authentication cookie
+func (s *Server) handleLogout(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "nerd_token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "logged out"})
 }
 
 // setJWTCookie generates a JWT token and sets it as an HTTP-only cookie

@@ -1,22 +1,45 @@
 // Nerd - Personal Software Agent Framework
 
-import imsg from "./imsg"
+// Interface Message Types - Must match internal/imsg/imsg.go
+enum imsg {
+  GetTree = 0,
+  CreateChild,
+  RenameChild,
+  Shutdown,
+  AuthenticateUser,
+  CreateUser,
+  Logout,
+}
+
+async function ask(type: imsg, pl: any): Promise<any> {
+  const response = await fetch("/auth", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type, payload: pl }),
+  })
+
+  if (!response.ok) {
+    throw new Error((await response.text()) || "Request failed")
+  }
+
+  return await response.json()
+}
 
 // Base Component class
 class NerdComponent extends HTMLElement {
-	static style = ""
+  static style = ""
 
-	static register(name: string) {
-		const styleElement = document.createElement("style")
-		styleElement.textContent = this.style
-		document.head.appendChild(styleElement)
-		customElements.define(name, this)
-	}
+  static register(name: string) {
+    const styleElement = document.createElement("style")
+    styleElement.textContent = this.style
+    document.head.appendChild(styleElement)
+    customElements.define(name, this)
+  }
 }
 
 // Widgets
 class Action extends NerdComponent {
-	static style = `
+  static style = `
 		nerd-action {
 			display: inline;
 			background: none;
@@ -38,21 +61,45 @@ class Action extends NerdComponent {
 class Header extends NerdComponent {
   static style = `
 		nerd-header {
-			display: block;
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
 			background: #2c3e50;
 			color: white;
 			padding: 1rem;
 			font-size: 1.2rem;
 			font-weight: bold;
 		}
+
+		nerd-header nerd-action {
+			color: white;
+		}
+
+		nerd-header nerd-action:hover {
+			color: #ddd;
+		}
 	`
 
   static html = `
-		Nerd - Personal Software Agent Framework
+		<span>Nerd - Personal Software Agent Framework</span>
+		<nerd-action class="logout">Logout</nerd-action>
 	`
 
   connectedCallback() {
     this.innerHTML = Header.html
+    this.querySelector(".logout")!.addEventListener("click", () =>
+      this.logout(),
+    )
+  }
+
+  private async logout() {
+    try {
+      await ask(imsg.Logout, {})
+      nerd.gui.userId = 0
+      nerd.gui.updateAuthState()
+    } catch (err) {
+      console.error("Logout failed:", err)
+    }
   }
 }
 
@@ -206,10 +253,7 @@ class Auth extends NerdComponent {
     const pl = Object.fromEntries(formData)
 
     try {
-      const a = await imsg.ask(
-        regmode ? imsg.Type.CreateUser : imsg.Type.AuthenticateUser,
-        pl,
-      )
+      const a = await ask(regmode ? imsg.CreateUser : imsg.AuthenticateUser, pl)
       nerd.gui.userId = a.userid
       nerd.gui.updateAuthState()
     } catch (err) {
@@ -290,16 +334,16 @@ class GUI extends NerdComponent {
 
 // Export namespace
 const nerd = {
-	NerdComponent,
-	Action,
-	Header,
-	Footer,
-	Workbench,
-	Auth,
-	GUI,
-	gui: undefined as unknown as GUI,
-	ask: imsg.ask,
-	imsg: imsg.Type,
+  NerdComponent,
+  Action,
+  Header,
+  Footer,
+  Workbench,
+  Auth,
+  GUI,
+  gui: undefined as unknown as GUI,
+  ask,
+  imsg,
 }
 
 export default nerd

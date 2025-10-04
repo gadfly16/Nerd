@@ -12,6 +12,7 @@ const (
 	Shutdown
 	AuthenticateUser
 	CreateUser
+	Logout
 	// Future interface message types can be added here
 )
 
