@@ -30,6 +30,15 @@ export class NerdGui extends HTMLElement {
 					padding: 0;
 				}
 
+				h2 {
+					margin: 0 0 0.25em 0;
+					font-size: 1.5em;
+				}
+
+				.error {
+					color: red;
+				}
+
 				nerd-gui {
 					display: flex;
 					flex-direction: column;

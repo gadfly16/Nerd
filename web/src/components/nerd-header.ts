@@ -16,7 +16,7 @@ export class NerdHeader extends HTMLElement {
 				}
 			</style>
 
-			Nerd - Personal Software Agent
+			Nerd - Personal Software Agent Framework
 		`
   }
 }
