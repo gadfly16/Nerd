@@ -4,6 +4,46 @@ import "./nerd-auth"
 import "./nerd-workbench"
 import { system } from "../system"
 
+const style = `
+	@font-face {
+		font-family: 'Inter';
+		src: url('/fonts/InterVariable.woff2');
+		font-weight: 100 900;
+		font-display: block;
+	}
+
+	body {
+		margin: 0;
+		padding: 0;
+	}
+
+	h2 {
+		margin: 0 0 0.25em 0;
+		font-size: 1.5em;
+	}
+
+	.error {
+		color: red;
+	}
+
+	nerd-gui {
+		display: flex;
+		flex-direction: column;
+		width: 100vw;
+		height: 100vh;
+		font-family: 'Inter';
+		background: #fafafa;
+	}
+
+	.hidden {
+		display: none;
+	}
+`
+
+const html = `
+	<nerd-workbench></nerd-workbench>
+`
+
 export class NerdGui extends HTMLElement {
   userId: number = 0
   private auth = document.createElement("nerd-auth")
@@ -11,50 +51,8 @@ export class NerdGui extends HTMLElement {
   connectedCallback() {
     this.userId = parseInt(this.getAttribute("userid")!, 10)
     system.gui = this
-    this.render()
+    this.innerHTML = html
     this.updateAuthState()
-  }
-
-  private render() {
-    this.innerHTML = `
-			<style>
-				@font-face {
-					font-family: 'Inter';
-					src: url('/fonts/InterVariable.woff2');
-					font-weight: 100 900;
-					font-display: block;
-				}
-
-				body {
-					margin: 0;
-					padding: 0;
-				}
-
-				h2 {
-					margin: 0 0 0.25em 0;
-					font-size: 1.5em;
-				}
-
-				.error {
-					color: red;
-				}
-
-				nerd-gui {
-					display: flex;
-					flex-direction: column;
-					width: 100vw;
-					height: 100vh;
-					font-family: 'Inter';
-					background: #fafafa;
-				}
-
-				.hidden {
-					display: none;
-				}
-			</style>
-
-			<nerd-workbench></nerd-workbench>
-		`
   }
 
   updateAuthState() {
@@ -72,5 +70,8 @@ export class NerdGui extends HTMLElement {
   }
 }
 
-// Register the custom element
+// Register component and append style
+const styleElement = document.createElement("style")
+styleElement.textContent = style
+document.head.appendChild(styleElement)
 customElements.define("nerd-gui", NerdGui)
