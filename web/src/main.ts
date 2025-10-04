@@ -1,5 +1,5 @@
 // Nerd GUI - Main Entry Point
 // Vanilla TypeScript with Web Components architecture
 
-// Import components to register custom elements
-import "./part/nerd-gui"
+// Import nerd framework to register all components
+import "./nerd"
