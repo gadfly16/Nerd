@@ -2,4 +2,4 @@
 // Vanilla TypeScript with Web Components architecture
 
 // Import components to register custom elements
-import "./components/nerd-gui"
+import "./part/nerd-gui"

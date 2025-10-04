@@ -1,5 +1,6 @@
 // Interface Message Types - Must match internal/imsg/imsg.go
-export enum imsg {
+
+enum Type {
   GetTree = 0,
   CreateChild,
   RenameChild,
@@ -8,7 +9,7 @@ export enum imsg {
   CreateUser,
 }
 
-export async function ask(type: imsg, pl: any): Promise<any> {
+async function ask(type: Type, pl: any): Promise<any> {
   const response = await fetch("/auth", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -20,4 +21,9 @@ export async function ask(type: imsg, pl: any): Promise<any> {
   }
 
   return await response.json()
+}
+
+export default {
+  Type,
+  ask,
 }

@@ -1,6 +1,6 @@
 // Nerd - Common imports for component development
 
-import type { NerdGui } from "./components/nerd-gui"
+import type { NerdGui } from "./part/nerd-gui"
 
 class NerdComponent extends HTMLElement {
   static style = ""

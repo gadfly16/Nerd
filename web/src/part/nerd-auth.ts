@@ -1,5 +1,5 @@
 import nerd from "../nerd"
-import { imsg, ask } from "../imsg"
+import imsg from "../imsg"
 
 export class NerdAuth extends nerd.NerdComponent {
   static style = `
@@ -86,7 +86,10 @@ export class NerdAuth extends nerd.NerdComponent {
     const pl = Object.fromEntries(formData)
 
     try {
-      const a = await ask(regmode ? imsg.CreateUser : imsg.AuthenticateUser, pl)
+      const a = await imsg.ask(
+        regmode ? imsg.Type.CreateUser : imsg.Type.AuthenticateUser,
+        pl,
+      )
       nerd.gui.userId = a.userid
       nerd.gui.updateAuthState()
     } catch (err) {
