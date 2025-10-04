@@ -1,3 +1,6 @@
+import "./nerd-header"
+import "./nerd-footer"
+
 export class NerdWorkbench extends HTMLElement {
   connectedCallback() {
     this.render()
@@ -6,23 +9,41 @@ export class NerdWorkbench extends HTMLElement {
   private render() {
     this.innerHTML = `
       <style>
-        .nerd-workbench {
-          display: flex;
+        nerd-workbench {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          grid-template-rows: auto 1fr auto;
+          grid-template-areas:
+            "header header"
+            "left right"
+            "footer footer";
           width: 100%;
-          gap: 1rem;
-          padding: 1rem;
+          height: 100%;
         }
 
-        .nerd-workbench .board {
-          flex: 1;
+        nerd-workbench nerd-header {
+          grid-area: header;
+        }
+
+        nerd-workbench .board.left {
+          grid-area: left;
           border: 1px solid #ddd;
+        }
+
+        nerd-workbench .board.right {
+          grid-area: right;
+          border: 1px solid #ddd;
+        }
+
+        nerd-workbench nerd-footer {
+          grid-area: footer;
         }
       </style>
 
-      <div class="nerd-workbench">
-        <div class="board left"></div>
-        <div class="board right"></div>
-      </div>
+      <nerd-header></nerd-header>
+      <div class="board left"></div>
+      <div class="board right"></div>
+      <nerd-footer></nerd-footer>
     `
   }
 }

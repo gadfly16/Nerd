@@ -10,14 +10,46 @@ export class NerdAuth extends HTMLElement {
   connectedCallback() {
     this.innerHTML = `
 			<style>
-				.nerd-auth { padding: 1rem; }
-				.nerd-auth h2 { margin: 0 0 1rem 0; }
-				.nerd-auth .auth-form { display: flex; flex-direction: column; gap: 0.5rem; }
-				.nerd-auth .toggle { margin-top: 1rem; }
-				.nerd-auth .error { color: red; margin-top: 0.5rem; }
-				.nerd-auth .hidden { display: none; }
+				nerd-auth {
+					display: flex;
+					justify-content: center;
+					align-items: center;
+					width: 100vw;
+					height: 100vh;
+				}
+
+				nerd-auth .auth-box {
+					width: 20rem;
+					padding: 2rem;
+					border: 1px solid #ddd;
+					border-radius: 0.5rem;
+					background: white;
+				}
+
+				nerd-auth h2 {
+					margin: 0 0 1rem 0;
+				}
+
+				nerd-auth form {
+					display: flex;
+					flex-direction: column;
+					gap: 0.5rem;
+				}
+
+				nerd-auth .toggle {
+					margin-top: 1rem;
+				}
+
+				nerd-auth .error {
+					color: red;
+					margin-top: 0.5rem;
+				}
+
+				.hidden {
+					display: none;
+				}
 			</style>
-			<div class="nerd-auth">
+			<div class="auth-box">
 				<form class="login">
 					<h2>Login</h2>
 					<input type="text" name="username" placeholder="Username" required />

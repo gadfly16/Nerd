@@ -1,7 +1,6 @@
 // Root GUI Component - Top-level container for the entire Nerd interface
 
 import "./nerd-auth"
-import "./nerd-header"
 import "./nerd-workbench"
 import { system } from "../system"
 
@@ -19,18 +18,25 @@ export class NerdGui extends HTMLElement {
   private render() {
     this.innerHTML = `
 			<style>
-				:host {
-					display: block;
-					width: 100%;
-					height: 100vh;
-					font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-					background: #fafafa;
+				@font-face {
+					font-family: 'Inter';
+					src: url('/fonts/InterVariable.woff2');
+					font-weight: 100 900;
+					font-display: block;
 				}
 
-				.nerd-gui {
+				body {
+					margin: 0;
+					padding: 0;
+				}
+
+				nerd-gui {
 					display: flex;
 					flex-direction: column;
-					height: 100%;
+					width: 100vw;
+					height: 100vh;
+					font-family: 'Inter';
+					background: #fafafa;
 				}
 
 				.hidden {
@@ -38,10 +44,7 @@ export class NerdGui extends HTMLElement {
 				}
 			</style>
 
-			<div class="nerd-gui">
-				<nerd-header></nerd-header>
-				<nerd-workbench></nerd-workbench>
-			</div>
+			<nerd-workbench></nerd-workbench>
 		`
   }
 

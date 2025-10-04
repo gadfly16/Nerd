@@ -1,12 +1,13 @@
 export class NerdHeader extends HTMLElement {
-	connectedCallback() {
-		this.render()
-	}
+  connectedCallback() {
+    this.render()
+  }
 
-	private render() {
-		this.innerHTML = `
+  private render() {
+    this.innerHTML = `
 			<style>
-				.nerd-header {
+				nerd-header {
+					display: block;
 					background: #2c3e50;
 					color: white;
 					padding: 1rem;
@@ -15,11 +16,9 @@ export class NerdHeader extends HTMLElement {
 				}
 			</style>
 
-			<div class="nerd-header">
-				Nerd - Personal Software Agent
-			</div>
+			Nerd - Personal Software Agent
 		`
-	}
+  }
 }
 
 customElements.define("nerd-header", NerdHeader)
