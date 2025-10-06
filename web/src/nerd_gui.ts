@@ -1,4 +1,4 @@
-// Nerd - Personal Software Agent Framework
+// Nerd GUI - Personal Software Agent Graphical User Interface
 
 // Interface Message Types - Must match internal/imsg/imsg.go
 enum imsg {
@@ -11,6 +11,8 @@ enum imsg {
   Logout,
 }
 
+// ask sends a message to the server and returns the response payload
+// Throws on HTTP errors or network failures
 async function ask(type: imsg, pl: any): Promise<any> {
   const response = await fetch("/auth", {
     method: "POST",
@@ -25,10 +27,12 @@ async function ask(type: imsg, pl: any): Promise<any> {
   return await response.json()
 }
 
-// Base Component class
+// NerdComponent provides base functionality for all custom elements
+// Uses global style injection rather than shadow DOM for simplicity
 class NerdComponent extends HTMLElement {
   static style = ""
 
+  // register creates a global style tag and defines the custom element
   static register(name: string) {
     const styleElement = document.createElement("style")
     styleElement.textContent = this.style
@@ -37,7 +41,9 @@ class NerdComponent extends HTMLElement {
   }
 }
 
-// Widgets
+// Widgets are reusable UI primitives used across multiple components
+
+// Action renders a clickable link-styled button
 class Action extends NerdComponent {
   static style = `
 		nerd-action {
@@ -57,7 +63,9 @@ class Action extends NerdComponent {
 	`
 }
 
-// Parts
+// Parts are application-specific structural components
+
+// Header displays the app title and logout action
 class Header extends NerdComponent {
   static style = `
 		nerd-header {
@@ -92,6 +100,7 @@ class Header extends NerdComponent {
     )
   }
 
+  // logout clears the HttpOnly cookie on the server and updates UI to show auth screen
   private async logout() {
     try {
       await ask(imsg.Logout, {})
@@ -123,6 +132,8 @@ class Footer extends NerdComponent {
   }
 }
 
+// Workbench is the main authenticated UI with header, footer, and two board areas
+// The board areas are placeholders for future agent interaction interfaces
 class Workbench extends NerdComponent {
   static style = `
 		nerd-workbench {
@@ -168,6 +179,8 @@ class Workbench extends NerdComponent {
   }
 }
 
+// Auth provides login and registration forms with toggle between modes
+// Automatically logs in user after successful registration
 class Auth extends NerdComponent {
   static style = `
 		nerd-auth {
@@ -241,12 +254,14 @@ class Auth extends NerdComponent {
       .addEventListener("click", () => this.toggleMode())
   }
 
+  // toggleMode switches between login and registration forms
   private toggleMode() {
     this.regmode = !this.regmode
     this.login.classList.toggle("hidden")
     this.register.classList.toggle("hidden")
   }
 
+  // handleSubmit sends credentials to server and updates app state on success
   private async handleSubmit(e: Event, regmode: boolean) {
     e.preventDefault()
     const formData = new FormData(e.target as HTMLFormElement)
@@ -268,6 +283,9 @@ class Auth extends NerdComponent {
   }
 }
 
+// GUI is the root component that manages authentication state
+// Shows Auth component when userId is 0, otherwise shows Workbench
+// userId is injected by server via template replacement in index.html
 class GUI extends NerdComponent {
   static style = `
 		@font-face {
@@ -314,11 +332,13 @@ class GUI extends NerdComponent {
 
   connectedCallback() {
     this.userId = parseInt(this.getAttribute("userid")!, 10)
-    nerd.gui = this
+    nerd.gui = this // Register as singleton for global access
     this.innerHTML = GUI.html
     this.updateAuthState()
   }
 
+  // updateAuthState toggles between auth and workbench based on userId
+  // Called after login/logout to update the UI
   updateAuthState() {
     const workbench = this.querySelector("nerd-workbench")!
 
@@ -332,7 +352,8 @@ class GUI extends NerdComponent {
   }
 }
 
-// Export namespace
+// Export namespace - provides unified access to components and API
+// gui field is set during GUI.connectedCallback() for singleton access
 const nerd = {
   NerdComponent,
   Action,
@@ -341,14 +362,15 @@ const nerd = {
   Workbench,
   Auth,
   GUI,
-  gui: undefined as unknown as GUI,
+  gui: undefined as unknown as GUI, // Set at runtime by GUI component
   ask,
   imsg,
 }
 
 export default nerd
 
-// Register all components
+// Register all components - must happen before HTML parsing completes
+// Creates global style tags and defines custom elements
 Action.register("nerd-action")
 Header.register("nerd-header")
 Footer.register("nerd-footer")

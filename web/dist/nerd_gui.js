@@ -160,5 +160,5 @@ var m=(t=>(t[t.GetTree=0]="GetTree",t[t.CreateChild=1]="CreateChild",t[t.RenameC
 		}
 	`;static html=`
 		<nerd-workbench></nerd-workbench>
-	`;userId=0;auth=document.createElement("nerd-auth");connectedCallback(){this.userId=parseInt(this.getAttribute("userid"),10),i.gui=this,this.innerHTML=r.html,this.updateAuthState()}updateAuthState(){let e=this.querySelector("nerd-workbench");this.userId===0?(e.classList.add("hidden"),this.appendChild(this.auth)):(e.classList.remove("hidden"),this.auth.remove())}},i={NerdComponent:n,Action:s,Header:d,Footer:l,Workbench:c,Auth:h,GUI:u,gui:void 0,ask:g,imsg:m},b=i;s.register("nerd-action"),d.register("nerd-header"),l.register("nerd-footer"),c.register("nerd-workbench"),h.register("nerd-auth"),u.register("nerd-gui");
-//# sourceMappingURL=main.js.map
+	`;userId=0;auth=document.createElement("nerd-auth");connectedCallback(){this.userId=parseInt(this.getAttribute("userid"),10),i.gui=this,this.innerHTML=r.html,this.updateAuthState()}updateAuthState(){let e=this.querySelector("nerd-workbench");this.userId===0?(e.classList.add("hidden"),this.appendChild(this.auth)):(e.classList.remove("hidden"),this.auth.remove())}},i={NerdComponent:n,Action:s,Header:d,Footer:l,Workbench:c,Auth:h,GUI:u,gui:void 0,ask:g,imsg:m},b=i;s.register("nerd-action"),d.register("nerd-header"),l.register("nerd-footer"),c.register("nerd-workbench"),h.register("nerd-auth"),u.register("nerd-gui");export{b as default};
+//# sourceMappingURL=nerd_gui.js.map
