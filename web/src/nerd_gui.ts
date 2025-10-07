@@ -108,9 +108,25 @@ function $(html: string): HTMLElement {
   return result as HTMLElement
 }
 
-// ask sends a message to the server and returns the response payload
+// Ask sends an API message to the server and returns the response payload
 // Throws on HTTP errors or network failures
-async function ask(type: imsg, pl: any): Promise<any> {
+async function Ask(type: imsg, targetId: number, pl: any = {}): Promise<any> {
+  const response = await fetch("/api", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ type, targetId, payload: pl }),
+  })
+
+  if (!response.ok) {
+    throw new Error((await response.text()) || "Request failed")
+  }
+
+  return await response.json()
+}
+
+// AskAuth sends an authentication message to the server
+// Used for login, registration, and logout
+async function AskAuth(type: imsg, pl: any): Promise<any> {
   const response = await fetch("/auth", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -200,7 +216,7 @@ class Header extends NerdComponent {
   // logout clears the HttpOnly cookie on the server and updates UI to show auth screen
   private async logout() {
     try {
-      await ask(imsg.Logout, {})
+      await AskAuth(imsg.Logout, {})
       nerd.gui.userId = 0
       nerd.gui.updateAuthState()
     } catch (err) {
@@ -393,7 +409,10 @@ class Auth extends NerdComponent {
     const pl = Object.fromEntries(formData)
 
     try {
-      const a = await ask(regmode ? imsg.CreateUser : imsg.AuthenticateUser, pl)
+      const a = await AskAuth(
+        regmode ? imsg.CreateUser : imsg.AuthenticateUser,
+        pl,
+      )
       nerd.gui.userId = a.userid
       nerd.gui.updateAuthState()
     } catch (err) {
@@ -486,6 +505,7 @@ class GUI extends NerdComponent {
   private async initWorkbench() {
     try {
       const treeEntry = await this.getTree()
+      console.log("TreeEntry received:", treeEntry)
       this.buildNodeTree(treeEntry)
       this.setupDefaultView()
     } catch (err) {
@@ -499,7 +519,7 @@ class GUI extends NerdComponent {
   // For users: returns subtree rooted at user node
   private async getTree(): Promise<TreeEntry> {
     const targetId = this.admin ? 1 : this.userId
-    const tree = await ask(imsg.GetTree, { targetId })
+    const tree = await Ask(imsg.GetTree, targetId)
     return tree as TreeEntry
   }
 
@@ -514,8 +534,10 @@ class GUI extends NerdComponent {
       parent.children.push(node)
     }
 
-    for (const childEntry of entry.children) {
-      this.buildNodeTree(childEntry, node)
+    if (entry.children) {
+      for (const childEntry of entry.children) {
+        this.buildNodeTree(childEntry, node)
+      }
     }
 
     return node
@@ -564,7 +586,8 @@ const nerd = {
   Auth,
   GUI,
   gui: undefined as unknown as GUI, // Set at runtime by GUI component
-  ask,
+  Ask,
+  AskAuth,
   imsg,
 }
 

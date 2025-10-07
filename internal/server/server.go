@@ -113,12 +113,32 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// TODO: Parse HTTP message and route to tree.AskNode()
+	// Parse HTTP message
+	var httpMsg imsg.IMsg
+	if err := json.NewDecoder(r.Body).Decode(&httpMsg); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	// Set user context
+	httpMsg.UserID = userID
+
 	// TODO: Validate user has access to target node
 
+	// Route to tree
+	result, err := tree.AskNode(httpMsg)
+	if err != nil {
+		log.Printf("API request failed: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	// Return result
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, `{"status": "API endpoint ready", "user_id": %d}`, userID)
+	json.NewEncoder(w).Encode(result)
 }
 
 // getUserFromJWT extracts and validates the user ID and admin flag from the JWT cookie
