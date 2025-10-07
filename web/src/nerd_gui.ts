@@ -11,6 +11,103 @@ enum imsg {
   Logout,
 }
 
+// TreeEntry represents a node and its children - Must match api/msg/types.go
+interface TreeEntry {
+  nodeId: number
+  name: string
+  children: TreeEntry[]
+}
+
+// Node represents a node in the in-memory tree structure
+// Forms a bidirectional tree with parent/children links
+class Node {
+  id: number
+  name: string
+  parent: Node | null
+  children: Node[]
+  element: HTMLElement | null // Cached DOM element when rendered
+
+  constructor(id: number, name: string, parent: Node | null = null) {
+    this.id = id
+    this.name = name
+    this.parent = parent
+    this.children = []
+    this.element = null
+  }
+
+  // addChild creates child node and establishes bidirectional link
+  addChild(id: number, name: string): Node {
+    const child = new Node(id, name, this)
+    this.children.push(child)
+    return child
+  }
+
+  // render appends this node to container and recursively renders children
+  // unless this node is in the display config's stop list
+  render(container: HTMLElement, config: DisplayConfig) {
+    if (!this.element) {
+      this.element = $(`<div class="nerd-entity">${this.name}</div>`)
+    }
+    container.appendChild(this.element)
+
+    if (!config.stopList.has(this.id)) {
+      const childContainer = $(`<div class="nerd-children"></div>`)
+      this.element.appendChild(childContainer)
+      for (const child of this.children) {
+        child.render(childContainer, config)
+      }
+    }
+  }
+}
+
+// DisplayConfig controls how a tree is displayed
+class DisplayConfig {
+  stopList: Map<number, Node>
+
+  constructor() {
+    this.stopList = new Map()
+  }
+}
+
+// Tree represents a subtree view with its display configuration
+class Tree {
+  root: Node
+  config: DisplayConfig
+
+  constructor(root: Node) {
+    this.root = root
+    this.config = new DisplayConfig()
+  }
+
+  // render renders the tree into a container using the display config
+  render(container: HTMLElement) {
+    this.root.render(container, this.config)
+  }
+}
+
+// Board contains multiple tree views
+class Board {
+  trees: Tree[]
+
+  constructor() {
+    this.trees = []
+  }
+
+  addTree(tree: Tree) {
+    this.trees.push(tree)
+  }
+}
+
+// $() creates an HTMLElement from a template string
+// Strips whitespace for cleaner template literals
+const _dollarRegexp = /^\s+|\s+$|(?<=\>)\s+(?=\<)/gm
+function $(html: string): HTMLElement {
+  const template = document.createElement("template")
+  template.innerHTML = html.replace(_dollarRegexp, "")
+  const result = template.content.firstElementChild
+  return result as HTMLElement
+}
+
 // ask sends a message to the server and returns the response payload
 // Throws on HTTP errors or network failures
 async function ask(type: imsg, pl: any): Promise<any> {
@@ -174,8 +271,35 @@ class Workbench extends NerdComponent {
 		<nerd-footer></nerd-footer>
 	`
 
+  // Workbench instance fields
+  boards: Board[] = []
+  private leftContainer!: HTMLElement
+  private rightContainer!: HTMLElement
+
   connectedCallback() {
     this.innerHTML = Workbench.html
+    this.leftContainer = this.querySelector(".board.left")!
+    this.rightContainer = this.querySelector(".board.right")!
+
+    // Initialize two boards
+    this.boards = [new Board(), new Board()]
+  }
+
+  // renderBoards renders all trees on both boards
+  renderBoards() {
+    // Clear containers
+    this.leftContainer.innerHTML = ""
+    this.rightContainer.innerHTML = ""
+
+    // Render left board (index 0)
+    for (const tree of this.boards[0].trees) {
+      tree.render(this.leftContainer)
+    }
+
+    // Render right board (index 1)
+    for (const tree of this.boards[1].trees) {
+      tree.render(this.rightContainer)
+    }
   }
 }
 
@@ -230,6 +354,7 @@ class Auth extends NerdComponent {
 		</div>
 	`
 
+  // Auth instance fields
   private regmode = false
   private login = undefined as unknown as HTMLFormElement
   private register = undefined as unknown as HTMLFormElement
@@ -327,11 +452,16 @@ class GUI extends NerdComponent {
 		<nerd-workbench></nerd-workbench>
 	`
 
+  // GUI instance fields
   userId: number = 0
+  admin: boolean = false
   private auth = document.createElement("nerd-auth")
+  private nodes = new Map<number, Node>() // Fast lookup by ID
+  private rootNode: Node | null = null
 
   connectedCallback() {
     this.userId = parseInt(this.getAttribute("userid")!, 10)
+    this.admin = this.getAttribute("admin") === "true"
     nerd.gui = this // Register as singleton for global access
     this.innerHTML = GUI.html
     this.updateAuthState()
@@ -348,7 +478,78 @@ class GUI extends NerdComponent {
     } else {
       workbench.classList.remove("hidden")
       this.auth.remove()
+      this.initWorkbench()
     }
+  }
+
+  // initWorkbench loads the tree and initializes the board displays
+  private async initWorkbench() {
+    try {
+      const treeEntry = await this.getTree()
+      this.buildNodeTree(treeEntry)
+      this.setupDefaultView()
+    } catch (err) {
+      console.error("Failed to initialize workbench:", err)
+      // TODO: Show error to user
+    }
+  }
+
+  // getTree fetches the tree structure from the server
+  // For admins: returns entire tree from Root
+  // For users: returns subtree rooted at user node
+  private async getTree(): Promise<TreeEntry> {
+    const targetId = this.admin ? 1 : this.userId
+    const tree = await ask(imsg.GetTree, { targetId })
+    return tree as TreeEntry
+  }
+
+  // buildNodeTree recursively builds Node tree from TreeEntry and populates nodes map
+  private buildNodeTree(entry: TreeEntry, parent: Node | null = null): Node {
+    const node = new Node(entry.nodeId, entry.name, parent)
+    this.nodes.set(node.id, node)
+
+    if (parent === null) {
+      this.rootNode = node
+    } else {
+      parent.children.push(node)
+    }
+
+    for (const childEntry of entry.children) {
+      this.buildNodeTree(childEntry, node)
+    }
+
+    return node
+  }
+
+  // setupDefaultView creates default board/tree configuration
+  // Default: both boards show user node with 1 level depth (children in stop list)
+  private setupDefaultView() {
+    if (!this.rootNode) return
+
+    const workbench = this.querySelector("nerd-workbench") as Workbench
+    if (!workbench) return
+
+    // Find user node (for admins, use root; for users, use their node)
+    const displayNode = this.admin ? this.rootNode : this.nodes.get(this.userId)
+    if (!displayNode) return
+
+    // Create tree for left board
+    const leftTree = new Tree(displayNode)
+    // Add immediate children to stop list (show 1 level depth)
+    for (const child of displayNode.children) {
+      leftTree.config.stopList.set(child.id, child)
+    }
+    workbench.boards[0].addTree(leftTree)
+
+    // Create tree for right board (same as left)
+    const rightTree = new Tree(displayNode)
+    for (const child of displayNode.children) {
+      rightTree.config.stopList.set(child.id, child)
+    }
+    workbench.boards[1].addTree(rightTree)
+
+    // Render both boards
+    workbench.renderBoards()
   }
 }
 

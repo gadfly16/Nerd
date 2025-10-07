@@ -1,4 +1,4 @@
-var m=(t=>(t[t.GetTree=0]="GetTree",t[t.CreateChild=1]="CreateChild",t[t.RenameChild=2]="RenameChild",t[t.Shutdown=3]="Shutdown",t[t.AuthenticateUser=4]="AuthenticateUser",t[t.CreateUser=5]="CreateUser",t[t.Logout=6]="Logout",t))(m||{});async function g(r,e){let a=await fetch("/auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:r,payload:e})});if(!a.ok)throw new Error(await a.text()||"Request failed");return await a.json()}var n=class extends HTMLElement{static style="";static register(e){let a=document.createElement("style");a.textContent=this.style,document.head.appendChild(a),customElements.define(e,this)}},s=class extends n{static style=`
+var v=(i=>(i[i.GetTree=0]="GetTree",i[i.CreateChild=1]="CreateChild",i[i.RenameChild=2]="RenameChild",i[i.Shutdown=3]="Shutdown",i[i.AuthenticateUser=4]="AuthenticateUser",i[i.CreateUser=5]="CreateUser",i[i.Logout=6]="Logout",i))(v||{}),w=class r{id;name;parent;children;element;constructor(e,t,n=null){this.id=e,this.name=t,this.parent=n,this.children=[],this.element=null}addChild(e,t){let n=new r(e,t,this);return this.children.push(n),n}render(e,t){if(this.element||(this.element=L(`<div class="nerd-entity">${this.name}</div>`)),e.appendChild(this.element),!t.stopList.has(this.id)){let n=L('<div class="nerd-children"></div>');this.element.appendChild(n);for(let a of this.children)a.render(n,t)}}},y=class{stopList;constructor(){this.stopList=new Map}},l=class{root;config;constructor(e){this.root=e,this.config=new y}render(e){this.root.render(e,this.config)}},h=class{trees;constructor(){this.trees=[]}addTree(e){this.trees.push(e)}},T=/^\s+|\s+$|(?<=\>)\s+(?=\<)/gm;function L(r){let e=document.createElement("template");return e.innerHTML=r.replace(T,""),e.content.firstElementChild}async function c(r,e){let t=await fetch("/auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:r,payload:e})});if(!t.ok)throw new Error(await t.text()||"Request failed");return await t.json()}var o=class extends HTMLElement{static style="";static register(e){let t=document.createElement("style");t.textContent=this.style,document.head.appendChild(t),customElements.define(e,this)}},u=class extends o{static style=`
 		nerd-action {
 			display: inline;
 			background: none;
@@ -13,7 +13,7 @@ var m=(t=>(t[t.GetTree=0]="GetTree",t[t.CreateChild=1]="CreateChild",t[t.RenameC
 		nerd-action:hover {
 			color: #0052a3;
 		}
-	`},d=class r extends n{static style=`
+	`},g=class r extends o{static style=`
 		nerd-header {
 			display: flex;
 			justify-content: space-between;
@@ -35,7 +35,7 @@ var m=(t=>(t[t.GetTree=0]="GetTree",t[t.CreateChild=1]="CreateChild",t[t.RenameC
 	`;static html=`
 		<span>Nerd - Personal Software Agent Framework</span>
 		<nerd-action class="logout">Logout</nerd-action>
-	`;connectedCallback(){this.innerHTML=r.html,this.querySelector(".logout").addEventListener("click",()=>this.logout())}async logout(){try{await g(6,{}),i.gui.userId=0,i.gui.updateAuthState()}catch(e){console.error("Logout failed:",e)}}},l=class r extends n{static style=`
+	`;connectedCallback(){this.innerHTML=r.html,this.querySelector(".logout").addEventListener("click",()=>this.logout())}async logout(){try{await c(6,{}),d.gui.userId=0,d.gui.updateAuthState()}catch(e){console.error("Logout failed:",e)}}},m=class r extends o{static style=`
 		nerd-footer {
 			display: block;
 			background: #2c3e50;
@@ -45,7 +45,7 @@ var m=(t=>(t[t.GetTree=0]="GetTree",t[t.CreateChild=1]="CreateChild",t[t.RenameC
 		}
 	`;static html=`
 		Footer
-	`;connectedCallback(){this.innerHTML=r.html}},c=class r extends n{static style=`
+	`;connectedCallback(){this.innerHTML=r.html}},f=class r extends o{static style=`
 		nerd-workbench {
 			display: grid;
 			grid-template-columns: 1fr 1fr;
@@ -80,7 +80,7 @@ var m=(t=>(t[t.GetTree=0]="GetTree",t[t.CreateChild=1]="CreateChild",t[t.RenameC
 		<div class="board left"></div>
 		<div class="board right"></div>
 		<nerd-footer></nerd-footer>
-	`;connectedCallback(){this.innerHTML=r.html}},h=class r extends n{static style=`
+	`;boards=[];leftContainer;rightContainer;connectedCallback(){this.innerHTML=r.html,this.leftContainer=this.querySelector(".board.left"),this.rightContainer=this.querySelector(".board.right"),this.boards=[new h,new h]}renderBoards(){this.leftContainer.innerHTML="",this.rightContainer.innerHTML="";for(let e of this.boards[0].trees)e.render(this.leftContainer);for(let e of this.boards[1].trees)e.render(this.rightContainer)}},p=class r extends o{static style=`
 		nerd-auth {
 			display: flex;
 			justify-content: center;
@@ -124,7 +124,7 @@ var m=(t=>(t[t.GetTree=0]="GetTree",t[t.CreateChild=1]="CreateChild",t[t.RenameC
 			</form>
 			<div class="error"></div>
 		</div>
-	`;regmode=!1;login=void 0;register=void 0;error=void 0;connectedCallback(){this.innerHTML=r.html,this.login=this.querySelector(".login"),this.register=this.querySelector(".register"),this.error=this.querySelector(".error"),this.attachEventListeners()}attachEventListeners(){this.login.addEventListener("submit",e=>this.handleSubmit(e,!1)),this.register.addEventListener("submit",e=>this.handleSubmit(e,!0)),this.login.querySelector(".toggle").addEventListener("click",()=>this.toggleMode()),this.register.querySelector(".toggle").addEventListener("click",()=>this.toggleMode())}toggleMode(){this.regmode=!this.regmode,this.login.classList.toggle("hidden"),this.register.classList.toggle("hidden")}async handleSubmit(e,a){e.preventDefault();let p=new FormData(e.target),f=Object.fromEntries(p);try{let o=await g(a?5:4,f);i.gui.userId=o.userid,i.gui.updateAuthState()}catch(o){this.showError(o instanceof Error?o.message:"Network error. Please try again.")}}showError(e){this.error.textContent=e}},u=class r extends n{static style=`
+	`;regmode=!1;login=void 0;register=void 0;error=void 0;connectedCallback(){this.innerHTML=r.html,this.login=this.querySelector(".login"),this.register=this.querySelector(".register"),this.error=this.querySelector(".error"),this.attachEventListeners()}attachEventListeners(){this.login.addEventListener("submit",e=>this.handleSubmit(e,!1)),this.register.addEventListener("submit",e=>this.handleSubmit(e,!0)),this.login.querySelector(".toggle").addEventListener("click",()=>this.toggleMode()),this.register.querySelector(".toggle").addEventListener("click",()=>this.toggleMode())}toggleMode(){this.regmode=!this.regmode,this.login.classList.toggle("hidden"),this.register.classList.toggle("hidden")}async handleSubmit(e,t){e.preventDefault();let n=new FormData(e.target),a=Object.fromEntries(n);try{let s=await c(t?5:4,a);d.gui.userId=s.userid,d.gui.updateAuthState()}catch(s){this.showError(s instanceof Error?s.message:"Network error. Please try again.")}}showError(e){this.error.textContent=e}},b=class r extends o{static style=`
 		@font-face {
 			font-family: 'Inter';
 			src: url('/fonts/InterVariable.woff2');
@@ -160,5 +160,5 @@ var m=(t=>(t[t.GetTree=0]="GetTree",t[t.CreateChild=1]="CreateChild",t[t.RenameC
 		}
 	`;static html=`
 		<nerd-workbench></nerd-workbench>
-	`;userId=0;auth=document.createElement("nerd-auth");connectedCallback(){this.userId=parseInt(this.getAttribute("userid"),10),i.gui=this,this.innerHTML=r.html,this.updateAuthState()}updateAuthState(){let e=this.querySelector("nerd-workbench");this.userId===0?(e.classList.add("hidden"),this.appendChild(this.auth)):(e.classList.remove("hidden"),this.auth.remove())}},i={NerdComponent:n,Action:s,Header:d,Footer:l,Workbench:c,Auth:h,GUI:u,gui:void 0,ask:g,imsg:m},b=i;s.register("nerd-action"),d.register("nerd-header"),l.register("nerd-footer"),c.register("nerd-workbench"),h.register("nerd-auth"),u.register("nerd-gui");export{b as default};
+	`;userId=0;admin=!1;auth=document.createElement("nerd-auth");nodes=new Map;rootNode=null;connectedCallback(){this.userId=parseInt(this.getAttribute("userid"),10),this.admin=this.getAttribute("admin")==="true",d.gui=this,this.innerHTML=r.html,this.updateAuthState()}updateAuthState(){let e=this.querySelector("nerd-workbench");this.userId===0?(e.classList.add("hidden"),this.appendChild(this.auth)):(e.classList.remove("hidden"),this.auth.remove(),this.initWorkbench())}async initWorkbench(){try{let e=await this.getTree();this.buildNodeTree(e),this.setupDefaultView()}catch(e){console.error("Failed to initialize workbench:",e)}}async getTree(){let e=this.admin?1:this.userId;return await c(0,{targetId:e})}buildNodeTree(e,t=null){let n=new w(e.nodeId,e.name,t);this.nodes.set(n.id,n),t===null?this.rootNode=n:t.children.push(n);for(let a of e.children)this.buildNodeTree(a,n);return n}setupDefaultView(){if(!this.rootNode)return;let e=this.querySelector("nerd-workbench");if(!e)return;let t=this.admin?this.rootNode:this.nodes.get(this.userId);if(!t)return;let n=new l(t);for(let s of t.children)n.config.stopList.set(s.id,s);e.boards[0].addTree(n);let a=new l(t);for(let s of t.children)a.config.stopList.set(s.id,s);e.boards[1].addTree(a),e.renderBoards()}},d={NerdComponent:o,Action:u,Header:g,Footer:m,Workbench:f,Auth:p,GUI:b,gui:void 0,ask:c,imsg:v},k=d;u.register("nerd-action"),g.register("nerd-header"),m.register("nerd-footer"),f.register("nerd-workbench"),p.register("nerd-auth"),b.register("nerd-gui");export{k as default};
 //# sourceMappingURL=nerd_gui.js.map

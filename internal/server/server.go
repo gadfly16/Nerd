@@ -62,13 +62,13 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.URL.Path == "/" {
-		// Get user ID from JWT, defaults to 0 if not authenticated
-		userID, err := s.getUserFromJWT(r)
+		// Get user ID and admin flag from JWT, defaults to 0/false if not authenticated
+		userID, admin, err := s.getUserFromJWT(r)
 		if err != nil {
 			log.Printf("No authenticated user, serving with userID=0: %v", err)
 		}
 
-		// Read and inject user ID into index.html
+		// Read and inject user ID and admin flag into index.html
 		indexPath := filepath.Join(s.webRoot, "index.html")
 		htmlBytes, err := os.ReadFile(indexPath)
 		if err != nil {
@@ -76,13 +76,14 @@ func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		// Replace user ID placeholder in HTML
+		// Replace user info placeholder in HTML
 		htmlString := string(htmlBytes)
-		modifiedHTML := strings.Replace(htmlString, "{{USER_ID}}", fmt.Sprintf("%d", userID), 1)
+		userInfo := fmt.Sprintf(`userid="%d" admin="%t"`, userID, admin)
+		htmlString = strings.Replace(htmlString, "{{USER_INFO}}", userInfo, 1)
 
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(modifiedHTML))
+		w.Write([]byte(htmlString))
 		return
 	}
 
@@ -102,8 +103,8 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 	// TODO: Add JWT authentication
 	// TODO: Parse HTTP message and route to tree.AskNode()
 
-	// Extract user ID from JWT
-	userID, err := s.getUserFromJWT(r)
+	// Extract user ID and admin flag from JWT
+	userID, _, err := s.getUserFromJWT(r)
 	if err != nil {
 		log.Printf("Authentication failed: %v", err)
 		w.Header().Set("Content-Type", "application/json")
@@ -120,13 +121,13 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintf(w, `{"status": "API endpoint ready", "user_id": %d}`, userID)
 }
 
-// getUserFromJWT extracts and validates the user ID from the JWT cookie
-// Returns 0 and an error if authentication fails
-func (s *Server) getUserFromJWT(r *http.Request) (nerd.NodeID, error) {
+// getUserFromJWT extracts and validates the user ID and admin flag from the JWT cookie
+// Returns 0, false and an error if authentication fails
+func (s *Server) getUserFromJWT(r *http.Request) (nerd.NodeID, bool, error) {
 	// Get JWT from httpOnly cookie
 	cookie, err := r.Cookie("nerd_token")
 	if err != nil {
-		return 0, fmt.Errorf("no auth cookie found")
+		return 0, false, fmt.Errorf("no auth cookie found")
 	}
 
 	// Parse and validate JWT
@@ -139,22 +140,28 @@ func (s *Server) getUserFromJWT(r *http.Request) (nerd.NodeID, error) {
 	})
 
 	if err != nil {
-		return 0, fmt.Errorf("invalid token: %w", err)
+		return 0, false, fmt.Errorf("invalid token: %w", err)
 	}
 
 	// Extract claims
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		return 0, fmt.Errorf("invalid token claims")
+		return 0, false, fmt.Errorf("invalid token claims")
 	}
 
 	// Get user_id from claims
 	userIDFloat, ok := claims["user_id"].(float64)
 	if !ok {
-		return 0, fmt.Errorf("missing or invalid user_id in token")
+		return 0, false, fmt.Errorf("missing or invalid user_id in token")
 	}
 
-	return nerd.NodeID(userIDFloat), nil
+	// Get admin flag from claims
+	admin, ok := claims["admin"].(bool)
+	if !ok {
+		return 0, false, fmt.Errorf("missing or invalid admin in token")
+	}
+
+	return nerd.NodeID(userIDFloat), admin, nil
 }
 
 // handleAuth processes unauthenticated operations (login, user creation)
