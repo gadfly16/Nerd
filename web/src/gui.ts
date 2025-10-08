@@ -1,22 +1,9 @@
 // Nerd GUI - Personal Software Agent Graphical User Interface
 
-// Interface Message Types - Must match internal/imsg/imsg.go
-enum imsg {
-  GetTree = 0,
-  CreateChild,
-  RenameChild,
-  Shutdown,
-  AuthenticateUser,
-  CreateUser,
-  Logout,
-}
-
-// TreeEntry represents a node and its children - Must match api/msg/types.go
-interface TreeEntry {
-  nodeId: number
-  name: string
-  children: TreeEntry[]
-}
+import { imsg, Ask, AskAuth } from "./imsg.js"
+import { $ } from "./util.js"
+import * as nerd from "./nerd.js"
+import "./widgets.js" // Side effect: registers widget components
 
 // Node represents a node in the in-memory tree structure
 // Forms a bidirectional tree with parent/children links
@@ -98,88 +85,10 @@ class Board {
   }
 }
 
-// $() creates an HTMLElement from a template string
-// Strips whitespace for cleaner template literals
-const _dollarRegexp = /^\s+|\s+$|(?<=\>)\s+(?=\<)/gm
-function $(html: string): HTMLElement {
-  const template = document.createElement("template")
-  template.innerHTML = html.replace(_dollarRegexp, "")
-  const result = template.content.firstElementChild
-  return result as HTMLElement
-}
-
-// Ask sends an API message to the server and returns the response payload
-// Throws on HTTP errors or network failures
-async function Ask(type: imsg, targetId: number, pl: any = {}): Promise<any> {
-  const response = await fetch("/api", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type, targetId, payload: pl }),
-  })
-
-  if (!response.ok) {
-    throw new Error((await response.text()) || "Request failed")
-  }
-
-  return await response.json()
-}
-
-// AskAuth sends an authentication message to the server
-// Used for login, registration, and logout
-async function AskAuth(type: imsg, pl: any): Promise<any> {
-  const response = await fetch("/auth", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ type, payload: pl }),
-  })
-
-  if (!response.ok) {
-    throw new Error((await response.text()) || "Request failed")
-  }
-
-  return await response.json()
-}
-
-// NerdComponent provides base functionality for all custom elements
-// Uses global style injection rather than shadow DOM for simplicity
-class NerdComponent extends HTMLElement {
-  static style = ""
-
-  // register creates a global style tag and defines the custom element
-  static register(name: string) {
-    const styleElement = document.createElement("style")
-    styleElement.textContent = this.style
-    document.head.appendChild(styleElement)
-    customElements.define(name, this)
-  }
-}
-
-// Widgets are reusable UI primitives used across multiple components
-
-// Action renders a clickable link-styled button
-class Action extends NerdComponent {
-  static style = `
-		nerd-action {
-			display: inline;
-			background: none;
-			border: none;
-			color: #0066cc;
-			text-decoration: underline;
-			cursor: pointer;
-			padding: 0;
-			font: inherit;
-		}
-
-		nerd-action:hover {
-			color: #0052a3;
-		}
-	`
-}
-
 // Parts are application-specific structural components
 
 // Header displays the app title and logout action
-class Header extends NerdComponent {
+class Header extends nerd.Component {
   static style = `
 		nerd-header {
 			display: flex;
@@ -217,15 +126,15 @@ class Header extends NerdComponent {
   private async logout() {
     try {
       await AskAuth(imsg.Logout, {})
-      nerd.gui.userId = 0
-      nerd.gui.updateAuthState()
+      gui.userId = 0
+      gui.updateAuthState()
     } catch (err) {
       console.error("Logout failed:", err)
     }
   }
 }
 
-class Footer extends NerdComponent {
+class Footer extends nerd.Component {
   static style = `
 		nerd-footer {
 			display: block;
@@ -247,7 +156,7 @@ class Footer extends NerdComponent {
 
 // Workbench is the main authenticated UI with header, footer, and two board areas
 // The board areas are placeholders for future agent interaction interfaces
-class Workbench extends NerdComponent {
+class Workbench extends nerd.Component {
   static style = `
 		nerd-workbench {
 			display: grid;
@@ -321,7 +230,7 @@ class Workbench extends NerdComponent {
 
 // Auth provides login and registration forms with toggle between modes
 // Automatically logs in user after successful registration
-class Auth extends NerdComponent {
+class Auth extends nerd.Component {
   static style = `
 		nerd-auth {
 			display: flex;
@@ -413,8 +322,8 @@ class Auth extends NerdComponent {
         regmode ? imsg.CreateUser : imsg.AuthenticateUser,
         pl,
       )
-      nerd.gui.userId = a.userid
-      nerd.gui.updateAuthState()
+      gui.userId = a.userid
+      gui.updateAuthState()
     } catch (err) {
       this.showError(
         err instanceof Error ? err.message : "Network error. Please try again.",
@@ -430,7 +339,7 @@ class Auth extends NerdComponent {
 // GUI is the root component that manages authentication state
 // Shows Auth component when userId is 0, otherwise shows Workbench
 // userId is injected by server via template replacement in index.html
-class GUI extends NerdComponent {
+class GUI extends nerd.Component {
   static style = `
 		@font-face {
 			font-family: 'Inter';
@@ -481,7 +390,7 @@ class GUI extends NerdComponent {
   connectedCallback() {
     this.userId = parseInt(this.getAttribute("userid")!, 10)
     this.admin = this.getAttribute("admin") === "true"
-    nerd.gui = this // Register as singleton for global access
+    gui = this // Register as singleton for global access
     this.innerHTML = GUI.html
     this.updateAuthState()
   }
@@ -517,14 +426,17 @@ class GUI extends NerdComponent {
   // getTree fetches the tree structure from the server
   // For admins: returns entire tree from Root
   // For users: returns subtree rooted at user node
-  private async getTree(): Promise<TreeEntry> {
+  private async getTree(): Promise<nerd.TreeEntry> {
     const targetId = this.admin ? 1 : this.userId
     const tree = await Ask(imsg.GetTree, targetId)
-    return tree as TreeEntry
+    return tree as nerd.TreeEntry
   }
 
   // buildNodeTree recursively builds Node tree from TreeEntry and populates nodes map
-  private buildNodeTree(entry: TreeEntry, parent: Node | null = null): Node {
+  private buildNodeTree(
+    entry: nerd.TreeEntry,
+    parent: Node | null = null,
+  ): Node {
     const node = new Node(entry.nodeId, entry.name, parent)
     this.nodes.set(node.id, node)
 
@@ -575,27 +487,12 @@ class GUI extends NerdComponent {
   }
 }
 
-// Export namespace - provides unified access to components and API
-// gui field is set during GUI.connectedCallback() for singleton access
-const nerd = {
-  NerdComponent,
-  Action,
-  Header,
-  Footer,
-  Workbench,
-  Auth,
-  GUI,
-  gui: undefined as unknown as GUI, // Set at runtime by GUI component
-  Ask,
-  AskAuth,
-  imsg,
-}
-
-export default nerd
+// Global singleton GUI instance - set during GUI.connectedCallback()
+// Uses undefined as unknown to avoid exclamation marks throughout code
+let gui = undefined as unknown as GUI
 
 // Register all components - must happen before HTML parsing completes
 // Creates global style tags and defines custom elements
-Action.register("nerd-action")
 Header.register("nerd-header")
 Footer.register("nerd-footer")
 Workbench.register("nerd-workbench")
