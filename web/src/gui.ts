@@ -401,6 +401,13 @@ class GUI extends nerd.Component {
     const workbench = this.querySelector("nerd-workbench")!
 
     if (this.userId === 0) {
+      // Clear tree data when logging out
+      this.nodes.clear()
+      this.rootNode = null
+      if (workbench) {
+        const wb = workbench as Workbench
+        wb.boards = [new Board(), new Board()]
+      }
       workbench.classList.add("hidden")
       this.appendChild(this.auth)
     } else {
