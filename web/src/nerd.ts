@@ -25,7 +25,13 @@ export class Component extends HTMLElement {
 
 // GUI is forward-declared here to avoid circular dependency
 // The actual implementation is in gui.ts
+// GUIState is also forward-declared for the state field
+export interface GUIState {
+  workbench: any
+}
+
 export interface GUI {
+  state: GUIState
   SwitchToAuth(): void
   SwitchToWorkbench(userId: number): void
 }

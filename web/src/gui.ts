@@ -30,9 +30,9 @@ class Node {
   }
 
   // render creates and appends a new DOM element to container
-  // recursively renders children unless this node is in the display config's stop list
+  // recursively renders children unless this node is in the config's stop list
   // returns the created element for potential future reference
-  render(container: HTMLElement, config: DisplayConfig): HTMLElement {
+  render(container: HTMLElement, config: ListTreeConfig): HTMLElement {
     const element = $(`<div class="nerd-entity">${this.name}</div>`)
     this.elements.push(element)
     container.appendChild(element)
@@ -49,41 +49,75 @@ class Node {
   }
 }
 
-// DisplayConfig controls how a tree is displayed
-class DisplayConfig {
-  stopList: Map<number, Node>
-
-  constructor() {
-    this.stopList = new Map()
-  }
-}
-
-// Tree represents a subtree view with its display configuration
-class Tree {
+// ListTreeConfig configures a single ListTree instance
+class ListTreeConfig {
   root: Node
-  config: DisplayConfig
+  stopList: Set<number> // Node IDs to stop rendering at
 
   constructor(root: Node) {
     this.root = root
-    this.config = new DisplayConfig()
-  }
-
-  // render renders the tree into a container using the display config
-  render(container: HTMLElement) {
-    this.root.render(container, this.config)
+    this.stopList = new Set()
   }
 }
 
-// Board contains multiple tree views
-class Board {
-  trees: Tree[]
+// BoardConfig holds configuration for all ListTrees on a board
+class BoardConfig {
+  listTrees: ListTreeConfig[]
 
   constructor() {
-    this.trees = []
+    this.listTrees = []
+  }
+}
+
+// WorkbenchConfig holds configuration for all boards in the workbench
+class WorkbenchConfig {
+  boards: BoardConfig[]
+
+  constructor() {
+    this.boards = [new BoardConfig(), new BoardConfig()]
+  }
+}
+
+// GUIState holds the complete state of the GUI display configuration
+class GUIState {
+  workbench: WorkbenchConfig
+
+  constructor() {
+    this.workbench = new WorkbenchConfig()
+  }
+}
+
+// ListTree renders a tree as a hierarchical list of block elements
+// This is a dynamic/adaptive custom element
+class ListTree extends nerd.Component {
+  static style = `
+		nerd-list-tree {
+			display: block;
+		}
+
+		nerd-list-tree .nerd-entity {
+			padding: 0.25em;
+		}
+
+		nerd-list-tree .nerd-children {
+			padding-left: 1em;
+		}
+	`
+
+  config: ListTreeConfig | null = null
+
+  // SetConfig configures which tree to display
+  SetConfig(config: ListTreeConfig) {
+    this.config = config
+    this.render()
   }
 
-  addTree(tree: Tree) {
-    this.trees.push(tree)
+  // render displays the tree using block layout
+  private render() {
+    if (!this.config) return
+
+    this.innerHTML = ""
+    this.config.root.render(this, this.config)
   }
 }
 
@@ -198,7 +232,6 @@ class Workbench extends nerd.Component {
 	`
 
   // Workbench instance fields
-  boards: Board[] = []
   private leftContainer!: HTMLElement
   private rightContainer!: HTMLElement
 
@@ -206,25 +239,29 @@ class Workbench extends nerd.Component {
     this.innerHTML = Workbench.html
     this.leftContainer = this.querySelector(".board.left")!
     this.rightContainer = this.querySelector(".board.right")!
-
-    // Initialize two boards
-    this.boards = [new Board(), new Board()]
   }
 
-  // renderBoards renders all trees on both boards
+  // renderBoards renders all trees on both boards using ListTree elements
+  // Uses GUI state to determine what to render
   renderBoards() {
     // Clear containers
     this.leftContainer.innerHTML = ""
     this.rightContainer.innerHTML = ""
 
+    const workbenchConfig = nerd.gui.state.workbench
+
     // Render left board (index 0)
-    for (const tree of this.boards[0].trees) {
-      tree.render(this.leftContainer)
+    for (const config of workbenchConfig.boards[0].listTrees) {
+      const listTree = document.createElement("nerd-list-tree") as ListTree
+      listTree.SetConfig(config)
+      this.leftContainer.appendChild(listTree)
     }
 
     // Render right board (index 1)
-    for (const tree of this.boards[1].trees) {
-      tree.render(this.rightContainer)
+    for (const config of workbenchConfig.boards[1].listTrees) {
+      const listTree = document.createElement("nerd-list-tree") as ListTree
+      listTree.SetConfig(config)
+      this.rightContainer.appendChild(listTree)
     }
   }
 }
@@ -383,6 +420,7 @@ class GUI extends nerd.Component {
   // GUI instance fields
   userId: number = 0
   admin: boolean = false
+  state: GUIState = new GUIState()
   private auth = document.createElement("nerd-auth")
   private nodes = new Map<number, Node>() // Fast lookup by ID
   private rootNode: Node | null = null
@@ -402,12 +440,11 @@ class GUI extends nerd.Component {
     this.userId = 0
     this.nodes.clear()
     this.rootNode = null
+    this.state = new GUIState()
 
     const workbench = this.querySelector("nerd-workbench")
     if (workbench) {
-      const wb = workbench as Workbench
-      wb.boards = [new Board(), new Board()]
-      wb.classList.add("hidden")
+      workbench.classList.add("hidden")
     }
 
     this.appendChild(this.auth)
@@ -494,20 +531,18 @@ class GUI extends nerd.Component {
     const displayNode = this.admin ? this.rootNode : this.nodes.get(this.userId)
     if (!displayNode) return
 
-    // Create tree for left board
-    const leftTree = new Tree(displayNode)
+    // Create ListTreeConfig for left board
+    const leftConfig = new ListTreeConfig(displayNode)
     // Add immediate children to stop list (show 1 level depth)
     for (const child of displayNode.children) {
-      leftTree.config.stopList.set(child.id, child)
+      leftConfig.stopList.add(child.id)
     }
-    workbench.boards[0].addTree(leftTree)
+    this.state.workbench.boards[0].listTrees.push(leftConfig)
 
-    // Create tree for right board (same as left)
-    const rightTree = new Tree(displayNode)
-    for (const child of displayNode.children) {
-      rightTree.config.stopList.set(child.id, child)
-    }
-    workbench.boards[1].addTree(rightTree)
+    // Create ListTreeConfig for right board (empty stop list - shows full tree)
+    const rightConfig = new ListTreeConfig(displayNode)
+    // No children added to stop list - renders entire tree recursively
+    this.state.workbench.boards[1].listTrees.push(rightConfig)
 
     // Render both boards
     workbench.renderBoards()
@@ -516,6 +551,7 @@ class GUI extends nerd.Component {
 
 // Register all components - must happen before HTML parsing completes
 // Creates global style tags and defines custom elements
+ListTree.register("nerd-list-tree")
 Header.register("nerd-header")
 Footer.register("nerd-footer")
 Workbench.register("nerd-workbench")
