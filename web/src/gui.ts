@@ -151,11 +151,13 @@ class Header extends nerd.Component {
 		<nerd-action class="logout">Logout</nerd-action>
 	`
 
+  // Header instance fields
+  private logoutButton!: HTMLElement
+
   connectedCallback() {
     this.innerHTML = Header.html
-    this.querySelector(".logout")!.addEventListener("click", () =>
-      this.logout(),
-    )
+    this.logoutButton = this.querySelector(".logout")!
+    this.logoutButton.addEventListener("click", () => this.logout())
   }
 
   // logout clears the HttpOnly cookie on the server and updates UI to show auth screen
@@ -232,36 +234,36 @@ class Workbench extends nerd.Component {
 	`
 
   // Workbench instance fields
-  private leftContainer!: HTMLElement
-  private rightContainer!: HTMLElement
+  private boardElements: HTMLElement[] = []
 
   connectedCallback() {
     this.innerHTML = Workbench.html
-    this.leftContainer = this.querySelector(".board.left")!
-    this.rightContainer = this.querySelector(".board.right")!
+    // Cache all board elements in order
+    this.boardElements = [
+      this.querySelector(".board.left")!,
+      this.querySelector(".board.right")!,
+    ]
   }
 
-  // renderBoards renders all trees on both boards using ListTree elements
+  // renderBoards renders all trees on all boards using ListTree elements
   // Uses GUI state to determine what to render
   renderBoards() {
-    // Clear containers
-    this.leftContainer.innerHTML = ""
-    this.rightContainer.innerHTML = ""
-
     const workbenchConfig = nerd.gui.state.workbench
 
-    // Render left board (index 0)
-    for (const config of workbenchConfig.boards[0].listTrees) {
-      const listTree = document.createElement("nerd-list-tree") as ListTree
-      listTree.SetConfig(config)
-      this.leftContainer.appendChild(listTree)
-    }
+    // Render each board
+    for (let i = 0; i < this.boardElements.length; i++) {
+      const board = this.boardElements[i]
+      const boardConfig = workbenchConfig.boards[i]
 
-    // Render right board (index 1)
-    for (const config of workbenchConfig.boards[1].listTrees) {
-      const listTree = document.createElement("nerd-list-tree") as ListTree
-      listTree.SetConfig(config)
-      this.rightContainer.appendChild(listTree)
+      // Clear container
+      board.innerHTML = ""
+
+      // Render all ListTrees for this board
+      for (const config of boardConfig.listTrees) {
+        const listTree = document.createElement("nerd-list-tree") as ListTree
+        listTree.SetConfig(config)
+        board.appendChild(listTree)
+      }
     }
   }
 }
@@ -322,24 +324,24 @@ class Auth extends nerd.Component {
   private login = undefined as unknown as HTMLFormElement
   private register = undefined as unknown as HTMLFormElement
   private error = undefined as unknown as HTMLDivElement
+  private loginToggle = undefined as unknown as HTMLElement
+  private registerToggle = undefined as unknown as HTMLElement
 
   connectedCallback() {
     this.innerHTML = Auth.html
     this.login = this.querySelector(".login")!
     this.register = this.querySelector(".register")!
     this.error = this.querySelector(".error")!
+    this.loginToggle = this.login.querySelector(".toggle")!
+    this.registerToggle = this.register.querySelector(".toggle")!
     this.attachEventListeners()
   }
 
   private attachEventListeners() {
     this.login.addEventListener("submit", (e) => this.handleSubmit(e, false))
     this.register.addEventListener("submit", (e) => this.handleSubmit(e, true))
-    this.login
-      .querySelector(".toggle")!
-      .addEventListener("click", () => this.toggleMode())
-    this.register
-      .querySelector(".toggle")!
-      .addEventListener("click", () => this.toggleMode())
+    this.loginToggle.addEventListener("click", () => this.toggleMode())
+    this.registerToggle.addEventListener("click", () => this.toggleMode())
   }
 
   // toggleMode switches between login and registration forms
@@ -422,6 +424,7 @@ class GUI extends nerd.Component {
   admin: boolean = false
   state: GUIState = new GUIState()
   private auth = document.createElement("nerd-auth")
+  private workbench = undefined as unknown as Workbench
   private nodes = new Map<number, Node>() // Fast lookup by ID
   private rootNode: Node | null = null
 
@@ -430,6 +433,7 @@ class GUI extends nerd.Component {
     this.admin = this.getAttribute("admin") === "true"
     nerd.SetGUI(this) // Register as singleton for global access
     this.innerHTML = GUI.html
+    this.workbench = this.querySelector("nerd-workbench")!
     this.updateAuthState()
   }
 
@@ -442,11 +446,7 @@ class GUI extends nerd.Component {
     this.rootNode = null
     this.state = new GUIState()
 
-    const workbench = this.querySelector("nerd-workbench")
-    if (workbench) {
-      workbench.classList.add("hidden")
-    }
-
+    this.workbench.classList.add("hidden")
     this.appendChild(this.auth)
   }
 
@@ -455,11 +455,7 @@ class GUI extends nerd.Component {
   SwitchToWorkbench(userId: number) {
     this.userId = userId
 
-    const workbench = this.querySelector("nerd-workbench")
-    if (workbench) {
-      workbench.classList.remove("hidden")
-    }
-
+    this.workbench.classList.remove("hidden")
     this.auth.remove()
     this.initWorkbench()
   }
@@ -524,10 +520,7 @@ class GUI extends nerd.Component {
   private setupDefaultView() {
     if (!this.rootNode) return
 
-    const workbench = this.querySelector("nerd-workbench") as Workbench
-    if (!workbench) return
-
-    // Find user node (for admins, use root; for users, use their node)
+    // Find root display node (for admins, use root; for users, use their node)
     const displayNode = this.admin ? this.rootNode : this.nodes.get(this.userId)
     if (!displayNode) return
 
@@ -545,7 +538,7 @@ class GUI extends nerd.Component {
     this.state.workbench.boards[1].listTrees.push(rightConfig)
 
     // Render both boards
-    workbench.renderBoards()
+    this.workbench.renderBoards()
   }
 }
 
