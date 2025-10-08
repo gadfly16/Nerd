@@ -1,6 +1,6 @@
 // Nerd GUI - Personal Software Agent Graphical User Interface
 
-import { imsg, Ask, AskAuth } from "./imsg.js"
+import { imsg } from "./imsg.js"
 import { $ } from "./util.js"
 import * as nerd from "./nerd.js"
 import "./widgets.js" // Side effect: registers widget components
@@ -125,9 +125,8 @@ class Header extends nerd.Component {
   // logout clears the HttpOnly cookie on the server and updates UI to show auth screen
   private async logout() {
     try {
-      await AskAuth(imsg.Logout, {})
-      gui.userId = 0
-      gui.updateAuthState()
+      await nerd.AskAuth(imsg.Logout, {})
+      nerd.gui.SwitchToAuth()
     } catch (err) {
       console.error("Logout failed:", err)
     }
@@ -318,12 +317,11 @@ class Auth extends nerd.Component {
     const pl = Object.fromEntries(formData)
 
     try {
-      const a = await AskAuth(
+      const a = await nerd.AskAuth(
         regmode ? imsg.CreateUser : imsg.AuthenticateUser,
         pl,
       )
-      gui.userId = a.userid
-      gui.updateAuthState()
+      nerd.gui.SwitchToWorkbench(a.userid)
     } catch (err) {
       this.showError(
         err instanceof Error ? err.message : "Network error. Please try again.",
@@ -390,30 +388,50 @@ class GUI extends nerd.Component {
   connectedCallback() {
     this.userId = parseInt(this.getAttribute("userid")!, 10)
     this.admin = this.getAttribute("admin") === "true"
-    gui = this // Register as singleton for global access
+    nerd.SetGUI(this) // Register as singleton for global access
     this.innerHTML = GUI.html
     this.updateAuthState()
   }
 
-  // updateAuthState toggles between auth and workbench based on userId
-  // Called after login/logout to update the UI
-  updateAuthState() {
-    const workbench = this.querySelector("nerd-workbench")!
+  // SwitchToAuth clears all sensitive data and shows authentication UI
+  // Called on logout, session expiry, or authentication failure
+  SwitchToAuth() {
+    // Clear all sensitive information
+    this.userId = 0
+    this.nodes.clear()
+    this.rootNode = null
 
-    if (this.userId === 0) {
-      // Clear tree data when logging out
-      this.nodes.clear()
-      this.rootNode = null
-      if (workbench) {
-        const wb = workbench as Workbench
-        wb.boards = [new Board(), new Board()]
-      }
-      workbench.classList.add("hidden")
-      this.appendChild(this.auth)
-    } else {
+    const workbench = this.querySelector("nerd-workbench")
+    if (workbench) {
+      const wb = workbench as Workbench
+      wb.boards = [new Board(), new Board()]
+      wb.classList.add("hidden")
+    }
+
+    this.appendChild(this.auth)
+  }
+
+  // SwitchToWorkbench sets user ID, hides auth, and loads workbench
+  // Called after successful authentication
+  SwitchToWorkbench(userId: number) {
+    this.userId = userId
+
+    const workbench = this.querySelector("nerd-workbench")
+    if (workbench) {
       workbench.classList.remove("hidden")
-      this.auth.remove()
-      this.initWorkbench()
+    }
+
+    this.auth.remove()
+    this.initWorkbench()
+  }
+
+  // updateAuthState toggles between auth and workbench based on userId
+  // Called on initial page load
+  updateAuthState() {
+    if (this.userId === 0) {
+      this.SwitchToAuth()
+    } else {
+      this.SwitchToWorkbench(this.userId)
     }
   }
 
@@ -435,7 +453,7 @@ class GUI extends nerd.Component {
   // For users: returns subtree rooted at user node
   private async getTree(): Promise<nerd.TreeEntry> {
     const targetId = this.admin ? 1 : this.userId
-    const tree = await Ask(imsg.GetTree, targetId)
+    const tree = await nerd.Ask(imsg.GetTree, targetId)
     return tree as nerd.TreeEntry
   }
 
@@ -493,10 +511,6 @@ class GUI extends nerd.Component {
     workbench.renderBoards()
   }
 }
-
-// Global singleton GUI instance - set during GUI.connectedCallback()
-// Uses undefined as unknown to avoid exclamation marks throughout code
-let gui = undefined as unknown as GUI
 
 // Register all components - must happen before HTML parsing completes
 // Creates global style tags and defines custom elements
