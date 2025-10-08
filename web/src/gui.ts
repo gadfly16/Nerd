@@ -12,14 +12,14 @@ class Node {
   name: string
   parent: Node | null
   children: Node[]
-  element: HTMLElement | null // Cached DOM element when rendered
+  elements: HTMLElement[] // DOM elements for each render (multiple trees/boards)
 
   constructor(id: number, name: string, parent: Node | null = null) {
     this.id = id
     this.name = name
     this.parent = parent
     this.children = []
-    this.element = null
+    this.elements = []
   }
 
   // addChild creates child node and establishes bidirectional link
@@ -29,21 +29,23 @@ class Node {
     return child
   }
 
-  // render appends this node to container and recursively renders children
-  // unless this node is in the display config's stop list
-  render(container: HTMLElement, config: DisplayConfig) {
-    if (!this.element) {
-      this.element = $(`<div class="nerd-entity">${this.name}</div>`)
-    }
-    container.appendChild(this.element)
+  // render creates and appends a new DOM element to container
+  // recursively renders children unless this node is in the display config's stop list
+  // returns the created element for potential future reference
+  render(container: HTMLElement, config: DisplayConfig): HTMLElement {
+    const element = $(`<div class="nerd-entity">${this.name}</div>`)
+    this.elements.push(element)
+    container.appendChild(element)
 
     if (!config.stopList.has(this.id)) {
       const childContainer = $(`<div class="nerd-children"></div>`)
-      this.element.appendChild(childContainer)
+      element.appendChild(childContainer)
       for (const child of this.children) {
         child.render(childContainer, config)
       }
     }
+
+    return element
   }
 }
 
