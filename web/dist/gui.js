@@ -1,4 +1,4 @@
-var C=/^\s+|\s+$|(?<=\>)\s+(?=\<)/gm;function c(n){let e=document.createElement("template");return e.innerHTML=n.replace(C,""),e.content.firstElementChild}var i=class extends HTMLElement{static style="";static register(e){let t=document.createElement("style");t.textContent=this.style,document.head.appendChild(t),customElements.define(e,this)}},d;function E(n){d=n}async function L(n,e,t={}){let r=await fetch("/api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:n,targetId:e,payload:t})});if(!r.ok)throw r.status===401&&d.SwitchToAuth(),new Error(await r.text()||"Request failed");return await r.json()}async function u(n,e){let t=await fetch("/auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:n,payload:e})});if(!t.ok)throw new Error(await t.text()||"Request failed");return await t.json()}var g=class extends i{static style=`
+var C=/^\s+|\s+$|(?<=\>)\s+(?=\<)/gm;function c(r){let e=document.createElement("template");return e.innerHTML=r.replace(C,""),e.content.firstElementChild}var i=class extends HTMLElement{static style="";static register(e){let t=document.createElement("style");t.textContent=this.style,document.head.appendChild(t),customElements.define(e,this)}},s;function L(r){s=r}async function E(r,e,t={}){let n=await fetch("/api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:r,targetId:e,payload:t})});if(!n.ok)throw n.status===401&&s.SwitchToAuth(),new Error(await n.text()||"Request failed");return await n.json()}async function u(r,e){let t=await fetch("/auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:r,payload:e})});if(!t.ok)throw new Error(await t.text()||"Request failed");return await t.json()}var g=class extends i{static style=`
 		nerd-action {
 			display: inline;
 			background: none;
@@ -13,7 +13,7 @@ var C=/^\s+|\s+$|(?<=\>)\s+(?=\<)/gm;function c(n){let e=document.createElement(
 		nerd-action:hover {
 			color: #0052a3;
 		}
-	`};g.register("nerd-action");var m=class n{id;name;parent;children;elements;constructor(e,t,r=null){this.id=e,this.name=t,this.parent=r,this.children=[],this.elements=[]}addChild(e,t){let r=new n(e,t,this);return this.children.push(r),r}render(e,t){let r=c(`<div class="nerd-entity">${this.name}</div>`);if(this.elements.push(r),e.appendChild(r),!t.stopList.has(this.id)){let o=c('<div class="nerd-children"></div>');r.appendChild(o);for(let s of this.children)s.render(o,t)}return r}},a=class{root;stopList;constructor(e){this.root=e,this.stopList=new Set}},l=class{listTrees;constructor(){this.listTrees=[]}},p=class{boards;constructor(){this.boards=[new l,new l]}},h=class{workbench;constructor(){this.workbench=new p}},f=class extends i{static style=`
+	`};g.register("nerd-action");var m=class r{id;name;parent;children;elements;constructor(e,t,n=null){this.id=e,this.name=t,this.parent=n,this.children=[],this.elements=[]}addChild(e,t){let n=new r(e,t,this);return this.children.push(n),n}render(e,t){let n=c(`<div class="nerd-entity">${this.name}</div>`);if(this.elements.push(n),e.appendChild(n),!t.stopList.has(this.id)){let o=c('<div class="nerd-children"></div>');n.appendChild(o);for(let d of this.children)d.render(o,t)}return n}},l=class{root;stopList;constructor(e){this.root=e,this.stopList=new Set}},a=class{listTrees;constructor(){this.listTrees=[]}},p=class{boards;constructor(){this.boards=[new a,new a]}},h=class{workbench;constructor(){this.workbench=new p}},f=class extends i{static style=`
 		nerd-list-tree {
 			display: block;
 		}
@@ -25,7 +25,12 @@ var C=/^\s+|\s+$|(?<=\>)\s+(?=\<)/gm;function c(n){let e=document.createElement(
 		nerd-list-tree .nerd-children {
 			padding-left: 1em;
 		}
-	`;config=null;SetConfig(e){this.config=e,this.render()}render(){this.config&&(this.innerHTML="",this.config.root.render(this,this.config))}},b=class n extends i{static style=`
+	`;config=null;SetConfig(e){this.config=e,this.render()}render(){this.config&&(this.innerHTML="",this.config.root.render(this,this.config))}},b=class extends i{static style=`
+		nerd-board {
+			display: block;
+			border: 1px solid #ddd;
+		}
+	`;config=new a;Render(){this.innerHTML="";for(let e of this.config.listTrees){let t=document.createElement("nerd-list-tree");t.SetConfig(e),this.appendChild(t)}}},w=class r extends i{static style=`
 		nerd-header {
 			display: flex;
 			justify-content: space-between;
@@ -47,7 +52,7 @@ var C=/^\s+|\s+$|(?<=\>)\s+(?=\<)/gm;function c(n){let e=document.createElement(
 	`;static html=`
 		<span>Nerd - Personal Software Agent Framework</span>
 		<nerd-action class="logout">Logout</nerd-action>
-	`;logoutButton;connectedCallback(){this.innerHTML=n.html,this.logoutButton=this.querySelector(".logout"),this.logoutButton.addEventListener("click",()=>this.logout())}async logout(){try{await u(6,{}),d.SwitchToAuth()}catch(e){console.error("Logout failed:",e)}}},w=class n extends i{static style=`
+	`;logoutButton;connectedCallback(){this.innerHTML=r.html,this.logoutButton=this.querySelector(".logout"),this.logoutButton.addEventListener("click",()=>this.logout())}async logout(){try{await u(6,{}),s.SwitchToAuth()}catch(e){console.error("Logout failed:",e)}}},y=class r extends i{static style=`
 		nerd-footer {
 			display: block;
 			background: #2c3e50;
@@ -57,7 +62,7 @@ var C=/^\s+|\s+$|(?<=\>)\s+(?=\<)/gm;function c(n){let e=document.createElement(
 		}
 	`;static html=`
 		Footer
-	`;connectedCallback(){this.innerHTML=n.html}},y=class n extends i{static style=`
+	`;connectedCallback(){this.innerHTML=r.html}},T=class r extends i{static style=`
 		nerd-workbench {
 			display: grid;
 			grid-template-columns: 1fr 1fr;
@@ -74,14 +79,12 @@ var C=/^\s+|\s+$|(?<=\>)\s+(?=\<)/gm;function c(n){let e=document.createElement(
 			grid-area: header;
 		}
 
-		nerd-workbench .board.left {
+		nerd-workbench nerd-board.left {
 			grid-area: left;
-			border: 1px solid #ddd;
 		}
 
-		nerd-workbench .board.right {
+		nerd-workbench nerd-board.right {
 			grid-area: right;
-			border: 1px solid #ddd;
 		}
 
 		nerd-workbench nerd-footer {
@@ -89,10 +92,10 @@ var C=/^\s+|\s+$|(?<=\>)\s+(?=\<)/gm;function c(n){let e=document.createElement(
 		}
 	`;static html=`
 		<nerd-header></nerd-header>
-		<div class="board left"></div>
-		<div class="board right"></div>
+		<nerd-board class="left"></nerd-board>
+		<nerd-board class="right"></nerd-board>
 		<nerd-footer></nerd-footer>
-	`;boardElements=[];connectedCallback(){this.innerHTML=n.html,this.boardElements=[this.querySelector(".board.left"),this.querySelector(".board.right")]}renderBoards(){let e=d.state.workbench;for(let t=0;t<this.boardElements.length;t++){let r=this.boardElements[t],o=e.boards[t];r.innerHTML="";for(let s of o.listTrees){let v=document.createElement("nerd-list-tree");v.SetConfig(s),r.appendChild(v)}}}},T=class n extends i{static style=`
+	`;boardElements=[];connectedCallback(){this.innerHTML=r.html;let e=this.querySelector("nerd-board.left"),t=this.querySelector("nerd-board.right");this.boardElements=[e,t],e.config=s.state.workbench.boards[0],t.config=s.state.workbench.boards[1]}RenderBoards(){for(let e of this.boardElements)e.Render()}},k=class r extends i{static style=`
 		nerd-auth {
 			display: flex;
 			justify-content: center;
@@ -136,7 +139,7 @@ var C=/^\s+|\s+$|(?<=\>)\s+(?=\<)/gm;function c(n){let e=document.createElement(
 			</form>
 			<div class="error"></div>
 		</div>
-	`;regmode=!1;login=void 0;register=void 0;error=void 0;loginToggle=void 0;registerToggle=void 0;connectedCallback(){this.innerHTML=n.html,this.login=this.querySelector(".login"),this.register=this.querySelector(".register"),this.error=this.querySelector(".error"),this.loginToggle=this.login.querySelector(".toggle"),this.registerToggle=this.register.querySelector(".toggle"),this.attachEventListeners()}attachEventListeners(){this.login.addEventListener("submit",e=>this.handleSubmit(e,!1)),this.register.addEventListener("submit",e=>this.handleSubmit(e,!0)),this.loginToggle.addEventListener("click",()=>this.toggleMode()),this.registerToggle.addEventListener("click",()=>this.toggleMode())}toggleMode(){this.regmode=!this.regmode,this.login.classList.toggle("hidden"),this.register.classList.toggle("hidden")}async handleSubmit(e,t){e.preventDefault();let r=new FormData(e.target),o=Object.fromEntries(r);try{let s=await u(t?5:4,o);d.SwitchToWorkbench(s.userid)}catch(s){this.showError(s instanceof Error?s.message:"Network error. Please try again.")}}showError(e){this.error.textContent=e}},k=class n extends i{static style=`
+	`;regmode=!1;login=void 0;register=void 0;error=void 0;loginToggle=void 0;registerToggle=void 0;connectedCallback(){this.innerHTML=r.html,this.login=this.querySelector(".login"),this.register=this.querySelector(".register"),this.error=this.querySelector(".error"),this.loginToggle=this.login.querySelector(".toggle"),this.registerToggle=this.register.querySelector(".toggle"),this.attachEventListeners()}attachEventListeners(){this.login.addEventListener("submit",e=>this.handleSubmit(e,!1)),this.register.addEventListener("submit",e=>this.handleSubmit(e,!0)),this.loginToggle.addEventListener("click",()=>this.toggleMode()),this.registerToggle.addEventListener("click",()=>this.toggleMode())}toggleMode(){this.regmode=!this.regmode,this.login.classList.toggle("hidden"),this.register.classList.toggle("hidden")}async handleSubmit(e,t){e.preventDefault();let n=new FormData(e.target),o=Object.fromEntries(n);try{let d=await u(t?5:4,o);s.SwitchToWorkbench(d.userid)}catch(d){this.showError(d instanceof Error?d.message:"Network error. Please try again.")}}showError(e){this.error.textContent=e}},v=class r extends i{static style=`
 		@font-face {
 			font-family: 'Inter';
 			src: url('/fonts/InterVariable.woff2');
@@ -172,5 +175,5 @@ var C=/^\s+|\s+$|(?<=\>)\s+(?=\<)/gm;function c(n){let e=document.createElement(
 		}
 	`;static html=`
 		<nerd-workbench></nerd-workbench>
-	`;userId=0;admin=!1;state=new h;auth=document.createElement("nerd-auth");workbench=void 0;nodes=new Map;rootNode=null;connectedCallback(){this.userId=parseInt(this.getAttribute("userid"),10),this.admin=this.getAttribute("admin")==="true",E(this),this.innerHTML=n.html,this.workbench=this.querySelector("nerd-workbench"),this.updateAuthState()}SwitchToAuth(){this.userId=0,this.nodes.clear(),this.rootNode=null,this.state=new h,this.workbench.classList.add("hidden"),this.appendChild(this.auth)}SwitchToWorkbench(e){this.userId=e,this.workbench.classList.remove("hidden"),this.auth.remove(),this.initWorkbench()}updateAuthState(){this.userId===0?this.SwitchToAuth():this.SwitchToWorkbench(this.userId)}async initWorkbench(){try{let e=await this.getTree();console.log("TreeEntry received:",e),this.buildNodeTree(e),this.setupDefaultView()}catch(e){console.error("Failed to initialize workbench:",e)}}async getTree(){let e=this.admin?1:this.userId;return await L(0,e)}buildNodeTree(e,t=null){let r=new m(e.nodeId,e.name,t);if(this.nodes.set(r.id,r),t===null?this.rootNode=r:t.children.push(r),e.children)for(let o of e.children)this.buildNodeTree(o,r);return r}setupDefaultView(){if(!this.rootNode)return;let e=this.admin?this.rootNode:this.nodes.get(this.userId);if(!e)return;let t=new a(e);for(let o of e.children)t.stopList.add(o.id);this.state.workbench.boards[0].listTrees.push(t);let r=new a(e);this.state.workbench.boards[1].listTrees.push(r),this.workbench.renderBoards()}};f.register("nerd-list-tree"),b.register("nerd-header"),w.register("nerd-footer"),y.register("nerd-workbench"),T.register("nerd-auth"),k.register("nerd-gui");
+	`;userId=0;admin=!1;state=new h;auth=document.createElement("nerd-auth");workbench=void 0;nodes=new Map;rootNode=null;connectedCallback(){this.userId=parseInt(this.getAttribute("userid"),10),this.admin=this.getAttribute("admin")==="true",L(this),this.innerHTML=r.html,this.workbench=this.querySelector("nerd-workbench"),this.updateAuthState()}SwitchToAuth(){this.userId=0,this.nodes.clear(),this.rootNode=null,this.state=new h,this.workbench.classList.add("hidden"),this.appendChild(this.auth)}SwitchToWorkbench(e){this.userId=e,this.workbench.classList.remove("hidden"),this.auth.remove(),this.initWorkbench()}updateAuthState(){this.userId===0?this.SwitchToAuth():this.SwitchToWorkbench(this.userId)}async initWorkbench(){try{let e=await this.getTree();console.log("TreeEntry received:",e),this.buildNodeTree(e),this.setupDefaultView()}catch(e){console.error("Failed to initialize workbench:",e)}}async getTree(){let e=this.admin?1:this.userId;return await E(0,e)}buildNodeTree(e,t=null){let n=new m(e.nodeId,e.name,t);if(this.nodes.set(n.id,n),t===null?this.rootNode=n:t.children.push(n),e.children)for(let o of e.children)this.buildNodeTree(o,n);return n}setupDefaultView(){if(!this.rootNode)return;let e=this.admin?this.rootNode:this.nodes.get(this.userId);if(!e)return;let t=new l(e);for(let o of e.children)t.stopList.add(o.id);this.state.workbench.boards[0].listTrees.push(t);let n=new l(e);this.state.workbench.boards[1].listTrees.push(n),this.workbench.RenderBoards()}};f.register("nerd-list-tree"),b.register("nerd-board"),w.register("nerd-header"),y.register("nerd-footer"),T.register("nerd-workbench"),k.register("nerd-auth"),v.register("nerd-gui");
 //# sourceMappingURL=gui.js.map

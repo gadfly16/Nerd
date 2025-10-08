@@ -121,6 +121,32 @@ class ListTree extends nerd.Component {
   }
 }
 
+// Board is a structural component that contains multiple ListTree elements
+class Board extends nerd.Component {
+  static style = `
+		nerd-board {
+			display: block;
+			border: 1px solid #ddd;
+		}
+	`
+
+  // Board instance fields
+  config: BoardConfig = new BoardConfig()
+
+  // Render displays all ListTrees for this board
+  Render() {
+    // Clear existing content
+    this.innerHTML = ""
+
+    // Render all ListTrees for this board
+    for (const listTreeConfig of this.config.listTrees) {
+      const listTree = document.createElement("nerd-list-tree") as ListTree
+      listTree.SetConfig(listTreeConfig)
+      this.appendChild(listTree)
+    }
+  }
+}
+
 // Parts are application-specific structural components
 
 // Header displays the app title and logout action
@@ -211,14 +237,12 @@ class Workbench extends nerd.Component {
 			grid-area: header;
 		}
 
-		nerd-workbench .board.left {
+		nerd-workbench nerd-board.left {
 			grid-area: left;
-			border: 1px solid #ddd;
 		}
 
-		nerd-workbench .board.right {
+		nerd-workbench nerd-board.right {
 			grid-area: right;
-			border: 1px solid #ddd;
 		}
 
 		nerd-workbench nerd-footer {
@@ -228,42 +252,31 @@ class Workbench extends nerd.Component {
 
   static html = `
 		<nerd-header></nerd-header>
-		<div class="board left"></div>
-		<div class="board right"></div>
+		<nerd-board class="left"></nerd-board>
+		<nerd-board class="right"></nerd-board>
 		<nerd-footer></nerd-footer>
 	`
 
   // Workbench instance fields
-  private boardElements: HTMLElement[] = []
+  private boardElements: Board[] = []
 
   connectedCallback() {
     this.innerHTML = Workbench.html
-    // Cache all board elements in order
-    this.boardElements = [
-      this.querySelector(".board.left")!,
-      this.querySelector(".board.right")!,
-    ]
+    // Cache all board elements in order and link them to their configs
+    const leftBoard = this.querySelector("nerd-board.left")! as Board
+    const rightBoard = this.querySelector("nerd-board.right")! as Board
+
+    this.boardElements = [leftBoard, rightBoard]
+
+    // Link board elements to their configs in GUI state
+    leftBoard.config = nerd.gui.state.workbench.boards[0]
+    rightBoard.config = nerd.gui.state.workbench.boards[1]
   }
 
-  // renderBoards renders all trees on all boards using ListTree elements
-  // Uses GUI state to determine what to render
-  renderBoards() {
-    const workbenchConfig = nerd.gui.state.workbench
-
-    // Render each board
-    for (let i = 0; i < this.boardElements.length; i++) {
-      const board = this.boardElements[i]
-      const boardConfig = workbenchConfig.boards[i]
-
-      // Clear container
-      board.innerHTML = ""
-
-      // Render all ListTrees for this board
-      for (const config of boardConfig.listTrees) {
-        const listTree = document.createElement("nerd-list-tree") as ListTree
-        listTree.SetConfig(config)
-        board.appendChild(listTree)
-      }
+  // RenderBoards renders all boards
+  RenderBoards() {
+    for (const board of this.boardElements) {
+      board.Render()
     }
   }
 }
@@ -538,13 +551,14 @@ class GUI extends nerd.Component {
     this.state.workbench.boards[1].listTrees.push(rightConfig)
 
     // Render both boards
-    this.workbench.renderBoards()
+    this.workbench.RenderBoards()
   }
 }
 
 // Register all components - must happen before HTML parsing completes
 // Creates global style tags and defines custom elements
 ListTree.register("nerd-list-tree")
+Board.register("nerd-board")
 Header.register("nerd-header")
 Footer.register("nerd-footer")
 Workbench.register("nerd-workbench")
