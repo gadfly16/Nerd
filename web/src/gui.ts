@@ -5,6 +5,9 @@ import { $ } from "./util.js"
 import * as nerd from "./nerd.js"
 import "./widgets.js" // Side effect: registers widget components
 
+// Global GUI singleton - set during GUI.connectedCallback()
+let gui: GUI
+
 // Node represents a node in the in-memory tree structure
 // Forms a bidirectional tree with parent/children links
 class Node {
@@ -51,40 +54,23 @@ class Node {
 
 // ListTreeConfig configures a single ListTree instance
 class ListTreeConfig {
-  root: Node
-  stopList: Set<number> // Node IDs to stop rendering at
-
-  constructor(root: Node) {
-    this.root = root
-    this.stopList = new Set()
-  }
+  root!: Node
+  stopList!: Set<number> // Node IDs to stop rendering at
 }
 
 // BoardConfig holds configuration for all ListTrees on a board
 class BoardConfig {
-  listTrees: ListTreeConfig[]
-
-  constructor() {
-    this.listTrees = []
-  }
+  listTrees!: ListTreeConfig[]
 }
 
 // WorkbenchConfig holds configuration for all boards in the workbench
 class WorkbenchConfig {
-  boards: BoardConfig[]
-
-  constructor() {
-    this.boards = [new BoardConfig(), new BoardConfig()]
-  }
+  boards!: BoardConfig[]
 }
 
 // GUIState holds the complete state of the GUI display configuration
 class GUIState {
-  workbench: WorkbenchConfig
-
-  constructor() {
-    this.workbench = new WorkbenchConfig()
-  }
+  workbench!: WorkbenchConfig
 }
 
 // ListTree renders a tree as a hierarchical list of block elements
@@ -105,6 +91,24 @@ class ListTree extends nerd.Component {
 	`
 
   config: ListTreeConfig | null = null
+
+  // Init configures the ListTree and returns validated/reconciled config
+  // If config is null, creates default config based on GUI user/admin state
+  Init(config: ListTreeConfig | null): ListTreeConfig {
+    if (config) {
+      // TODO: Validate config against actual tree
+      this.config = config
+    } else {
+      // Create default config using the display root
+      const listTreeConfig = new ListTreeConfig()
+      listTreeConfig.root = gui.displayRoot!
+      listTreeConfig.stopList = new Set()
+
+      this.config = listTreeConfig
+    }
+
+    return this.config
+  }
 
   // SetConfig configures which tree to display
   SetConfig(config: ListTreeConfig) {
@@ -132,6 +136,38 @@ class Board extends nerd.Component {
 
   // Board instance fields
   config: BoardConfig = new BoardConfig()
+
+  // Init configures the board and returns validated/reconciled config
+  // Called after DOM construction to initialize with config
+  // If config is null, creates one default ListTree and collects its config
+  Init(config: BoardConfig | null): BoardConfig {
+    if (config) {
+      // Validate and use provided config
+      // Create ListTree elements for each config
+      const boardConfig = new BoardConfig()
+      boardConfig.listTrees = []
+
+      for (const listTreeConfig of config.listTrees) {
+        const listTree = document.createElement("nerd-list-tree") as ListTree
+        const validatedConfig = listTree.Init(listTreeConfig)
+        boardConfig.listTrees.push(validatedConfig)
+      }
+
+      this.config = boardConfig
+    } else {
+      // Create default: one ListTree with its default config
+      const boardConfig = new BoardConfig()
+      boardConfig.listTrees = []
+
+      const listTree = document.createElement("nerd-list-tree") as ListTree
+      const listTreeConfig = listTree.Init(null)
+      boardConfig.listTrees.push(listTreeConfig)
+
+      this.config = boardConfig
+    }
+
+    return this.config
+  }
 
   // Render displays all ListTrees for this board
   Render() {
@@ -190,7 +226,7 @@ class Header extends nerd.Component {
   private async logout() {
     try {
       await nerd.AskAuth(imsg.Logout, {})
-      nerd.gui.SwitchToAuth()
+      gui.SwitchToAuth()
     } catch (err) {
       console.error("Logout failed:", err)
     }
@@ -262,15 +298,28 @@ class Workbench extends nerd.Component {
 
   connectedCallback() {
     this.innerHTML = Workbench.html
-    // Cache all board elements in order and link them to their configs
+    // Cache all board elements
     const leftBoard = this.querySelector("nerd-board.left")! as Board
     const rightBoard = this.querySelector("nerd-board.right")! as Board
-
     this.boardElements = [leftBoard, rightBoard]
+  }
 
-    // Link board elements to their configs in GUI state
-    leftBoard.config = nerd.gui.state.workbench.boards[0]
-    rightBoard.config = nerd.gui.state.workbench.boards[1]
+  // Init configures the workbench and returns validated/reconciled config
+  // Called after DOM construction to initialize with config
+  // If config is null, creates default config which bubbles up from boards
+  Init(config: WorkbenchConfig | null): WorkbenchConfig {
+    const workbenchConfig = new WorkbenchConfig()
+    workbenchConfig.boards = []
+
+    // Initialize all boards and collect their validated configs
+    let i = 0
+    for (const board of this.boardElements) {
+      const boardConfig = board.Init(config?.boards[i] ?? null)
+      workbenchConfig.boards.push(boardConfig)
+      i++
+    }
+
+    return workbenchConfig
   }
 
   // RenderBoards renders all boards
@@ -375,7 +424,7 @@ class Auth extends nerd.Component {
         regmode ? imsg.CreateUser : imsg.AuthenticateUser,
         pl,
       )
-      nerd.gui.SwitchToWorkbench(a.userid)
+      gui.SwitchToWorkbench(a.userid)
     } catch (err) {
       this.showError(
         err instanceof Error ? err.message : "Network error. Please try again.",
@@ -436,15 +485,25 @@ class GUI extends nerd.Component {
   userId: number = 0
   admin: boolean = false
   state: GUIState = new GUIState()
+  nodes = new Map<number, Node>() // Fast lookup by ID
+  displayRoot: Node | null = null
   private auth = document.createElement("nerd-auth")
   private workbench = undefined as unknown as Workbench
-  private nodes = new Map<number, Node>() // Fast lookup by ID
-  private rootNode: Node | null = null
 
   connectedCallback() {
     this.userId = parseInt(this.getAttribute("userid")!, 10)
     this.admin = this.getAttribute("admin") === "true"
-    nerd.SetGUI(this) // Register as singleton for global access
+
+    // Update global context
+    nerd.GUIContext.userId = this.userId
+    nerd.GUIContext.admin = this.admin
+
+    // Set global gui reference
+    gui = this
+
+    // Listen for unauthorized events
+    window.addEventListener("nerd:unauthorized", () => this.SwitchToAuth())
+
     this.innerHTML = GUI.html
     this.workbench = this.querySelector("nerd-workbench")!
     this.updateAuthState()
@@ -456,7 +515,7 @@ class GUI extends nerd.Component {
     // Clear all sensitive information
     this.userId = 0
     this.nodes.clear()
-    this.rootNode = null
+    this.displayRoot = null
     this.state = new GUIState()
 
     this.workbench.classList.add("hidden")
@@ -470,7 +529,7 @@ class GUI extends nerd.Component {
 
     this.workbench.classList.remove("hidden")
     this.auth.remove()
-    this.initWorkbench()
+    this.init()
   }
 
   // updateAuthState toggles between auth and workbench based on userId
@@ -483,13 +542,24 @@ class GUI extends nerd.Component {
     }
   }
 
-  // initWorkbench loads the tree and initializes the board displays
-  private async initWorkbench() {
+  // init loads the tree and initializes the board displays
+  private async init() {
     try {
       const treeEntry = await this.getTree()
       console.log("TreeEntry received:", treeEntry)
       this.buildNodeTree(treeEntry)
-      this.setupDefaultView()
+
+      // TODO: Load saved state from localStorage
+      // const savedState: GUIState | null = null
+
+      // Initialize workbench (creates defaults if savedState is null)
+      // Validated config bubbles back up
+      this.state.workbench = this.workbench.Init(null)
+
+      // TODO: Save validated state to localStorage
+
+      // Render boards
+      this.workbench.RenderBoards()
     } catch (err) {
       console.error("Failed to initialize workbench:", err)
       // TODO: Show error to user
@@ -514,7 +584,7 @@ class GUI extends nerd.Component {
     this.nodes.set(node.id, node)
 
     if (parent === null) {
-      this.rootNode = node
+      this.displayRoot = node
     } else {
       parent.children.push(node)
     }
@@ -531,14 +601,15 @@ class GUI extends nerd.Component {
   // setupDefaultView creates default board/tree configuration
   // Default: both boards show user node with 1 level depth (children in stop list)
   private setupDefaultView() {
-    if (!this.rootNode) return
+    if (!this.displayRoot) return
 
-    // Find root display node (for admins, use root; for users, use their node)
-    const displayNode = this.admin ? this.rootNode : this.nodes.get(this.userId)
-    if (!displayNode) return
+    // displayRoot is already the correct node (set by getTree based on admin/userId)
+    const displayNode = this.displayRoot
 
     // Create ListTreeConfig for left board
-    const leftConfig = new ListTreeConfig(displayNode)
+    const leftConfig = new ListTreeConfig()
+    leftConfig.root = displayNode
+    leftConfig.stopList = new Set()
     // Add immediate children to stop list (show 1 level depth)
     for (const child of displayNode.children) {
       leftConfig.stopList.add(child.id)
@@ -546,7 +617,9 @@ class GUI extends nerd.Component {
     this.state.workbench.boards[0].listTrees.push(leftConfig)
 
     // Create ListTreeConfig for right board (empty stop list - shows full tree)
-    const rightConfig = new ListTreeConfig(displayNode)
+    const rightConfig = new ListTreeConfig()
+    rightConfig.root = displayNode
+    rightConfig.stopList = new Set()
     // No children added to stop list - renders entire tree recursively
     this.state.workbench.boards[1].listTrees.push(rightConfig)
 

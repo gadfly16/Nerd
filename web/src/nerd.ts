@@ -9,6 +9,13 @@ export interface TreeEntry {
   children: TreeEntry[]
 }
 
+// GUIContext holds minimal global state needed across components
+// Simple data object - no methods, no coupling
+export const GUIContext = {
+  userId: 0,
+  admin: false,
+}
+
 // Component provides base functionality for all custom elements
 // Uses global style injection rather than shadow DOM for simplicity
 export class Component extends HTMLElement {
@@ -23,30 +30,9 @@ export class Component extends HTMLElement {
   }
 }
 
-// GUI is forward-declared here to avoid circular dependency
-// The actual implementation is in gui.ts
-// GUIState is also forward-declared for the state field
-export interface GUIState {
-  workbench: any
-}
-
-export interface GUI {
-  state: GUIState
-  SwitchToAuth(): void
-  SwitchToWorkbench(userId: number): void
-}
-
-// Global singleton GUI instance - set during GUI.connectedCallback()
-// Uses undefined as unknown to avoid exclamation marks throughout code
-export let gui = undefined as unknown as GUI
-
-export function SetGUI(instance: GUI) {
-  gui = instance
-}
-
 // Ask sends an API message to the server and returns the response payload
 // Throws on HTTP errors or network failures
-// On 401 Unauthorized, triggers auth mode switch for security
+// On 401 Unauthorized, dispatches event for security handling
 export async function Ask(
   type: imsg,
   targetId: number,
@@ -60,7 +46,7 @@ export async function Ask(
 
   if (!response.ok) {
     if (response.status === 401) {
-      gui.SwitchToAuth()
+      window.dispatchEvent(new CustomEvent("nerd:unauthorized"))
     }
     throw new Error((await response.text()) || "Request failed")
   }
