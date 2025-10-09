@@ -3,6 +3,7 @@
 import { imsg } from "./imsg.js"
 import { $ } from "./util.js"
 import * as nerd from "./nerd.js"
+import * as config from "./config.js"
 import "./widgets.js" // Side effect: registers widget components
 
 // Global GUI singleton - set during GUI.connectedCallback()
@@ -35,42 +36,21 @@ class Node {
   // render creates and appends a new DOM element to container
   // recursively renders children unless this node is in the config's stop list
   // returns the created element for potential future reference
-  render(container: HTMLElement, config: ListTreeConfig): HTMLElement {
+  render(container: HTMLElement, cfg: config.ListTree): HTMLElement {
     const element = $(`<div class="nerd-entity">${this.name}</div>`)
     this.elements.push(element)
     container.appendChild(element)
 
-    if (!config.stopList.has(this.id)) {
+    if (!cfg.stopList.has(this.id)) {
       const childContainer = $(`<div class="nerd-children"></div>`)
       element.appendChild(childContainer)
       for (const child of this.children) {
-        child.render(childContainer, config)
+        child.render(childContainer, cfg)
       }
     }
 
     return element
   }
-}
-
-// ListTreeConfig configures a single ListTree instance
-class ListTreeConfig {
-  root!: Node
-  stopList!: Set<number> // Node IDs to stop rendering at
-}
-
-// BoardConfig holds configuration for all ListTrees on a board
-class BoardConfig {
-  listTrees!: ListTreeConfig[]
-}
-
-// WorkbenchConfig holds configuration for all boards in the workbench
-class WorkbenchConfig {
-  boards!: BoardConfig[]
-}
-
-// GUIState holds the complete state of the GUI display configuration
-class GUIState {
-  workbench!: WorkbenchConfig
 }
 
 // ListTree renders a tree as a hierarchical list of block elements
@@ -90,18 +70,18 @@ class ListTree extends nerd.Component {
 		}
 	`
 
-  config: ListTreeConfig | null = null
+  config: config.ListTree | null = null
 
   // Init configures the ListTree and returns validated/reconciled config
   // If config is null, creates default config based on GUI user/admin state
-  Init(config: ListTreeConfig | null): ListTreeConfig {
-    if (config) {
+  Init(cfg: config.ListTree | null): config.ListTree {
+    if (cfg) {
       // TODO: Validate config against actual tree
-      this.config = config
+      this.config = cfg
     } else {
       // Create default config using the display root
-      const listTreeConfig = new ListTreeConfig()
-      listTreeConfig.root = gui.displayRoot!
+      const listTreeConfig = new config.ListTree()
+      listTreeConfig.rootId = gui.displayRoot!.id
       listTreeConfig.stopList = new Set()
 
       this.config = listTreeConfig
@@ -111,8 +91,8 @@ class ListTree extends nerd.Component {
   }
 
   // SetConfig configures which tree to display
-  SetConfig(config: ListTreeConfig) {
-    this.config = config
+  SetConfig(cfg: config.ListTree) {
+    this.config = cfg
     this.render()
   }
 
@@ -121,7 +101,10 @@ class ListTree extends nerd.Component {
     if (!this.config) return
 
     this.innerHTML = ""
-    this.config.root.render(this, this.config)
+    const rootNode = gui.nodes.get(this.config.rootId)
+    if (rootNode) {
+      rootNode.render(this, this.config)
+    }
   }
 }
 
@@ -135,19 +118,19 @@ class Board extends nerd.Component {
 	`
 
   // Board instance fields
-  config: BoardConfig = new BoardConfig()
+  config: config.Board = new config.Board()
 
   // Init configures the board and returns validated/reconciled config
   // Called after DOM construction to initialize with config
   // If config is null, creates one default ListTree and collects its config
-  Init(config: BoardConfig | null): BoardConfig {
-    if (config) {
+  Init(cfg: config.Board | null): config.Board {
+    if (cfg) {
       // Validate and use provided config
       // Create ListTree elements for each config
-      const boardConfig = new BoardConfig()
+      const boardConfig = new config.Board()
       boardConfig.listTrees = []
 
-      for (const listTreeConfig of config.listTrees) {
+      for (const listTreeConfig of cfg.listTrees) {
         const listTree = document.createElement("nerd-list-tree") as ListTree
         const validatedConfig = listTree.Init(listTreeConfig)
         boardConfig.listTrees.push(validatedConfig)
@@ -156,7 +139,7 @@ class Board extends nerd.Component {
       this.config = boardConfig
     } else {
       // Create default: one ListTree with its default config
-      const boardConfig = new BoardConfig()
+      const boardConfig = new config.Board()
       boardConfig.listTrees = []
 
       const listTree = document.createElement("nerd-list-tree") as ListTree
@@ -307,14 +290,14 @@ class Workbench extends nerd.Component {
   // Init configures the workbench and returns validated/reconciled config
   // Called after DOM construction to initialize with config
   // If config is null, creates default config which bubbles up from boards
-  Init(config: WorkbenchConfig | null): WorkbenchConfig {
-    const workbenchConfig = new WorkbenchConfig()
+  Init(cfg: config.Workbench | null): config.Workbench {
+    const workbenchConfig = new config.Workbench()
     workbenchConfig.boards = []
 
     // Initialize all boards and collect their validated configs
     let i = 0
     for (const board of this.boardElements) {
-      const boardConfig = board.Init(config?.boards[i] ?? null)
+      const boardConfig = board.Init(cfg?.boards[i] ?? null)
       workbenchConfig.boards.push(boardConfig)
       i++
     }
@@ -484,7 +467,7 @@ class GUI extends nerd.Component {
   // GUI instance fields
   userId: number = 0
   admin: boolean = false
-  state: GUIState = new GUIState()
+  state: config.State = new config.State()
   nodes = new Map<number, Node>() // Fast lookup by ID
   displayRoot: Node | null = null
   private auth = document.createElement("nerd-auth")
@@ -516,7 +499,7 @@ class GUI extends nerd.Component {
     this.userId = 0
     this.nodes.clear()
     this.displayRoot = null
-    this.state = new GUIState()
+    this.state = new config.State()
 
     this.workbench.classList.add("hidden")
     this.appendChild(this.auth)
@@ -606,9 +589,9 @@ class GUI extends nerd.Component {
     // displayRoot is already the correct node (set by getTree based on admin/userId)
     const displayNode = this.displayRoot
 
-    // Create ListTreeConfig for left board
-    const leftConfig = new ListTreeConfig()
-    leftConfig.root = displayNode
+    // Create ListTree config for left board
+    const leftConfig = new config.ListTree()
+    leftConfig.rootId = displayNode.id
     leftConfig.stopList = new Set()
     // Add immediate children to stop list (show 1 level depth)
     for (const child of displayNode.children) {
@@ -616,9 +599,9 @@ class GUI extends nerd.Component {
     }
     this.state.workbench.boards[0].listTrees.push(leftConfig)
 
-    // Create ListTreeConfig for right board (empty stop list - shows full tree)
-    const rightConfig = new ListTreeConfig()
-    rightConfig.root = displayNode
+    // Create ListTree config for right board (empty stop list - shows full tree)
+    const rightConfig = new config.ListTree()
+    rightConfig.rootId = displayNode.id
     rightConfig.stopList = new Set()
     // No children added to stop list - renders entire tree recursively
     this.state.workbench.boards[1].listTrees.push(rightConfig)

@@ -1,0 +1,22 @@
+// Config - GUI configuration data structures
+
+// ListTreeConfig configures a single ListTree instance
+export class ListTree {
+  rootId!: number // Node ID to start rendering from
+  stopList!: Set<number> // Node IDs to stop rendering at
+}
+
+// BoardConfig holds configuration for all ListTrees on a board
+export class Board {
+  listTrees!: ListTree[]
+}
+
+// WorkbenchConfig holds configuration for all boards in the workbench
+export class Workbench {
+  boards!: Board[]
+}
+
+// GUIState holds the complete state of the GUI display configuration
+export class State {
+  workbench!: Workbench
+}
