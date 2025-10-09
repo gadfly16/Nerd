@@ -57,8 +57,7 @@ Part packages (core framework):
 
 Message packages:
 ├── msg (public)       - native message types and payloads
-├── httpMsg (internal) - HTTP message types and payloads
-└── wsMsg (internal)   - WebSocket message types and payloads
+└── imsg (internal)    - interface message types and payloads (HTTP, WebSocket, CLI)
 
 Core types:
 └── nerd (public)      - basic types for native message construction
@@ -76,8 +75,8 @@ path" the "correct path".
 **Node Types**: Currently 2 foundational types (Root, Group) with 5 more planned
 including GUI nodes representing connected interfaces.
 
-**Database**: SQLite with Gorm using Entity/Config separation. Each node
-handles its own database operations for security and reliability.
+**Database**: SQLite with Gorm using Entity/Config separation. Each node handles
+its own database operations for security and reliability.
 
 **Messaging**: `Pipe` channels carry `Msg` values for efficiency, while handlers
 receive `*Msg` pointers for flexibility. Message types are centralized in
@@ -88,11 +87,20 @@ receive `*Msg` pointers for flexibility. Message types are centralized in
 ### Commands
 
 ```bash
-# Build
+# Build backend
 go build -o nerd ./cmd/nerd
+
+# Build frontend (TypeScript → JavaScript via esbuild)
+go generate  # Bundles web/src/*.ts → web/dist/gui.js (8.7KB)
+
+# Type check frontend (catches errors esbuild might miss)
+cd web && npx tsc --noEmit
 
 # Initialize database
 ./nerd init
+
+# Run service
+./nerd run  # Serves on :8080, web root at ./web/dist
 
 # Run tests
 go test ./...
@@ -125,32 +133,48 @@ code. Don't jump straight into implementation.
 
 ### Current Status
 
-**✅ Completed:**
+**✅ Backend (Complete):**
 
 - Database schema with Entity/Config separation
 - Node type system (2 foundational types: Root, Group)
-- CLI framework with `init` command
+- CLI framework with `init` and `run` commands
 - Message passing infrastructure with strongly-typed channels
 - Tree structure for node organization
 - Thread-safe tag-based routing system
 - Runtime-based initialization with graceful shutdown
 - Two-phase rename system with collision detection
-- Centralized message types in `internal/msg` package
+- TreeEntry caching with atomic invalidation (1.36x speedup)
+- Centralized message types in `msg` and `imsg` packages
 - API split into initialization and adapter layers
 - Handler separation for better code organization
 - Memory optimization with children map initialization
+- HTTP/WebSocket server infrastructure
+
+**✅ Frontend (Complete):**
+
+- Authentication system with login/register (HTTP-only cookies)
+- TypeScript GUI using native Web Components (no framework)
+- Workbench with dual-board layout for tree visualization
+- Hierarchical tree rendering with expand/collapse support
+- Type-safe config system with openList pattern
+- displayRoot macro for declarative depth-based expansion
+- Component architecture: GUI, Workbench, Board, ListTree, Header, Footer, Auth
+- 8.7KB bundle with zero runtime dependencies
+- connectedCallback/Render lifecycle pattern
+- Global styling (no Shadow DOM complexity)
 
 **🚧 In Progress:**
 
+- WebSocket integration for real-time tree updates
 - Additional node types for specialized functionality
 
 **📋 TODO:**
 
 - Remaining 5 node types (including GUI node type)
-- `run` command implementation
-- HTTP/WebSocket servers
-- GUI (TypeScript with Web Components)
-- Real-time update system
+- User interactions: expand/collapse nodes (modify openList)
+- LocalStorage persistence for GUI state
+- Live tree updates via WebSocket
+- Additional GUI features as needed
 
 ---
 
