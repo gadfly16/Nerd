@@ -9,7 +9,7 @@ export class Action extends nerd.Component {
 			display: inline;
 			background: none;
 			border: none;
-			color: #0066cc;
+			color: #aaa;
 			text-decoration: underline;
 			cursor: pointer;
 			padding: 0;
@@ -17,7 +17,7 @@ export class Action extends nerd.Component {
 		}
 
 		nerd-action:hover {
-			color: #0052a3;
+			color: #ddd;
 		}
 	`
 }

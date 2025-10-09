@@ -113,7 +113,7 @@ class Board extends nerd.Component {
   static style = `
 		nerd-board {
 			display: block;
-			background: #444;
+			background: #555;
 			color: #ccc;
 		}
 	`
@@ -176,18 +176,10 @@ class Header extends nerd.Component {
 			display: flex;
 			justify-content: space-between;
 			align-items: center;
-			background: #333;
+			background: #222;
 			color: white;
 			padding: 1rem;
 			font-size: 1.2rem;
-		}
-
-		nerd-header nerd-action {
-			color: white;
-		}
-
-		nerd-header nerd-action:hover {
-			color: #ddd;
 		}
 	`
 
@@ -220,7 +212,7 @@ class Footer extends nerd.Component {
   static style = `
 		nerd-footer {
 			display: block;
-			background: #333;
+			background: #222;
 			color: white;
 			padding: 1rem;
 			text-align: center;
@@ -258,13 +250,13 @@ class Workbench extends nerd.Component {
 
 		nerd-workbench nerd-board.left {
 			grid-area: left;
-			border: 0.5em solid #303c57;
+			border: 0.5em solid #333;
 			border-width: 0.5em 0.29em 0.5em 0.5em;
 		}
 
 		nerd-workbench nerd-board.right {
 			grid-area: right;
-			border: 0.5em solid #303c57;
+			border: 0.5em solid #333;
 			border-width: 0.5em 0.5em 0.5em 0.29em;
 		}
 
