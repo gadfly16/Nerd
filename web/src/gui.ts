@@ -70,29 +70,15 @@ class ListTree extends nerd.Component {
 		}
 	`
 
-  config: config.ListTree | null = null
+  config!: config.ListTree
 
-  // Init configures the ListTree and returns validated/reconciled config
-  Init(cfg: config.ListTree): config.ListTree {
-    // TODO: Validate config against actual tree
+  // Render displays the tree using block layout
+  Render(cfg: config.ListTree) {
     this.config = cfg
-    return this.config
-  }
-
-  // SetConfig configures which tree to display
-  SetConfig(cfg: config.ListTree) {
-    this.config = cfg
-    this.render()
-  }
-
-  // render displays the tree using block layout
-  private render() {
-    if (!this.config) return
-
     this.innerHTML = ""
-    const rootNode = gui.nodes.get(this.config.rootId)
+    const rootNode = gui.nodes.get(cfg.rootId)
     if (rootNode) {
-      rootNode.render(this, this.config)
+      rootNode.render(this, cfg)
     }
   }
 }
@@ -107,32 +93,16 @@ class Board extends nerd.Component {
 		}
 	`
 
-  // Board instance fields
-  config: config.Board = new config.Board()
+  config!: config.Board
 
-  // Init configures the board and returns validated/reconciled config
-  Init(cfg: config.Board): config.Board {
-    const boardConfig = new config.Board()
-    boardConfig.listTrees = []
+  // Render displays all ListTrees for this board
+  Render(cfg: config.Board) {
+    this.config = cfg
+    this.innerHTML = ""
 
     for (const listTreeConfig of cfg.listTrees) {
       const listTree = document.createElement("nerd-list-tree") as ListTree
-      boardConfig.listTrees.push(listTree.Init(listTreeConfig))
-    }
-
-    this.config = boardConfig
-    return this.config
-  }
-
-  // Render displays all ListTrees for this board
-  Render() {
-    // Clear existing content
-    this.innerHTML = ""
-
-    // Render all ListTrees for this board
-    for (const listTreeConfig of this.config.listTrees) {
-      const listTree = document.createElement("nerd-list-tree") as ListTree
-      listTree.SetConfig(listTreeConfig)
+      listTree.Render(listTreeConfig)
       this.appendChild(listTree)
     }
   }
@@ -244,6 +214,7 @@ class Workbench extends nerd.Component {
 	`
 
   // Workbench instance fields
+  config!: config.Workbench
   private boardElements: Board[] = []
 
   connectedCallback() {
@@ -254,23 +225,11 @@ class Workbench extends nerd.Component {
     ]
   }
 
-  // Init configures the workbench and returns validated/reconciled config
-  Init(cfg: config.Workbench): config.Workbench {
-    const workbenchConfig = new config.Workbench()
-    workbenchConfig.boards = []
-
-    // Initialize all boards and collect their validated configs
+  // Render displays all boards with their configs
+  Render(cfg: config.Workbench) {
+    this.config = cfg
     for (let i = 0; i < this.boardElements.length; i++) {
-      workbenchConfig.boards.push(this.boardElements[i].Init(cfg.boards[i]))
-    }
-
-    return workbenchConfig
-  }
-
-  // RenderBoards renders all boards
-  RenderBoards() {
-    for (const board of this.boardElements) {
-      board.Render()
+      this.boardElements[i].Render(cfg.boards[i])
     }
   }
 }
@@ -503,13 +462,11 @@ class GUI extends nerd.Component {
         }
       }
 
-      // Initialize workbench with config
-      this.state.workbench = this.workbench.Init(cfg.workbench)
+      // Store config and render workbench
+      this.state.workbench = cfg.workbench
+      this.workbench.Render(cfg.workbench)
 
-      // TODO: Save validated state to localStorage
-
-      // Render boards
-      this.workbench.RenderBoards()
+      // TODO: Save state to localStorage
     } catch (err) {
       console.error("Failed to initialize workbench:", err)
       // TODO: Show error to user

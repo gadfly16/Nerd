@@ -30,7 +30,7 @@ export const defaultState: State = {
         listTrees: [
           {
             rootId: 0, // Set to displayRoot.id
-            stopList: new Set(),
+            stopList: new Set([1]), // Stop at node 1 (don't render its children)
           },
         ],
       },
