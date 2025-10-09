@@ -73,20 +73,9 @@ class ListTree extends nerd.Component {
   config: config.ListTree | null = null
 
   // Init configures the ListTree and returns validated/reconciled config
-  // If config is null, creates default config based on GUI user/admin state
-  Init(cfg: config.ListTree | null): config.ListTree {
-    if (cfg) {
-      // TODO: Validate config against actual tree
-      this.config = cfg
-    } else {
-      // Create default config using the display root
-      const listTreeConfig = new config.ListTree()
-      listTreeConfig.rootId = gui.displayRoot!.id
-      listTreeConfig.stopList = new Set()
-
-      this.config = listTreeConfig
-    }
-
+  Init(cfg: config.ListTree): config.ListTree {
+    // TODO: Validate config against actual tree
+    this.config = cfg
     return this.config
   }
 
@@ -122,34 +111,16 @@ class Board extends nerd.Component {
   config: config.Board = new config.Board()
 
   // Init configures the board and returns validated/reconciled config
-  // Called after DOM construction to initialize with config
-  // If config is null, creates one default ListTree and collects its config
-  Init(cfg: config.Board | null): config.Board {
-    if (cfg) {
-      // Validate and use provided config
-      // Create ListTree elements for each config
-      const boardConfig = new config.Board()
-      boardConfig.listTrees = []
+  Init(cfg: config.Board): config.Board {
+    const boardConfig = new config.Board()
+    boardConfig.listTrees = []
 
-      for (const listTreeConfig of cfg.listTrees) {
-        const listTree = document.createElement("nerd-list-tree") as ListTree
-        const validatedConfig = listTree.Init(listTreeConfig)
-        boardConfig.listTrees.push(validatedConfig)
-      }
-
-      this.config = boardConfig
-    } else {
-      // Create default: one ListTree with its default config
-      const boardConfig = new config.Board()
-      boardConfig.listTrees = []
-
+    for (const listTreeConfig of cfg.listTrees) {
       const listTree = document.createElement("nerd-list-tree") as ListTree
-      const listTreeConfig = listTree.Init(null)
-      boardConfig.listTrees.push(listTreeConfig)
-
-      this.config = boardConfig
+      boardConfig.listTrees.push(listTree.Init(listTreeConfig))
     }
 
+    this.config = boardConfig
     return this.config
   }
 
@@ -238,7 +209,7 @@ class Workbench extends nerd.Component {
 			grid-template-rows: auto 1fr auto;
 			grid-template-areas:
 				"header header"
-				"left right"
+				"board_0 board_1"
 				"footer footer";
 			width: 100%;
 			height: 100%;
@@ -248,14 +219,14 @@ class Workbench extends nerd.Component {
 			grid-area: header;
 		}
 
-		nerd-workbench nerd-board.left {
-			grid-area: left;
+		nerd-workbench nerd-board.board_0 {
+			grid-area: board_0;
 			border: 0.5em solid #333;
 			border-width: 0.5em 0.29em 0.5em 0.5em;
 		}
 
-		nerd-workbench nerd-board.right {
-			grid-area: right;
+		nerd-workbench nerd-board.board_1 {
+			grid-area: board_1;
 			border: 0.5em solid #333;
 			border-width: 0.5em 0.5em 0.5em 0.29em;
 		}
@@ -267,8 +238,8 @@ class Workbench extends nerd.Component {
 
   static html = `
 		<nerd-header></nerd-header>
-		<nerd-board class="left"></nerd-board>
-		<nerd-board class="right"></nerd-board>
+		<nerd-board class="board_0"></nerd-board>
+		<nerd-board class="board_1"></nerd-board>
 		<nerd-footer></nerd-footer>
 	`
 
@@ -277,25 +248,20 @@ class Workbench extends nerd.Component {
 
   connectedCallback() {
     this.innerHTML = Workbench.html
-    // Cache all board elements
-    const leftBoard = this.Query<Board>("nerd-board.left")!
-    const rightBoard = this.Query<Board>("nerd-board.right")!
-    this.boardElements = [leftBoard, rightBoard]
+    this.boardElements = [
+      this.Query<Board>("nerd-board.board_0")!,
+      this.Query<Board>("nerd-board.board_1")!,
+    ]
   }
 
   // Init configures the workbench and returns validated/reconciled config
-  // Called after DOM construction to initialize with config
-  // If config is null, creates default config which bubbles up from boards
-  Init(cfg: config.Workbench | null): config.Workbench {
+  Init(cfg: config.Workbench): config.Workbench {
     const workbenchConfig = new config.Workbench()
     workbenchConfig.boards = []
 
     // Initialize all boards and collect their validated configs
-    let i = 0
-    for (const board of this.boardElements) {
-      const boardConfig = board.Init(cfg?.boards[i] ?? null)
-      workbenchConfig.boards.push(boardConfig)
-      i++
+    for (let i = 0; i < this.boardElements.length; i++) {
+      workbenchConfig.boards.push(this.boardElements[i].Init(cfg.boards[i]))
     }
 
     return workbenchConfig
@@ -375,10 +341,8 @@ class Auth extends nerd.Component {
     this.error = this.Query(".error")! as HTMLDivElement
     this.loginToggle = this.login.querySelector(".toggle")! as HTMLElement
     this.registerToggle = this.register.querySelector(".toggle")! as HTMLElement
-    this.attachEventListeners()
-  }
 
-  private attachEventListeners() {
+    // Event listeners
     this.login.addEventListener("submit", (e) => this.handleSubmit(e, false))
     this.register.addEventListener("submit", (e) => this.handleSubmit(e, true))
     this.loginToggle.addEventListener("click", () => this.toggleMode())
@@ -529,11 +493,18 @@ class GUI extends nerd.Component {
       this.buildNodeTree(treeEntry)
 
       // TODO: Load saved state from localStorage
-      // const savedState: GUIState | null = null
+      // const savedState: config.State | null = null
 
-      // Initialize workbench (creates defaults if savedState is null)
-      // Validated config bubbles back up
-      this.state.workbench = this.workbench.Init(null)
+      // Use default state and set rootId for all ListTrees
+      const cfg = config.defaultState
+      for (const board of cfg.workbench.boards) {
+        for (const listTree of board.listTrees) {
+          listTree.rootId = this.displayRoot!.id
+        }
+      }
+
+      // Initialize workbench with config
+      this.state.workbench = this.workbench.Init(cfg.workbench)
 
       // TODO: Save validated state to localStorage
 

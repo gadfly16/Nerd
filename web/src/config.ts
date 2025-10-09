@@ -20,3 +20,28 @@ export class Workbench {
 export class State {
   workbench!: Workbench
 }
+
+// Default state template
+// rootId values must be set to displayRoot.id before use
+export const defaultState: State = {
+  workbench: {
+    boards: [
+      {
+        listTrees: [
+          {
+            rootId: 0, // Set to displayRoot.id
+            stopList: new Set(),
+          },
+        ],
+      },
+      {
+        listTrees: [
+          {
+            rootId: 0, // Set to displayRoot.id
+            stopList: new Set(),
+          },
+        ],
+      },
+    ],
+  },
+}
