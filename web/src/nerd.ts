@@ -28,6 +28,20 @@ export class Component extends HTMLElement {
     document.head.appendChild(styleElement)
     customElements.define(name, this)
   }
+
+  // Query is a shorthand for querySelector
+  Query<T extends Element = Element>(selector: string): T | null {
+    return this.querySelector<T>(selector)
+  }
+
+  // Listen is a shorthand for addEventListener
+  Listen(
+    type: string,
+    listener: EventListenerOrEventListenerObject,
+    options?: boolean | AddEventListenerOptions,
+  ): void {
+    this.addEventListener(type, listener, options)
+  }
 }
 
 // Ask sends an API message to the server and returns the response payload

@@ -113,7 +113,8 @@ class Board extends nerd.Component {
   static style = `
 		nerd-board {
 			display: block;
-			border: 1px solid #ddd;
+			background: #444;
+			color: #ccc;
 		}
 	`
 
@@ -175,11 +176,10 @@ class Header extends nerd.Component {
 			display: flex;
 			justify-content: space-between;
 			align-items: center;
-			background: #2c3e50;
+			background: #333;
 			color: white;
 			padding: 1rem;
 			font-size: 1.2rem;
-			font-weight: bold;
 		}
 
 		nerd-header nerd-action {
@@ -201,7 +201,7 @@ class Header extends nerd.Component {
 
   connectedCallback() {
     this.innerHTML = Header.html
-    this.logoutButton = this.querySelector(".logout")!
+    this.logoutButton = this.Query(".logout")!
     this.logoutButton.addEventListener("click", () => this.logout())
   }
 
@@ -220,7 +220,7 @@ class Footer extends nerd.Component {
   static style = `
 		nerd-footer {
 			display: block;
-			background: #2c3e50;
+			background: #333;
 			color: white;
 			padding: 1rem;
 			text-align: center;
@@ -258,10 +258,14 @@ class Workbench extends nerd.Component {
 
 		nerd-workbench nerd-board.left {
 			grid-area: left;
+			border: 0.5em solid #303c57;
+			border-width: 0.5em 0.29em 0.5em 0.5em;
 		}
 
 		nerd-workbench nerd-board.right {
 			grid-area: right;
+			border: 0.5em solid #303c57;
+			border-width: 0.5em 0.5em 0.5em 0.29em;
 		}
 
 		nerd-workbench nerd-footer {
@@ -282,8 +286,8 @@ class Workbench extends nerd.Component {
   connectedCallback() {
     this.innerHTML = Workbench.html
     // Cache all board elements
-    const leftBoard = this.querySelector("nerd-board.left")! as Board
-    const rightBoard = this.querySelector("nerd-board.right")! as Board
+    const leftBoard = this.Query<Board>("nerd-board.left")!
+    const rightBoard = this.Query<Board>("nerd-board.right")!
     this.boardElements = [leftBoard, rightBoard]
   }
 
@@ -330,7 +334,7 @@ class Auth extends nerd.Component {
 			padding: 1.5em;
 			border: 1px solid #ddd;
 			border-radius: 0.5em;
-			background: white;
+			background: #fff;
 		}
 
 		nerd-auth form {
@@ -374,11 +378,11 @@ class Auth extends nerd.Component {
 
   connectedCallback() {
     this.innerHTML = Auth.html
-    this.login = this.querySelector(".login")!
-    this.register = this.querySelector(".register")!
-    this.error = this.querySelector(".error")!
-    this.loginToggle = this.login.querySelector(".toggle")!
-    this.registerToggle = this.register.querySelector(".toggle")!
+    this.login = this.Query(".login")! as HTMLFormElement
+    this.register = this.Query(".register")! as HTMLFormElement
+    this.error = this.Query(".error")! as HTMLDivElement
+    this.loginToggle = this.login.querySelector(".toggle")! as HTMLElement
+    this.registerToggle = this.register.querySelector(".toggle")! as HTMLElement
     this.attachEventListeners()
   }
 
@@ -452,7 +456,7 @@ class GUI extends nerd.Component {
 			width: 100vw;
 			height: 100vh;
 			font-family: 'Inter';
-			background: #fafafa;
+			background: #fff;
 		}
 
 		.hidden {
@@ -488,7 +492,7 @@ class GUI extends nerd.Component {
     window.addEventListener("nerd:unauthorized", () => this.SwitchToAuth())
 
     this.innerHTML = GUI.html
-    this.workbench = this.querySelector("nerd-workbench")!
+    this.workbench = this.Query("nerd-workbench")! as Workbench
     this.updateAuthState()
   }
 

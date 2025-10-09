@@ -13,7 +13,7 @@ export class Action extends nerd.Component {
 			text-decoration: underline;
 			cursor: pointer;
 			padding: 0;
-			font: inherit;
+			font-size: 0.75em;
 		}
 
 		nerd-action:hover {
