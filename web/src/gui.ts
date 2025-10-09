@@ -447,9 +447,7 @@ class GUI extends nerd.Component {
   // init loads the tree and initializes the board displays
   private async init() {
     try {
-      const treeEntry = await this.getTree()
-      console.log("TreeEntry received:", treeEntry)
-      this.buildNodeTree(treeEntry)
+      await this.buildNodeTree()
 
       // TODO: Load saved state from localStorage
       // const savedState: config.State | null = null
@@ -473,20 +471,16 @@ class GUI extends nerd.Component {
     }
   }
 
-  // getTree fetches the tree structure from the server
-  // For admins: returns entire tree from Root
-  // For users: returns subtree rooted at user node
-  private async getTree(): Promise<nerd.TreeEntry> {
+  // buildNodeTree fetches tree from server and builds Node tree structure
+  private async buildNodeTree() {
     const targetId = this.admin ? 1 : this.userId
-    const tree = await nerd.Ask(imsg.GetTree, targetId)
-    return tree as nerd.TreeEntry
+    const treeEntry = await nerd.GetTree(targetId)
+    console.log("TreeEntry received:", treeEntry)
+    this.buildNodes(treeEntry, null)
   }
 
-  // buildNodeTree recursively builds Node tree from TreeEntry and populates nodes map
-  private buildNodeTree(
-    entry: nerd.TreeEntry,
-    parent: Node | null = null,
-  ): Node {
+  // buildNodes recursively builds Node tree from TreeEntry and populates nodes map
+  private buildNodes(entry: nerd.TreeEntry, parent: Node | null): Node {
     const node = new Node(entry.nodeId, entry.name, parent)
     this.nodes.set(node.id, node)
 
@@ -498,40 +492,11 @@ class GUI extends nerd.Component {
 
     if (entry.children) {
       for (const childEntry of entry.children) {
-        this.buildNodeTree(childEntry, node)
+        this.buildNodes(childEntry, node)
       }
     }
 
     return node
-  }
-
-  // setupDefaultView creates default board/tree configuration
-  // Default: both boards show user node with 1 level depth (children in stop list)
-  private setupDefaultView() {
-    if (!this.displayRoot) return
-
-    // displayRoot is already the correct node (set by getTree based on admin/userId)
-    const displayNode = this.displayRoot
-
-    // Create ListTree config for left board
-    const leftConfig = new config.ListTree()
-    leftConfig.rootId = displayNode.id
-    leftConfig.stopList = new Set()
-    // Add immediate children to stop list (show 1 level depth)
-    for (const child of displayNode.children) {
-      leftConfig.stopList.add(child.id)
-    }
-    this.state.workbench.boards[0].listTrees.push(leftConfig)
-
-    // Create ListTree config for right board (empty stop list - shows full tree)
-    const rightConfig = new config.ListTree()
-    rightConfig.rootId = displayNode.id
-    rightConfig.stopList = new Set()
-    // No children added to stop list - renders entire tree recursively
-    this.state.workbench.boards[1].listTrees.push(rightConfig)
-
-    // Render both boards
-    this.workbench.RenderBoards()
   }
 }
 
