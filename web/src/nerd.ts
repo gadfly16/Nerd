@@ -84,9 +84,9 @@ export async function AskAuth(type: imsg, pl: any): Promise<any> {
   return await response.json()
 }
 
-// GetTree fetches the tree structure from the server
+// AskGetTree fetches the tree structure from the server
 // For admins: fetches entire tree from Root (targetId = 1)
 // For users: fetches subtree rooted at user node (targetId = userId)
-export async function GetTree(targetId: number): Promise<TreeEntry> {
+export async function AskGetTree(targetId: number): Promise<TreeEntry> {
   return (await Ask(imsg.GetTree, targetId)) as TreeEntry
 }

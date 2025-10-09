@@ -33,15 +33,25 @@ class Node {
     return child
   }
 
+  // collectToDepth adds node IDs from this node down to specified depth into provided set
+  collectToDepth(depth: number, ids: Set<number>) {
+    ids.add(this.id)
+    if (depth > 0) {
+      for (const child of this.children) {
+        child.collectToDepth(depth - 1, ids)
+      }
+    }
+  }
+
   // render creates and appends a new DOM element to container
-  // recursively renders children unless this node is in the config's stop list
+  // recursively renders children if this node is in the config's openList
   // returns the created element for potential future reference
   render(container: HTMLElement, cfg: config.ListTree): HTMLElement {
     const element = $(`<div class="nerd-entity">${this.name}</div>`)
     this.elements.push(element)
     container.appendChild(element)
 
-    if (!cfg.stopList.has(this.id)) {
+    if (cfg.openList.has(this.id)) {
       const childContainer = $(`<div class="nerd-children"></div>`)
       element.appendChild(childContainer)
       for (const child of this.children) {
@@ -75,6 +85,17 @@ class ListTree extends nerd.Component {
   // Render displays the tree using block layout
   Render(cfg: config.ListTree) {
     this.config = cfg
+
+    // Expand displayRoot macro if present
+    if (cfg.displayRoot !== undefined) {
+      cfg.rootId = gui.displayRoot!.id
+      cfg.openList = new Set()
+      if (cfg.displayRoot > 0) {
+        gui.displayRoot!.collectToDepth(cfg.displayRoot - 1, cfg.openList)
+      }
+      delete cfg.displayRoot
+    }
+
     this.innerHTML = ""
     const rootNode = gui.nodes.get(cfg.rootId)
     if (rootNode) {
@@ -287,11 +308,11 @@ class Auth extends nerd.Component {
 
   // Auth instance fields
   private regmode = false
-  private login = undefined as unknown as HTMLFormElement
-  private register = undefined as unknown as HTMLFormElement
-  private error = undefined as unknown as HTMLDivElement
-  private loginToggle = undefined as unknown as HTMLElement
-  private registerToggle = undefined as unknown as HTMLElement
+  private login!: HTMLFormElement
+  private register!: HTMLFormElement
+  private error!: HTMLDivElement
+  private loginToggle!: HTMLElement
+  private registerToggle!: HTMLElement
 
   connectedCallback() {
     this.innerHTML = Auth.html
@@ -408,7 +429,13 @@ class GUI extends nerd.Component {
 
     this.innerHTML = GUI.html
     this.workbench = this.Query("nerd-workbench")! as Workbench
-    this.updateAuthState()
+
+    // Show auth or workbench based on initial userId
+    if (this.userId === 0) {
+      this.SwitchToAuth()
+    } else {
+      this.SwitchToWorkbench(this.userId)
+    }
   }
 
   // SwitchToAuth clears all sensitive data and shows authentication UI
@@ -434,16 +461,6 @@ class GUI extends nerd.Component {
     this.init()
   }
 
-  // updateAuthState toggles between auth and workbench based on userId
-  // Called on initial page load
-  updateAuthState() {
-    if (this.userId === 0) {
-      this.SwitchToAuth()
-    } else {
-      this.SwitchToWorkbench(this.userId)
-    }
-  }
-
   // init loads the tree and initializes the board displays
   private async init() {
     try {
@@ -452,17 +469,9 @@ class GUI extends nerd.Component {
       // TODO: Load saved state from localStorage
       // const savedState: config.State | null = null
 
-      // Use default state and set rootId for all ListTrees
-      const cfg = config.defaultState
-      for (const board of cfg.workbench.boards) {
-        for (const listTree of board.listTrees) {
-          listTree.rootId = this.displayRoot!.id
-        }
-      }
-
-      // Store config and render workbench
-      this.state.workbench = cfg.workbench
-      this.workbench.Render(cfg.workbench)
+      // Store config and render workbench (displayRoot macros expanded during render)
+      this.state.workbench = config.defaultState.workbench
+      this.workbench.Render(config.defaultState.workbench)
 
       // TODO: Save state to localStorage
     } catch (err) {
@@ -474,7 +483,7 @@ class GUI extends nerd.Component {
   // buildNodeTree fetches tree from server and builds Node tree structure
   private async buildNodeTree() {
     const targetId = this.admin ? 1 : this.userId
-    const treeEntry = await nerd.GetTree(targetId)
+    const treeEntry = await nerd.AskGetTree(targetId)
     console.log("TreeEntry received:", treeEntry)
     this.buildNodes(treeEntry, null)
   }

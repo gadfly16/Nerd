@@ -3,7 +3,8 @@
 // ListTreeConfig configures a single ListTree instance
 export class ListTree {
   rootId!: number // Node ID to start rendering from
-  stopList!: Set<number> // Node IDs to stop rendering at
+  openList!: Set<number> // Node IDs whose children are visible
+  displayRoot?: number // Optional: render displayRoot at this depth (macro expanded on first render)
 }
 
 // BoardConfig holds configuration for all ListTrees on a board
@@ -22,23 +23,25 @@ export class State {
 }
 
 // Default state template
-// rootId values must be set to displayRoot.id before use
+// displayRoot macros are expanded during first render
 export const defaultState: State = {
   workbench: {
     boards: [
       {
         listTrees: [
           {
-            rootId: 0, // Set to displayRoot.id
-            stopList: new Set([1]), // Stop at node 1 (don't render its children)
+            rootId: 0,
+            openList: new Set(),
+            displayRoot: 1, // Show displayRoot with depth 1
           },
         ],
       },
       {
         listTrees: [
           {
-            rootId: 0, // Set to displayRoot.id
-            stopList: new Set(),
+            rootId: 0,
+            openList: new Set(),
+            displayRoot: 2, // Show displayRoot with depth 2
           },
         ],
       },
