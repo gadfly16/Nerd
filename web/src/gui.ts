@@ -4,52 +4,14 @@ import { imsg } from "./imsg.js"
 import { $ } from "./util.js"
 import * as nerd from "./nerd.js"
 import * as config from "./config.js"
-import { Node } from "./node.js"
-import "./widgets.js" // Side effect: registers widget components
+import * as vertigo from "./vertigo.js"
+
+// Side effect imports to trigger component registration
+import "./widgets.js"
+import "./vertigo.js"
 
 // Global GUI singleton - set during GUI.connectedCallback()
 let gui: GUI
-
-// Vertigo renders a tree as a hierarchical list of block elements
-// This is a dynamic/adaptive custom element
-class Vertigo extends nerd.Component {
-  static style = `
-		nerd-vertigo {
-			display: block;
-		}
-
-		nerd-vertigo .nerd-entity {
-			padding: 0.25em;
-		}
-
-		nerd-vertigo .nerd-children {
-			padding-left: 1em;
-		}
-	`
-
-  config!: config.Vertigo
-
-  // Render displays the tree using block layout
-  Render(cfg: config.Vertigo) {
-    this.config = cfg
-
-    // Expand displayRoot macro if present
-    if (cfg.displayRoot !== undefined) {
-      cfg.rootId = gui.displayRoot!.id
-      cfg.openList = new Set()
-      if (cfg.displayRoot > 0) {
-        gui.displayRoot!.collectToDepth(cfg.displayRoot - 1, cfg.openList)
-      }
-      delete cfg.displayRoot
-    }
-
-    this.innerHTML = ""
-    const rootNode = gui.nodes.get(cfg.rootId)
-    if (rootNode) {
-      rootNode.render(this, cfg)
-    }
-  }
-}
 
 // Board is a structural component that contains multiple ListTree elements
 class Board extends nerd.Component {
@@ -68,10 +30,11 @@ class Board extends nerd.Component {
     this.config = cfg
     this.innerHTML = ""
 
-    for (const tree of cfg.trees) {
-      const vertigo = document.createElement("nerd-vertigo") as Vertigo
-      vertigo.Render(tree)
-      this.appendChild(vertigo)
+    for (const treeCfg of cfg.trees) {
+      const treeRoot = gui.nodes.get(treeCfg.rootId)!
+      const vertigoTree = nerd.Create("vertigo-tree") as vertigo.Tree
+      vertigoTree.Render(treeCfg, treeRoot, gui.displayRoot!)
+      this.appendChild(vertigoTree)
     }
   }
 }
@@ -355,10 +318,10 @@ class GUI extends nerd.Component {
   userId: number = 0
   admin: boolean = false
   state: config.State = new config.State()
-  nodes = new Map<number, Node>() // Fast lookup by ID
-  displayRoot: Node | null = null
-  private auth = document.createElement("nerd-auth")
-  private workbench = undefined as unknown as Workbench
+  nodes = new Map<number, nerd.Node>() // Fast lookup by ID
+  displayRoot: nerd.Node | null = null
+  private auth = nerd.Create("nerd-auth") as Auth
+  private workbench!: Workbench
 
   connectedCallback() {
     this.userId = parseInt(this.getAttribute("userid")!, 10)
@@ -436,8 +399,11 @@ class GUI extends nerd.Component {
   }
 
   // buildNodes recursively builds Node tree from TreeEntry and populates nodes map
-  private buildNodes(entry: nerd.TreeEntry, parent: Node | null): Node {
-    const node = new Node(entry.nodeId, entry.name, parent)
+  private buildNodes(
+    entry: nerd.TreeEntry,
+    parent: nerd.Node | null,
+  ): nerd.Node {
+    const node = new nerd.Node(entry.nodeId, entry.name, parent)
     this.nodes.set(node.id, node)
 
     if (parent === null) {
@@ -458,7 +424,6 @@ class GUI extends nerd.Component {
 
 // Register all components - must happen before HTML parsing completes
 // Creates global style tags and defines custom elements
-Vertigo.register("nerd-vertigo")
 Board.register("nerd-board")
 Header.register("nerd-header")
 Footer.register("nerd-footer")

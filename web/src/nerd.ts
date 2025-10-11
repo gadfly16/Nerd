@@ -9,6 +9,39 @@ export interface TreeEntry {
   children: TreeEntry[]
 }
 
+// Node represents a node in the in-memory tree structure
+// Pure data structure with no rendering logic
+export class Node {
+  id: number
+  name: string
+  parent: Node | null
+  children: Node[]
+
+  constructor(id: number, name: string, parent: Node | null = null) {
+    this.id = id
+    this.name = name
+    this.parent = parent
+    this.children = []
+  }
+
+  // addChild creates child node and establishes bidirectional link
+  addChild(id: number, name: string): Node {
+    const child = new Node(id, name, this)
+    this.children.push(child)
+    return child
+  }
+
+  // collectToDepth adds node IDs from this node down to specified depth into provided set
+  collectToDepth(depth: number, ids: Set<number>) {
+    ids.add(this.id)
+    if (depth > 0) {
+      for (const child of this.children) {
+        child.collectToDepth(depth - 1, ids)
+      }
+    }
+  }
+}
+
 // GUIContext holds minimal global state needed across components
 // Simple data object - no methods, no coupling
 export const GUIContext = {
@@ -89,4 +122,9 @@ export async function AskAuth(type: imsg, pl: any): Promise<any> {
 // For users: fetches subtree rooted at user node (targetId = userId)
 export async function AskGetTree(targetId: number): Promise<TreeEntry> {
   return (await Ask(imsg.GetTree, targetId)) as TreeEntry
+}
+
+// Create is a shorthand for document.createElement
+export function Create(tagName: string): HTMLElement {
+  return document.createElement(tagName)
 }
