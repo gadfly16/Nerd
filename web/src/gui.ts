@@ -46,7 +46,7 @@ class Node {
   // render creates and appends a new DOM element to container
   // recursively renders children if this node is in the config's openList
   // returns the created element for potential future reference
-  render(container: HTMLElement, cfg: config.ListTree): HTMLElement {
+  render(container: HTMLElement, cfg: config.Vertigo): HTMLElement {
     const element = $(`<div class="nerd-entity">${this.name}</div>`)
     this.elements.push(element)
     container.appendChild(element)
@@ -63,27 +63,27 @@ class Node {
   }
 }
 
-// ListTree renders a tree as a hierarchical list of block elements
+// Vertigo renders a tree as a hierarchical list of block elements
 // This is a dynamic/adaptive custom element
-class ListTree extends nerd.Component {
+class Vertigo extends nerd.Component {
   static style = `
-		nerd-list-tree {
+		nerd-vertigo {
 			display: block;
 		}
 
-		nerd-list-tree .nerd-entity {
+		nerd-vertigo .nerd-entity {
 			padding: 0.25em;
 		}
 
-		nerd-list-tree .nerd-children {
+		nerd-vertigo .nerd-children {
 			padding-left: 1em;
 		}
 	`
 
-  config!: config.ListTree
+  config!: config.Vertigo
 
   // Render displays the tree using block layout
-  Render(cfg: config.ListTree) {
+  Render(cfg: config.Vertigo) {
     this.config = cfg
 
     // Expand displayRoot macro if present
@@ -116,15 +116,15 @@ class Board extends nerd.Component {
 
   config!: config.Board
 
-  // Render displays all ListTrees for this board
+  // Render displays all Vertigo trees for this board
   Render(cfg: config.Board) {
     this.config = cfg
     this.innerHTML = ""
 
-    for (const listTreeConfig of cfg.listTrees) {
-      const listTree = document.createElement("nerd-list-tree") as ListTree
-      listTree.Render(listTreeConfig)
-      this.appendChild(listTree)
+    for (const tree of cfg.trees) {
+      const vertigo = document.createElement("nerd-vertigo") as Vertigo
+      vertigo.Render(tree)
+      this.appendChild(vertigo)
     }
   }
 }
@@ -511,7 +511,7 @@ class GUI extends nerd.Component {
 
 // Register all components - must happen before HTML parsing completes
 // Creates global style tags and defines custom elements
-ListTree.register("nerd-list-tree")
+Vertigo.register("nerd-vertigo")
 Board.register("nerd-board")
 Header.register("nerd-header")
 Footer.register("nerd-footer")

@@ -1,15 +1,15 @@
 // Config - GUI configuration data structures
 
-// ListTreeConfig configures a single ListTree instance
-export class ListTree {
+// Vertigo configures a single Vertigo instance
+export class Vertigo {
   rootId!: number // Node ID to start rendering from
   openList!: Set<number> // Node IDs whose children are visible
   displayRoot?: number // Optional: render displayRoot at this depth (macro expanded on first render)
 }
 
-// BoardConfig holds configuration for all ListTrees on a board
+// BoardConfig holds configuration for all Vertigo trees on a board
 export class Board {
-  listTrees!: ListTree[]
+  trees!: Vertigo[]
 }
 
 // WorkbenchConfig holds configuration for all boards in the workbench
@@ -28,7 +28,7 @@ export const defaultState: State = {
   workbench: {
     boards: [
       {
-        listTrees: [
+        trees: [
           {
             rootId: 0,
             openList: new Set(),
@@ -37,7 +37,7 @@ export const defaultState: State = {
         ],
       },
       {
-        listTrees: [
+        trees: [
           {
             rootId: 0,
             openList: new Set(),
