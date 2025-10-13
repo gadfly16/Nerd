@@ -33,8 +33,8 @@ class Board extends nerd.Component {
 
     for (const treeCfg of cfg.trees) {
       const vertigoTree = nerd.Create("vertigo-tree") as vertigo.Tree
-      vertigoTree.Render(treeCfg, gui.displayRoot!, gui.displayRoot!)
       this.appendChild(vertigoTree)
+      vertigoTree.Render(treeCfg, gui.displayRoot!, gui.displayRoot!)
     }
   }
 }

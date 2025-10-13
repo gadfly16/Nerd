@@ -26,7 +26,21 @@ export class Tree extends nerd.Component {
 
   config!: config.Vertigo
   treeRoot!: nerd.TreeEntry
-  rootNode!: Node
+  rootNode!: VNode
+  private resizeObserver!: ResizeObserver
+
+  connectedCallback() {
+    // Set up ResizeObserver to watch parent container
+    // Fires automatically on initial observation and whenever parent size changes
+    this.resizeObserver = new ResizeObserver(() => {
+      this.updateWidth()
+    })
+  }
+
+  disconnectedCallback() {
+    // Clean up observer when removed from DOM
+    this.resizeObserver?.disconnect()
+  }
 
   // Render displays the tree using Vertigo block layout
   Render(
@@ -55,28 +69,28 @@ export class Tree extends nerd.Component {
     // Listen for structure change events from nodes
     this.addEventListener("vertigo:change", () => this.updateWidth())
 
-    // Create root vertigo-node and render it
-    this.rootNode = nerd.Create("vertigo-node") as Node
+    // Create root vertigo-node, add to DOM, then render
+    this.rootNode = nerd.Create("vertigo-node") as VNode
+    this.appendChild(this.rootNode)
     this.rootNode.Render(te, this.config, 0)
 
-    this.appendChild(this.rootNode)
-
-    // Calculate and set tree width after element is in DOM
-    this.updateWidth()
+    // Start observing parent - triggers initial width calculation
+    if (this.parentElement) {
+      this.resizeObserver.observe(this.parentElement)
+    }
 
     return this
   }
 
   // updateWidth calculates and sets the tree width based on current open state
+  // Called by ResizeObserver (parent size change) or vertigo:change event (structure change)
   updateWidth() {
-    requestAnimationFrame(() => {
-      const maxDepth = this.rootNode.displayDepth()
-      const computedWidth = computeWidthFromDepth(maxDepth)
-      const viewportWidth = (this.parentElement?.clientWidth || 0) - G
-      console.log(`clientWidth: ${viewportWidth}px`)
-      const width = Math.max(computedWidth, viewportWidth)
-      this.style.width = `${width}px`
-    })
+    const maxDepth = this.rootNode.displayDepth()
+    const computedWidth = computeWidthFromDepth(maxDepth)
+    const viewportWidth = (this.parentElement?.clientWidth || 0) - G
+    console.log(`clientWidth: ${viewportWidth}px`)
+    const width = Math.max(computedWidth, viewportWidth)
+    this.style.width = `${width}px`
   }
 }
 
@@ -117,92 +131,126 @@ class Header extends nerd.Component {
 	`
 }
 
-// Node renders a single node and its children recursively
-class Node extends nerd.Component {
+// VNode renders a single node and its children recursively
+class VNode extends nerd.Component {
   static style = `
 		vertigo-node {
 			display: grid;
 			grid-template-columns: ${W_SIDEBAR}px 1fr;
+			grid-template-rows: auto 1fr;
 			margin: ${G}px 0 0 ${G}px;
 		}
 
 		vertigo-node > vertigo-open {
-			grid-column: 1;
-			grid-row: 1;
-		}
-
-		vertigo-node > vertigo-sidebar {
-			grid-column: 1;
+			grid-area: 1 / 1;
 		}
 
 		vertigo-node > vertigo-header {
-			grid-column: 2;
-			grid-row: 1;
+			grid-area: 1 / 2;
 		}
 
-		vertigo-node > vertigo-node {
-			grid-column: 2;
+		vertigo-node > vertigo-sidebar {
+			grid-area: 2 / 1;
 		}
+
+		vertigo-node > .details {
+			grid-area: 2 / 2;
+			display: flex;
+			flex-direction: column;
+		}
+	`
+
+  static html = `
+		<vertigo-open></vertigo-open>
+		<vertigo-header></vertigo-header>
+		<vertigo-sidebar></vertigo-sidebar>
+		<div class="details">
+			<div class="children"></div>
+		</div>
 	`
 
   te!: nerd.TreeEntry
   cfg!: config.Vertigo
   depth!: number
-  childElements: Node[] = []
+  childElements: VNode[] = []
 
-  // Render displays this node and recursively renders children
+  // Cached DOM elements
+  open!: Open
+  header!: Header
+  sidebar!: Sidebar
+  childrenContainer!: HTMLElement
+
+  connectedCallback() {
+    this.innerHTML = VNode.html
+    this.open = this.Query("vertigo-open")! as Open
+    this.header = this.Query("vertigo-header")! as Header
+    this.sidebar = this.Query("vertigo-sidebar")! as Sidebar
+    this.childrenContainer = this.Query(".children")!
+
+    // Attach click handler once
+    this.open.onclick = () => this.toggleOpen()
+  }
+
+  // Render sets node state and updates content
   Render(te: nerd.TreeEntry, cfg: config.Vertigo, depth: number): void {
     this.te = te
     this.cfg = cfg
     this.depth = depth
-    this.childElements = []
-    this.innerHTML = ""
 
     const isOpen = cfg.openList.has(te.id)
-    const childCount = isOpen ? te.children.length : 0
 
-    // Create open icon block
-    const open = nerd.Create("vertigo-open") as Open
-    open.textContent = isOpen ? "○" : "●"
-    this.appendChild(open)
+    // Update elements directly
+    this.open.textContent = isOpen ? "○" : "●"
+    this.header.textContent = te.name
+    this.sidebar.style.display =
+      isOpen && te.children.length > 0 ? "block" : "none"
 
-    // Attach click handler to open icon (bound to this node)
-    open.onclick = () => {
-      // Toggle open state
-      if (cfg.openList.has(te.id)) {
-        cfg.openList.delete(te.id)
-      } else {
-        cfg.openList.add(te.id)
-      }
-
-      // Re-render this node (adds/removes children)
-      this.Render(te, cfg, depth)
-
-      // Notify tree that structure changed
-      this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
-    }
-
-    // Create header with name
-    const header = nerd.Create("vertigo-header") as Header
-    header.textContent = te.name
-    this.appendChild(header)
-
-    // Create sidebar extension if open and has children
-    if (isOpen && childCount > 0) {
-      const sidebar = nerd.Create("vertigo-sidebar") as Sidebar
-      sidebar.style.gridRow = `2 / span ${childCount}`
-      this.appendChild(sidebar)
-    }
-
-    // Render children if open
+    // Render children into container
     if (isOpen) {
-      for (const child of te.children) {
-        const childDisplay = nerd.Create("vertigo-node") as Node
-        childDisplay.Render(child, cfg, depth + 1)
-        this.childElements.push(childDisplay)
-        this.appendChild(childDisplay)
-      }
+      this.renderChildren()
+    } else {
+      this.clearChildren()
     }
+  }
+
+  // toggleOpen handles click on open/close icon
+  private toggleOpen() {
+    // Toggle open state
+    if (this.cfg.openList.has(this.te.id)) {
+      this.cfg.openList.delete(this.te.id)
+      this.clearChildren()
+    } else {
+      this.cfg.openList.add(this.te.id)
+      this.renderChildren()
+    }
+
+    // Update UI
+    const isOpen = this.cfg.openList.has(this.te.id)
+    this.open.textContent = isOpen ? "○" : "●"
+    this.sidebar.style.display =
+      isOpen && this.te.children.length > 0 ? "block" : "none"
+
+    // Notify tree that structure changed
+    this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
+  }
+
+  // renderChildren populates the children container
+  private renderChildren() {
+    this.clearChildren()
+    for (const child of this.te.children) {
+      const childNode = nerd.Create("vertigo-node") as VNode
+      this.childrenContainer.appendChild(childNode)
+      childNode.Render(child, this.cfg, this.depth + 1)
+      this.childElements.push(childNode)
+    }
+  }
+
+  // clearChildren removes all child nodes
+  private clearChildren() {
+    for (const child of this.childElements) {
+      child.remove()
+    }
+    this.childElements = []
   }
 
   // displayDepth recursively finds the maximum depth of open nodes from this node
@@ -225,4 +273,4 @@ Tree.register("vertigo-tree")
 Open.register("vertigo-open")
 Sidebar.register("vertigo-sidebar")
 Header.register("vertigo-header")
-Node.register("vertigo-node")
+VNode.register("vertigo-node")
