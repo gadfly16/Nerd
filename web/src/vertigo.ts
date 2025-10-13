@@ -20,7 +20,7 @@ export class Tree extends nerd.Component {
   static style = `
 		vertigo-tree {
 			display: block;
-			padding-right: 6px;
+			padding-right: ${G}px;
 		}
 	`
 
@@ -75,7 +75,7 @@ class Open extends nerd.Component {
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			width: 32px;
+			width: ${W_SIDEBAR}px;
 			background-color: #666;
 			cursor: pointer;
 			user-select: none;
@@ -88,7 +88,7 @@ class Sidebar extends nerd.Component {
   static style = `
 		vertigo-sidebar {
 			display: block;
-			width: 32px;
+			width: ${W_SIDEBAR}px;
 			background-color: #666;
 		}
 	`
@@ -110,8 +110,8 @@ class Node extends nerd.Component {
   static style = `
 		vertigo-node {
 			display: grid;
-			grid-template-columns: 32px 1fr;
-			margin: 6px 0 0 6px;
+			grid-template-columns: ${W_SIDEBAR}px 1fr;
+			margin: ${G}px 0 0 ${G}px;
 		}
 
 		vertigo-node > vertigo-open {
