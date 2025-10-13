@@ -4,31 +4,34 @@ import { imsg } from "./imsg.js"
 
 // TreeEntry represents a node and its children
 // Received as JSON from server, then initialized with parent pointers
-// Must match api/msg/types.go for nodeId, name, children fields
+// Must match api/msg/types.go for nodeId field (mapped to id here)
 export class TreeEntry {
-  nodeId: number
+  id: number
   name: string
   children: TreeEntry[]
   parent: TreeEntry | null = null
 
-  constructor(nodeId: number, name: string, children: TreeEntry[] = []) {
-    this.nodeId = nodeId
+  constructor(id: number, name: string, children: TreeEntry[] = []) {
+    this.id = id
     this.name = name
     this.children = children
   }
 
-  // init recursively sets parent pointers on this node and all descendants
-  init(parent: TreeEntry | null = null): TreeEntry {
-    this.parent = parent
-    for (const child of this.children) {
-      child.init(this)
+  // init converts plain JSON object to TreeEntry instances and sets parent pointers
+  static init(obj: any, parent: TreeEntry | null = null): TreeEntry {
+    const entry = new TreeEntry(obj.nodeId, obj.name, [])
+    entry.parent = parent
+    if (obj.children) {
+      entry.children = obj.children.map((child: any) =>
+        TreeEntry.init(child, entry),
+      )
     }
-    return this
+    return entry
   }
 
   // collectToDepth adds node IDs from this node down to specified depth into provided set
   collectToDepth(depth: number, ids: Set<number>): void {
-    ids.add(this.nodeId)
+    ids.add(this.id)
     if (depth > 0) {
       for (const child of this.children) {
         child.collectToDepth(depth - 1, ids)

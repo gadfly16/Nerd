@@ -31,23 +31,23 @@ export class Tree extends nerd.Component {
   // Render displays the tree using Vertigo block layout
   Render(
     cfg: config.Vertigo,
-    treeRoot: nerd.TreeEntry,
+    te: nerd.TreeEntry,
     guiDisplayRoot: nerd.TreeEntry,
   ): HTMLElement {
     this.config = cfg
-    this.treeRoot = treeRoot
+    this.treeRoot = te
 
     // Expand displayRoot macro if present
     if (cfg.displayRoot !== undefined) {
-      cfg.rootId = guiDisplayRoot.nodeId
+      cfg.rootId = guiDisplayRoot.id
       cfg.openList = new Set()
       if (cfg.displayRoot > 0) {
         guiDisplayRoot.collectToDepth(cfg.displayRoot - 1, cfg.openList)
       }
       delete cfg.displayRoot
 
-      treeRoot = guiDisplayRoot
-      this.treeRoot = treeRoot
+      te = guiDisplayRoot
+      this.treeRoot = te
     }
 
     this.innerHTML = ""
@@ -57,7 +57,7 @@ export class Tree extends nerd.Component {
 
     // Create root vertigo-node and render it
     this.rootNode = nerd.Create("vertigo-node") as Node
-    this.rootNode.Render(treeRoot, this.config, 0)
+    this.rootNode.Render(te, this.config, 0)
 
     this.appendChild(this.rootNode)
 
@@ -145,21 +145,21 @@ class Node extends nerd.Component {
 		}
 	`
 
-  dataNode!: nerd.TreeEntry
+  te!: nerd.TreeEntry
   cfg!: config.Vertigo
   depth!: number
   childElements: Node[] = []
 
   // Render displays this node and recursively renders children
-  Render(dataNode: nerd.TreeEntry, cfg: config.Vertigo, depth: number): void {
-    this.dataNode = dataNode
+  Render(te: nerd.TreeEntry, cfg: config.Vertigo, depth: number): void {
+    this.te = te
     this.cfg = cfg
     this.depth = depth
     this.childElements = []
     this.innerHTML = ""
 
-    const isOpen = cfg.openList.has(dataNode.nodeId)
-    const childCount = isOpen ? dataNode.children.length : 0
+    const isOpen = cfg.openList.has(te.id)
+    const childCount = isOpen ? te.children.length : 0
 
     // Create open icon block
     const open = nerd.Create("vertigo-open") as Open
@@ -169,14 +169,14 @@ class Node extends nerd.Component {
     // Attach click handler to open icon (bound to this node)
     open.onclick = () => {
       // Toggle open state
-      if (cfg.openList.has(dataNode.nodeId)) {
-        cfg.openList.delete(dataNode.nodeId)
+      if (cfg.openList.has(te.id)) {
+        cfg.openList.delete(te.id)
       } else {
-        cfg.openList.add(dataNode.nodeId)
+        cfg.openList.add(te.id)
       }
 
       // Re-render this node (adds/removes children)
-      this.Render(dataNode, cfg, depth)
+      this.Render(te, cfg, depth)
 
       // Notify tree that structure changed
       this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
@@ -184,7 +184,7 @@ class Node extends nerd.Component {
 
     // Create header with name
     const header = nerd.Create("vertigo-header") as Header
-    header.textContent = dataNode.name
+    header.textContent = te.name
     this.appendChild(header)
 
     // Create sidebar extension if open and has children
@@ -196,7 +196,7 @@ class Node extends nerd.Component {
 
     // Render children if open
     if (isOpen) {
-      for (const child of dataNode.children) {
+      for (const child of te.children) {
         const childDisplay = nerd.Create("vertigo-node") as Node
         childDisplay.Render(child, cfg, depth + 1)
         this.childElements.push(childDisplay)
@@ -209,7 +209,7 @@ class Node extends nerd.Component {
   displayDepth(): number {
     let maxDepth = this.depth
 
-    if (this.cfg.openList.has(this.dataNode.nodeId)) {
+    if (this.cfg.openList.has(this.te.id)) {
       for (const child of this.childElements) {
         const childMaxDepth = child.displayDepth()
         maxDepth = Math.max(maxDepth, childMaxDepth)

@@ -391,9 +391,9 @@ class GUI extends nerd.Component {
   // buildNodeTree fetches tree from server and initializes it with parent pointers
   private async buildNodeTree() {
     const targetId = this.admin ? 1 : this.userId
-    const treeEntry = await nerd.AskGetTree(targetId)
-    console.log("TreeEntry received:", treeEntry)
-    this.displayRoot = treeEntry.init()
+    const data = await nerd.AskGetTree(targetId)
+    console.log("TreeEntry received:", data)
+    this.displayRoot = nerd.TreeEntry.init(data)
   }
 }
 
