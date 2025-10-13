@@ -25,6 +25,8 @@ export class Tree extends nerd.Component {
 	`
 
   config!: config.Vertigo
+  treeRoot!: nerd.Node
+  rootNode!: Node
 
   // Render displays the tree using Vertigo block layout
   Render(
@@ -33,6 +35,7 @@ export class Tree extends nerd.Component {
     guiDisplayRoot: nerd.Node,
   ): HTMLElement {
     this.config = cfg
+    this.treeRoot = treeRoot
 
     // Expand displayRoot macro if present
     if (cfg.displayRoot !== undefined) {
@@ -44,27 +47,36 @@ export class Tree extends nerd.Component {
       delete cfg.displayRoot
 
       treeRoot = guiDisplayRoot
+      this.treeRoot = treeRoot
     }
 
     this.innerHTML = ""
 
-    // Create root vertigo-node and render it (gets max depth during render)
-    const rootDisplay = nerd.Create("vertigo-node") as Node
-    const maxDepth = rootDisplay.Render(treeRoot, this.config, 0)
+    // Listen for structure change events from nodes
+    this.addEventListener("vertigo:change", () => this.updateWidth())
 
-    this.appendChild(rootDisplay)
+    // Create root vertigo-node and render it
+    this.rootNode = nerd.Create("vertigo-node") as Node
+    this.rootNode.Render(treeRoot, this.config, 0)
+
+    this.appendChild(this.rootNode)
 
     // Calculate and set tree width after element is in DOM
-    // Use requestAnimationFrame to ensure parent has been laid out
+    this.updateWidth()
+
+    return this
+  }
+
+  // updateWidth calculates and sets the tree width based on current open state
+  updateWidth() {
     requestAnimationFrame(() => {
+      const maxDepth = this.rootNode.displayDepth()
       const computedWidth = computeWidthFromDepth(maxDepth)
       const viewportWidth = (this.parentElement?.clientWidth || 0) - G
       console.log(`clientWidth: ${viewportWidth}px`)
       const width = Math.max(computedWidth, viewportWidth)
       this.style.width = `${width}px`
     })
-
-    return this
   }
 }
 
@@ -133,9 +145,17 @@ class Node extends nerd.Component {
 		}
 	`
 
+  dataNode!: nerd.Node
+  cfg!: config.Vertigo
+  depth!: number
+  childElements: Node[] = []
+
   // Render displays this node and recursively renders children
-  // Returns the maximum depth of the rendered subtree
-  Render(dataNode: nerd.Node, cfg: config.Vertigo, depth: number): number {
+  Render(dataNode: nerd.Node, cfg: config.Vertigo, depth: number): void {
+    this.dataNode = dataNode
+    this.cfg = cfg
+    this.depth = depth
+    this.childElements = []
     this.innerHTML = ""
 
     const isOpen = cfg.openList.has(dataNode.id)
@@ -144,23 +164,28 @@ class Node extends nerd.Component {
     // Create open icon block
     const open = nerd.Create("vertigo-open") as Open
     open.textContent = isOpen ? "○" : "●"
+    this.appendChild(open)
+
+    // Attach click handler to open icon (bound to this node)
     open.onclick = () => {
+      // Toggle open state
       if (cfg.openList.has(dataNode.id)) {
         cfg.openList.delete(dataNode.id)
       } else {
         cfg.openList.add(dataNode.id)
       }
+
+      // Re-render this node (adds/removes children)
       this.Render(dataNode, cfg, depth)
+
+      // Notify tree that structure changed
+      this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
     }
-    this.appendChild(open)
 
     // Create header with name
     const header = nerd.Create("vertigo-header") as Header
     header.textContent = dataNode.name
     this.appendChild(header)
-
-    // Track max depth in subtree
-    let maxDepth = depth
 
     // Create sidebar extension if open and has children
     if (isOpen && childCount > 0) {
@@ -173,10 +198,20 @@ class Node extends nerd.Component {
     if (isOpen) {
       for (const child of dataNode.children) {
         const childDisplay = nerd.Create("vertigo-node") as Node
-        const childMaxDepth = childDisplay.Render(child, cfg, depth + 1)
-        maxDepth = Math.max(maxDepth, childMaxDepth)
+        childDisplay.Render(child, cfg, depth + 1)
+        this.childElements.push(childDisplay)
         this.appendChild(childDisplay)
       }
+    }
+  }
+
+  // displayDepth recursively finds the maximum depth of open nodes from this node
+  displayDepth(): number {
+    let maxDepth = this.depth
+
+    for (const child of this.childElements) {
+      const childMaxDepth = child.displayDepth()
+      maxDepth = Math.max(maxDepth, childMaxDepth)
     }
 
     return maxDepth
