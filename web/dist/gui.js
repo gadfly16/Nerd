@@ -1,4 +1,4 @@
-var u=class n{id;name;parent;children;constructor(e,t,r=null){this.id=e,this.name=t,this.parent=r,this.children=[]}addChild(e,t){let r=new n(e,t,this);return this.children.push(r),r}collectToDepth(e,t){if(t.add(this.id),e>0)for(let r of this.children)r.collectToDepth(e-1,t)}},b={userId:0,admin:!1},o=class extends HTMLElement{static style="";static register(e){let t=document.createElement("style");t.textContent=this.style,document.head.appendChild(t),customElements.define(e,this)}Query(e){return this.querySelector(e)}Listen(e,t,r){this.addEventListener(e,t,r)}};async function F(n,e,t={}){let r=await fetch("/api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:n,targetId:e,payload:t})});if(!r.ok)throw r.status===401&&window.dispatchEvent(new CustomEvent("nerd:unauthorized")),new Error(await r.text()||"Request failed");return await r.json()}async function f(n,e){let t=await fetch("/auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:n,payload:e})});if(!t.ok)throw new Error(await t.text()||"Request failed");return await t.json()}async function A(n){return await F(0,n)}function s(n){return document.createElement(n)}var W=class{rootId;openList;displayRoot},D=class{trees},$=class{boards},l=class{workbench},w={workbench:{boards:[{trees:[{rootId:0,openList:new Set,displayRoot:6}]},{trees:[{rootId:0,openList:new Set,displayRoot:6}]}]}};var v=class extends o{static style=`
+var A=class{nodeId;name;children;parent=null;constructor(e,t,n=[]){this.nodeId=e,this.name=t,this.children=n}init(e=null){this.parent=e;for(let t of this.children)t.init(this);return this}collectToDepth(e,t){if(t.add(this.nodeId),e>0)for(let n of this.children)n.collectToDepth(e-1,t)}},g={userId:0,admin:!1},o=class extends HTMLElement{static style="";static register(e){let t=document.createElement("style");t.textContent=this.style,document.head.appendChild(t),customElements.define(e,this)}Query(e){return this.querySelector(e)}Listen(e,t,n){this.addEventListener(e,t,n)}};async function F(r,e,t={}){let n=await fetch("/api",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:r,targetId:e,payload:t})});if(!n.ok)throw n.status===401&&window.dispatchEvent(new CustomEvent("nerd:unauthorized")),new Error(await n.text()||"Request failed");return await n.json()}async function b(r,e){let t=await fetch("/auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({type:r,payload:e})});if(!t.ok)throw new Error(await t.text()||"Request failed");return await t.json()}async function W(r){return await F(0,r)}function i(r){return document.createElement(r)}var D=class{rootId;openList;displayRoot},N=class{trees},$=class{boards},l=class{workbench},y={workbench:{boards:[{trees:[{rootId:0,openList:new Set,displayRoot:6}]},{trees:[{rootId:0,openList:new Set,displayRoot:6}]}]}};var w=class extends o{static style=`
 		nerd-action {
 			display: inline;
 			background: none;
@@ -13,12 +13,12 @@ var u=class n{id;name;parent;children;constructor(e,t,r=null){this.id=e,this.nam
 		nerd-action:hover {
 			color: #ddd;
 		}
-	`};v.register("nerd-action");var h=32,a=6,O=h+a,P=640;function U(n){return n*O+h+P-a}var x=class extends o{static style=`
+	`};w.register("nerd-action");var h=32,a=6,O=h+a,P=640;function U(r){return r*O+h+P-a}var v=class extends o{static style=`
 		vertigo-tree {
 			display: block;
 			padding-right: ${a}px;
 		}
-	`;config;treeRoot;rootNode;Render(e,t,r){return this.config=e,this.treeRoot=t,e.displayRoot!==void 0&&(e.rootId=r.id,e.openList=new Set,e.displayRoot>0&&r.collectToDepth(e.displayRoot-1,e.openList),delete e.displayRoot,t=r,this.treeRoot=t),this.innerHTML="",this.addEventListener("vertigo:change",()=>this.updateWidth()),this.rootNode=s("vertigo-node"),this.rootNode.Render(t,this.config,0),this.appendChild(this.rootNode),this.updateWidth(),this}updateWidth(){requestAnimationFrame(()=>{let e=this.rootNode.displayDepth(),t=U(e),r=(this.parentElement?.clientWidth||0)-a;console.log(`clientWidth: ${r}px`);let i=Math.max(t,r);this.style.width=`${i}px`})}},E=class extends o{static style=`
+	`;config;treeRoot;rootNode;Render(e,t,n){return this.config=e,this.treeRoot=t,e.displayRoot!==void 0&&(e.rootId=n.nodeId,e.openList=new Set,e.displayRoot>0&&n.collectToDepth(e.displayRoot-1,e.openList),delete e.displayRoot,t=n,this.treeRoot=t),this.innerHTML="",this.addEventListener("vertigo:change",()=>this.updateWidth()),this.rootNode=i("vertigo-node"),this.rootNode.Render(t,this.config,0),this.appendChild(this.rootNode),this.updateWidth(),this}updateWidth(){requestAnimationFrame(()=>{let e=this.rootNode.displayDepth(),t=U(e),n=(this.parentElement?.clientWidth||0)-a;console.log(`clientWidth: ${n}px`);let s=Math.max(t,n);this.style.width=`${s}px`})}},E=class extends o{static style=`
 		vertigo-open {
 			display: flex;
 			align-items: center;
@@ -28,19 +28,19 @@ var u=class n{id;name;parent;children;constructor(e,t,r=null){this.id=e,this.nam
 			cursor: pointer;
 			user-select: none;
 		}
-	`},k=class extends o{static style=`
+	`},T=class extends o{static style=`
 		vertigo-sidebar {
 			display: block;
 			width: ${h}px;
 			background-color: #666;
 		}
-	`},T=class extends o{static style=`
+	`},x=class extends o{static style=`
 		vertigo-header {
 			display: block;
 			background-color: #999;
 			padding: 0.25em;
 		}
-	`},L=class extends o{static style=`
+	`},k=class extends o{static style=`
 		vertigo-node {
 			display: grid;
 			grid-template-columns: ${h}px 1fr;
@@ -64,14 +64,14 @@ var u=class n{id;name;parent;children;constructor(e,t,r=null){this.id=e,this.nam
 		vertigo-node > vertigo-node {
 			grid-column: 2;
 		}
-	`;dataNode;cfg;depth;childElements=[];Render(e,t,r){this.dataNode=e,this.cfg=t,this.depth=r,this.childElements=[],this.innerHTML="";let i=t.openList.has(e.id),d=i?e.children.length:0,m=s("vertigo-open");m.textContent=i?"\u25CB":"\u25CF",this.appendChild(m),m.onclick=()=>{t.openList.has(e.id)?t.openList.delete(e.id):t.openList.add(e.id),this.Render(e,t,r),this.dispatchEvent(new CustomEvent("vertigo:change",{bubbles:!0}))};let H=s("vertigo-header");if(H.textContent=e.name,this.appendChild(H),i&&d>0){let p=s("vertigo-sidebar");p.style.gridRow=`2 / span ${d}`,this.appendChild(p)}if(i)for(let p of e.children){let g=s("vertigo-node");g.Render(p,t,r+1),this.childElements.push(g),this.appendChild(g)}}displayDepth(){let e=this.depth;for(let t of this.childElements){let r=t.displayDepth();e=Math.max(e,r)}return e}};x.register("vertigo-tree"),E.register("vertigo-open"),k.register("vertigo-sidebar"),T.register("vertigo-header"),L.register("vertigo-node");var c,C=class extends o{static style=`
+	`;dataNode;cfg;depth;childElements=[];Render(e,t,n){this.dataNode=e,this.cfg=t,this.depth=n,this.childElements=[],this.innerHTML="";let s=t.openList.has(e.nodeId),d=s?e.children.length:0,m=i("vertigo-open");m.textContent=s?"\u25CB":"\u25CF",this.appendChild(m),m.onclick=()=>{t.openList.has(e.nodeId)?t.openList.delete(e.nodeId):t.openList.add(e.nodeId),this.Render(e,t,n),this.dispatchEvent(new CustomEvent("vertigo:change",{bubbles:!0}))};let H=i("vertigo-header");if(H.textContent=e.name,this.appendChild(H),s&&d>0){let p=i("vertigo-sidebar");p.style.gridRow=`2 / span ${d}`,this.appendChild(p)}if(s)for(let p of e.children){let u=i("vertigo-node");u.Render(p,t,n+1),this.childElements.push(u),this.appendChild(u)}}displayDepth(){let e=this.depth;if(this.cfg.openList.has(this.dataNode.nodeId))for(let t of this.childElements){let n=t.displayDepth();e=Math.max(e,n)}return e}};v.register("vertigo-tree"),E.register("vertigo-open"),T.register("vertigo-sidebar"),x.register("vertigo-header"),k.register("vertigo-node");var c,L=class extends o{static style=`
 		nerd-board {
 			display: block;
 			background: #555;
 			color: #ccc;
 			overflow: auto;
 		}
-	`;config;Render(e){this.config=e,this.innerHTML="";for(let t of e.trees){let r=c.nodes.get(t.rootId),i=s("vertigo-tree");i.Render(t,r,c.displayRoot),this.appendChild(i)}}},M=class n extends o{static style=`
+	`;config;Render(e){this.config=e,this.innerHTML="";for(let t of e.trees){let n=i("vertigo-tree");n.Render(t,c.displayRoot,c.displayRoot),this.appendChild(n)}}},C=class r extends o{static style=`
 		nerd-header {
 			display: flex;
 			justify-content: space-between;
@@ -84,7 +84,7 @@ var u=class n{id;name;parent;children;constructor(e,t,r=null){this.id=e,this.nam
 	`;static html=`
 		<span>Nerd - Personal Software Agent Framework</span>
 		<nerd-action class="logout">Logout</nerd-action>
-	`;logoutButton;connectedCallback(){this.innerHTML=n.html,this.logoutButton=this.Query(".logout"),this.logoutButton.addEventListener("click",()=>this.logout())}async logout(){try{await f(6,{}),c.SwitchToAuth()}catch(e){console.error("Logout failed:",e)}}},S=class n extends o{static style=`
+	`;logoutButton;connectedCallback(){this.innerHTML=r.html,this.logoutButton=this.Query(".logout"),this.logoutButton.addEventListener("click",()=>this.logout())}async logout(){try{await b(6,{}),c.SwitchToAuth()}catch(e){console.error("Logout failed:",e)}}},I=class r extends o{static style=`
 		nerd-footer {
 			display: block;
 			background: #222;
@@ -94,7 +94,7 @@ var u=class n{id;name;parent;children;constructor(e,t,r=null){this.id=e,this.nam
 		}
 	`;static html=`
 		Footer
-	`;connectedCallback(){this.innerHTML=n.html}},I=class n extends o{static style=`
+	`;connectedCallback(){this.innerHTML=r.html}},S=class r extends o{static style=`
 		nerd-workbench {
 			display: grid;
 			grid-template-columns: 1fr 1fr;
@@ -131,7 +131,7 @@ var u=class n{id;name;parent;children;constructor(e,t,r=null){this.id=e,this.nam
 		<nerd-board class="board_0"></nerd-board>
 		<nerd-board class="board_1"></nerd-board>
 		<nerd-footer></nerd-footer>
-	`;config;boardElements=[];connectedCallback(){this.innerHTML=n.html,this.boardElements=[this.Query("nerd-board.board_0"),this.Query("nerd-board.board_1")]}Render(e){this.config=e;for(let t=0;t<this.boardElements.length;t++)this.boardElements[t].Render(e.boards[t])}},R=class n extends o{static style=`
+	`;config;boardElements=[];connectedCallback(){this.innerHTML=r.html,this.boardElements=[this.Query("nerd-board.board_0"),this.Query("nerd-board.board_1")]}Render(e){this.config=e;for(let t=0;t<this.boardElements.length;t++)this.boardElements[t].Render(e.boards[t])}},M=class r extends o{static style=`
 		nerd-auth {
 			display: flex;
 			justify-content: center;
@@ -175,7 +175,7 @@ var u=class n{id;name;parent;children;constructor(e,t,r=null){this.id=e,this.nam
 			</form>
 			<div class="error"></div>
 		</div>
-	`;regmode=!1;login;register;error;loginToggle;registerToggle;connectedCallback(){this.innerHTML=n.html,this.login=this.Query(".login"),this.register=this.Query(".register"),this.error=this.Query(".error"),this.loginToggle=this.login.querySelector(".toggle"),this.registerToggle=this.register.querySelector(".toggle"),this.login.addEventListener("submit",e=>this.handleSubmit(e,!1)),this.register.addEventListener("submit",e=>this.handleSubmit(e,!0)),this.loginToggle.addEventListener("click",()=>this.toggleMode()),this.registerToggle.addEventListener("click",()=>this.toggleMode())}toggleMode(){this.regmode=!this.regmode,this.login.classList.toggle("hidden"),this.register.classList.toggle("hidden")}async handleSubmit(e,t){e.preventDefault();let r=new FormData(e.target),i=Object.fromEntries(r);try{let d=await f(t?5:4,i);c.SwitchToWorkbench(d.userid)}catch(d){this.showError(d instanceof Error?d.message:"Network error. Please try again.")}}showError(e){this.error.textContent=e}},N=class n extends o{static style=`
+	`;regmode=!1;login;register;error;loginToggle;registerToggle;connectedCallback(){this.innerHTML=r.html,this.login=this.Query(".login"),this.register=this.Query(".register"),this.error=this.Query(".error"),this.loginToggle=this.login.querySelector(".toggle"),this.registerToggle=this.register.querySelector(".toggle"),this.login.addEventListener("submit",e=>this.handleSubmit(e,!1)),this.register.addEventListener("submit",e=>this.handleSubmit(e,!0)),this.loginToggle.addEventListener("click",()=>this.toggleMode()),this.registerToggle.addEventListener("click",()=>this.toggleMode())}toggleMode(){this.regmode=!this.regmode,this.login.classList.toggle("hidden"),this.register.classList.toggle("hidden")}async handleSubmit(e,t){e.preventDefault();let n=new FormData(e.target),s=Object.fromEntries(n);try{let d=await b(t?5:4,s);c.SwitchToWorkbench(d.userid)}catch(d){this.showError(d instanceof Error?d.message:"Network error. Please try again.")}}showError(e){this.error.textContent=e}},R=class r extends o{static style=`
 		@font-face {
 			font-family: 'Inter';
 			src: url('/fonts/InterVariable.woff2');
@@ -211,5 +211,5 @@ var u=class n{id;name;parent;children;constructor(e,t,r=null){this.id=e,this.nam
 		}
 	`;static html=`
 		<nerd-workbench></nerd-workbench>
-	`;userId=0;admin=!1;state=new l;nodes=new Map;displayRoot=null;auth=s("nerd-auth");workbench;connectedCallback(){this.userId=parseInt(this.getAttribute("userid"),10),this.admin=this.getAttribute("admin")==="true",b.userId=this.userId,b.admin=this.admin,c=this,window.addEventListener("nerd:unauthorized",()=>this.SwitchToAuth()),this.innerHTML=n.html,this.workbench=this.Query("nerd-workbench"),this.userId===0?this.SwitchToAuth():this.SwitchToWorkbench(this.userId)}SwitchToAuth(){this.userId=0,this.nodes.clear(),this.displayRoot=null,this.state=new l,this.workbench.classList.add("hidden"),this.appendChild(this.auth)}SwitchToWorkbench(e){this.userId=e,this.workbench.classList.remove("hidden"),this.auth.remove(),this.init()}async init(){try{await this.buildNodeTree(),this.state.workbench=w.workbench,this.workbench.Render(w.workbench)}catch(e){console.error("Failed to initialize workbench:",e)}}async buildNodeTree(){let e=this.admin?1:this.userId,t=await A(e);console.log("TreeEntry received:",t),this.buildNodes(t,null)}buildNodes(e,t){let r=new u(e.nodeId,e.name,t);if(this.nodes.set(r.id,r),t===null?this.displayRoot=r:t.children.push(r),e.children)for(let i of e.children)this.buildNodes(i,r);return r}};C.register("nerd-board"),M.register("nerd-header"),S.register("nerd-footer"),I.register("nerd-workbench"),R.register("nerd-auth"),N.register("nerd-gui");
+	`;userId=0;admin=!1;state=new l;displayRoot=null;auth=i("nerd-auth");workbench;connectedCallback(){this.userId=parseInt(this.getAttribute("userid"),10),this.admin=this.getAttribute("admin")==="true",g.userId=this.userId,g.admin=this.admin,c=this,window.addEventListener("nerd:unauthorized",()=>this.SwitchToAuth()),this.innerHTML=r.html,this.workbench=this.Query("nerd-workbench"),this.userId===0?this.SwitchToAuth():this.SwitchToWorkbench(this.userId)}SwitchToAuth(){this.userId=0,this.displayRoot=null,this.state=new l,this.workbench.classList.add("hidden"),this.appendChild(this.auth)}SwitchToWorkbench(e){this.userId=e,this.workbench.classList.remove("hidden"),this.auth.remove(),this.init()}async init(){try{await this.buildNodeTree(),this.state.workbench=y.workbench,this.workbench.Render(y.workbench)}catch(e){console.error("Failed to initialize workbench:",e)}}async buildNodeTree(){let e=this.admin?1:this.userId,t=await W(e);console.log("TreeEntry received:",t),this.displayRoot=t.init()}};L.register("nerd-board"),C.register("nerd-header"),I.register("nerd-footer"),S.register("nerd-workbench"),M.register("nerd-auth"),R.register("nerd-gui");
 //# sourceMappingURL=gui.js.map

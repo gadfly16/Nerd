@@ -25,21 +25,21 @@ export class Tree extends nerd.Component {
 	`
 
   config!: config.Vertigo
-  treeRoot!: nerd.Node
+  treeRoot!: nerd.TreeEntry
   rootNode!: Node
 
   // Render displays the tree using Vertigo block layout
   Render(
     cfg: config.Vertigo,
-    treeRoot: nerd.Node,
-    guiDisplayRoot: nerd.Node,
+    treeRoot: nerd.TreeEntry,
+    guiDisplayRoot: nerd.TreeEntry,
   ): HTMLElement {
     this.config = cfg
     this.treeRoot = treeRoot
 
     // Expand displayRoot macro if present
     if (cfg.displayRoot !== undefined) {
-      cfg.rootId = guiDisplayRoot.id
+      cfg.rootId = guiDisplayRoot.nodeId
       cfg.openList = new Set()
       if (cfg.displayRoot > 0) {
         guiDisplayRoot.collectToDepth(cfg.displayRoot - 1, cfg.openList)
@@ -145,20 +145,20 @@ class Node extends nerd.Component {
 		}
 	`
 
-  dataNode!: nerd.Node
+  dataNode!: nerd.TreeEntry
   cfg!: config.Vertigo
   depth!: number
   childElements: Node[] = []
 
   // Render displays this node and recursively renders children
-  Render(dataNode: nerd.Node, cfg: config.Vertigo, depth: number): void {
+  Render(dataNode: nerd.TreeEntry, cfg: config.Vertigo, depth: number): void {
     this.dataNode = dataNode
     this.cfg = cfg
     this.depth = depth
     this.childElements = []
     this.innerHTML = ""
 
-    const isOpen = cfg.openList.has(dataNode.id)
+    const isOpen = cfg.openList.has(dataNode.nodeId)
     const childCount = isOpen ? dataNode.children.length : 0
 
     // Create open icon block
@@ -169,10 +169,10 @@ class Node extends nerd.Component {
     // Attach click handler to open icon (bound to this node)
     open.onclick = () => {
       // Toggle open state
-      if (cfg.openList.has(dataNode.id)) {
-        cfg.openList.delete(dataNode.id)
+      if (cfg.openList.has(dataNode.nodeId)) {
+        cfg.openList.delete(dataNode.nodeId)
       } else {
-        cfg.openList.add(dataNode.id)
+        cfg.openList.add(dataNode.nodeId)
       }
 
       // Re-render this node (adds/removes children)
@@ -209,9 +209,11 @@ class Node extends nerd.Component {
   displayDepth(): number {
     let maxDepth = this.depth
 
-    for (const child of this.childElements) {
-      const childMaxDepth = child.displayDepth()
-      maxDepth = Math.max(maxDepth, childMaxDepth)
+    if (this.cfg.openList.has(this.dataNode.nodeId)) {
+      for (const child of this.childElements) {
+        const childMaxDepth = child.displayDepth()
+        maxDepth = Math.max(maxDepth, childMaxDepth)
+      }
     }
 
     return maxDepth

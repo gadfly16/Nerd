@@ -32,9 +32,8 @@ class Board extends nerd.Component {
     this.innerHTML = ""
 
     for (const treeCfg of cfg.trees) {
-      const treeRoot = gui.nodes.get(treeCfg.rootId)!
       const vertigoTree = nerd.Create("vertigo-tree") as vertigo.Tree
-      vertigoTree.Render(treeCfg, treeRoot, gui.displayRoot!)
+      vertigoTree.Render(treeCfg, gui.displayRoot!, gui.displayRoot!)
       this.appendChild(vertigoTree)
     }
   }
@@ -319,8 +318,7 @@ class GUI extends nerd.Component {
   userId: number = 0
   admin: boolean = false
   state: config.State = new config.State()
-  nodes = new Map<number, nerd.Node>() // Fast lookup by ID
-  displayRoot: nerd.Node | null = null
+  displayRoot: nerd.TreeEntry | null = null
   private auth = nerd.Create("nerd-auth") as Auth
   private workbench!: Workbench
 
@@ -354,7 +352,6 @@ class GUI extends nerd.Component {
   SwitchToAuth() {
     // Clear all sensitive information
     this.userId = 0
-    this.nodes.clear()
     this.displayRoot = null
     this.state = new config.State()
 
@@ -391,35 +388,12 @@ class GUI extends nerd.Component {
     }
   }
 
-  // buildNodeTree fetches tree from server and builds Node tree structure
+  // buildNodeTree fetches tree from server and initializes it with parent pointers
   private async buildNodeTree() {
     const targetId = this.admin ? 1 : this.userId
     const treeEntry = await nerd.AskGetTree(targetId)
     console.log("TreeEntry received:", treeEntry)
-    this.buildNodes(treeEntry, null)
-  }
-
-  // buildNodes recursively builds Node tree from TreeEntry and populates nodes map
-  private buildNodes(
-    entry: nerd.TreeEntry,
-    parent: nerd.Node | null,
-  ): nerd.Node {
-    const node = new nerd.Node(entry.nodeId, entry.name, parent)
-    this.nodes.set(node.id, node)
-
-    if (parent === null) {
-      this.displayRoot = node
-    } else {
-      parent.children.push(node)
-    }
-
-    if (entry.children) {
-      for (const childEntry of entry.children) {
-        this.buildNodes(childEntry, node)
-      }
-    }
-
-    return node
+    this.displayRoot = treeEntry.init()
   }
 }
 

@@ -2,38 +2,33 @@
 
 import { imsg } from "./imsg.js"
 
-// TreeEntry represents a node and its children - Must match api/msg/types.go
-export interface TreeEntry {
+// TreeEntry represents a node and its children
+// Received as JSON from server, then initialized with parent pointers
+// Must match api/msg/types.go for nodeId, name, children fields
+export class TreeEntry {
   nodeId: number
   name: string
   children: TreeEntry[]
-}
+  parent: TreeEntry | null = null
 
-// Node represents a node in the in-memory tree structure
-// Pure data structure with no rendering logic
-export class Node {
-  id: number
-  name: string
-  parent: Node | null
-  children: Node[]
-
-  constructor(id: number, name: string, parent: Node | null = null) {
-    this.id = id
+  constructor(nodeId: number, name: string, children: TreeEntry[] = []) {
+    this.nodeId = nodeId
     this.name = name
-    this.parent = parent
-    this.children = []
+    this.children = children
   }
 
-  // addChild creates child node and establishes bidirectional link
-  addChild(id: number, name: string): Node {
-    const child = new Node(id, name, this)
-    this.children.push(child)
-    return child
+  // init recursively sets parent pointers on this node and all descendants
+  init(parent: TreeEntry | null = null): TreeEntry {
+    this.parent = parent
+    for (const child of this.children) {
+      child.init(this)
+    }
+    return this
   }
 
   // collectToDepth adds node IDs from this node down to specified depth into provided set
-  collectToDepth(depth: number, ids: Set<number>) {
-    ids.add(this.id)
+  collectToDepth(depth: number, ids: Set<number>): void {
+    ids.add(this.nodeId)
     if (depth > 0) {
       for (const child of this.children) {
         child.collectToDepth(depth - 1, ids)
