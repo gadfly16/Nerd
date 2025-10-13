@@ -21,7 +21,6 @@ class Board extends nerd.Component {
 			background: #555;
 			color: #ccc;
 			overflow: auto;
-			padding-right: 6px;
 		}
 	`
 

@@ -4,11 +4,23 @@ import * as nerd from "./nerd.js"
 import * as config from "./config.js"
 import { $ } from "./util.js"
 
+// Layout constants (in pixels)
+const W_SIDEBAR = 32 // Width of sidebar/icon block (2ch ≈ 32px at 16px font)
+const G = 6 // Gap between nodes (0.5ch ≈ 8px)
+const I = W_SIDEBAR + G // Indentation per level (40px)
+const W_MIN = 640 // Minimum width for content area (60ch ≈ 960px)
+
+// computeWidthFromDepth calculates required tree width from maximum depth (in pixels)
+function computeWidthFromDepth(maxDepth: number): number {
+  return maxDepth * I + W_SIDEBAR + W_MIN - G
+}
+
 // Tree represents a displayed subtree using the Vertigo design pattern
 export class Tree extends nerd.Component {
   static style = `
 		vertigo-tree {
 			display: block;
+			padding-right: 6px;
 		}
 	`
 
@@ -36,10 +48,21 @@ export class Tree extends nerd.Component {
 
     this.innerHTML = ""
 
-    // Create root vertigo-node and render it
+    // Create root vertigo-node and render it (gets max depth during render)
     const rootDisplay = nerd.Create("vertigo-node") as Node
-    rootDisplay.Render(treeRoot, this.config)
+    const maxDepth = rootDisplay.Render(treeRoot, this.config, 0)
+
     this.appendChild(rootDisplay)
+
+    // Calculate and set tree width after element is in DOM
+    // Use requestAnimationFrame to ensure parent has been laid out
+    requestAnimationFrame(() => {
+      const computedWidth = computeWidthFromDepth(maxDepth)
+      const viewportWidth = (this.parentElement?.clientWidth || 0) - G
+      console.log(`clientWidth: ${viewportWidth}px`)
+      const width = Math.max(computedWidth, viewportWidth)
+      this.style.width = `${width}px`
+    })
 
     return this
   }
@@ -52,7 +75,7 @@ class Open extends nerd.Component {
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			width: 2em;
+			width: 32px;
 			background-color: #666;
 			cursor: pointer;
 			user-select: none;
@@ -65,7 +88,7 @@ class Sidebar extends nerd.Component {
   static style = `
 		vertigo-sidebar {
 			display: block;
-			width: 2em;
+			width: 32px;
 			background-color: #666;
 		}
 	`
@@ -76,7 +99,6 @@ class Header extends nerd.Component {
   static style = `
 		vertigo-header {
 			display: block;
-			min-width: 60ch;
 			background-color: #999;
 			padding: 0.25em;
 		}
@@ -88,8 +110,7 @@ class Node extends nerd.Component {
   static style = `
 		vertigo-node {
 			display: grid;
-			grid-template-columns: 2em 1fr;
-			min-width: calc(2em + 60ch);
+			grid-template-columns: 32px 1fr;
 			margin: 6px 0 0 6px;
 		}
 
@@ -113,7 +134,8 @@ class Node extends nerd.Component {
 	`
 
   // Render displays this node and recursively renders children
-  Render(dataNode: nerd.Node, cfg: config.Vertigo): HTMLElement {
+  // Returns the maximum depth of the rendered subtree
+  Render(dataNode: nerd.Node, cfg: config.Vertigo, depth: number): number {
     this.innerHTML = ""
 
     const isOpen = cfg.openList.has(dataNode.id)
@@ -128,7 +150,7 @@ class Node extends nerd.Component {
       } else {
         cfg.openList.add(dataNode.id)
       }
-      this.Render(dataNode, cfg)
+      this.Render(dataNode, cfg, depth)
     }
     this.appendChild(open)
 
@@ -136,6 +158,9 @@ class Node extends nerd.Component {
     const header = nerd.Create("vertigo-header") as Header
     header.textContent = dataNode.name
     this.appendChild(header)
+
+    // Track max depth in subtree
+    let maxDepth = depth
 
     // Create sidebar extension if open and has children
     if (isOpen && childCount > 0) {
@@ -148,12 +173,13 @@ class Node extends nerd.Component {
     if (isOpen) {
       for (const child of dataNode.children) {
         const childDisplay = nerd.Create("vertigo-node") as Node
-        childDisplay.Render(child, cfg)
+        const childMaxDepth = childDisplay.Render(child, cfg, depth + 1)
+        maxDepth = Math.max(maxDepth, childMaxDepth)
         this.appendChild(childDisplay)
       }
     }
 
-    return this
+    return maxDepth
   }
 }
 

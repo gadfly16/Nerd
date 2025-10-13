@@ -32,7 +32,7 @@ export const defaultState: State = {
           {
             rootId: 0,
             openList: new Set(),
-            displayRoot: 1, // Show displayRoot with depth 1
+            displayRoot: 6, // Show displayRoot with depth 6
           },
         ],
       },
@@ -41,7 +41,7 @@ export const defaultState: State = {
           {
             rootId: 0,
             openList: new Set(),
-            displayRoot: 2, // Show displayRoot with depth 2
+            displayRoot: 6, // Show displayRoot with depth 6
           },
         ],
       },
