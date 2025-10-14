@@ -58,10 +58,8 @@ export class Tree extends nerd.Component {
     }
     this.root = te
 
-    // openDepth adds nodes to openList (additive, not replacement)
-    if (cfg.openDepth !== undefined && cfg.openDepth > 0) {
-      te.collectToDepth(cfg.openDepth - 1, cfg.openList)
-    }
+    // Get initial depth for root from openMap
+    const rootDepth = cfg.openMap.get(cfg.rootId) ?? 0
 
     this.innerHTML = ""
 
@@ -71,7 +69,7 @@ export class Tree extends nerd.Component {
     // Create root vertigo-node, add to DOM, then render
     this.rootElem = nerd.Create("vertigo-node") as VNode
     this.appendChild(this.rootElem)
-    this.rootElem.Render(te, this.config, 0)
+    this.rootElem.Render(te, this.config, 0, rootDepth)
 
     // Start observing parent - triggers initial width calculation
     if (this.parentElement) {
@@ -170,6 +168,7 @@ class VNode extends nerd.Component {
   te!: nerd.TreeEntry
   cfg!: config.Vertigo
   depth!: number
+  parentDispDepth!: number // Display depth passed from parent
   childElems: VNode[] = []
 
   // Cached DOM elements
@@ -189,50 +188,104 @@ class VNode extends nerd.Component {
     this.open.onclick = () => this.toggleOpen()
   }
 
-  // Render sets node state and updates content
-  Render(te: nerd.TreeEntry, cfg: config.Vertigo, depth: number): void {
+  // dispDepth calculates display depth for children (0 = closed, >0 = open N levels, -1 = infinite)
+  private dispDepth(): number {
+    const OM_depth = this.cfg.openMap.get(this.te.id)
+
+    if (OM_depth !== undefined) {
+      // Node has explicit depth in map
+      if (OM_depth === 0) {
+        // Explicit stop
+        return 0
+      } else if (OM_depth === -1) {
+        // Infinite
+        return -1
+      } else {
+        // Use max of map depth or parent display depth decremented
+        return Math.max(OM_depth, this.parentDispDepth - 1)
+      }
+    } else {
+      // Neutral state - use parent display depth
+      if (this.parentDispDepth === -1) {
+        // Infinite propagates
+        return -1
+      } else if (this.parentDispDepth > 0) {
+        // Decrement
+        return this.parentDispDepth - 1
+      } else {
+        // Exhausted
+        return 0
+      }
+    }
+  }
+
+  // Render updates node state and content (works for both initial and subsequent renders)
+  Render(
+    te: nerd.TreeEntry,
+    cfg: config.Vertigo,
+    depth: number,
+    parentDispDepth: number,
+  ): void {
     this.te = te
     this.cfg = cfg
     this.depth = depth
+    this.parentDispDepth = parentDispDepth
 
-    const isOpen = cfg.openList.has(te.id)
+    const childDispDepth = this.dispDepth()
+    const isOpen = childDispDepth !== 0
 
-    // Update elements directly
+    // Update icon and header
     this.open.textContent = isOpen ? "○" : "●"
     this.header.textContent = te.name
 
-    // Render children into container if open
-    // Children container starts empty, sidebar collapses automatically via grid
     if (isOpen) {
-      this.renderChildren()
+      // Should be open
+      if (this.childElems.length === 0) {
+        // Children not present - create them
+        this.createChildren()
+      }
+      // Render all children (newly created or existing)
+      for (let i = 0; i < this.childElems.length; i++) {
+        this.childElems[i].Render(
+          this.te.children[i],
+          this.cfg,
+          this.depth + 1,
+          childDispDepth,
+        )
+      }
+    } else {
+      // Should be closed
+      if (this.childElems.length > 0) {
+        // Children present - delete them
+        this.clearChildren()
+      }
     }
   }
 
   // toggleOpen handles click on open/close icon
   private toggleOpen() {
-    const isOpen = this.cfg.openList.has(this.te.id)
+    const isCurrentlyOpen = this.dispDepth() !== 0
 
-    // Toggle open state
-    if (isOpen) {
-      this.cfg.openList.delete(this.te.id)
-      this.clearChildren()
-      this.open.textContent = "●"
+    if (isCurrentlyOpen) {
+      // Currently open - close it with explicit stop signal
+      this.cfg.openMap.set(this.te.id, 0)
     } else {
-      this.cfg.openList.add(this.te.id)
-      this.renderChildren()
-      this.open.textContent = "○"
+      // Currently closed - open 1 level
+      this.cfg.openMap.set(this.te.id, 1)
     }
 
-    // Notify tree that structure changed
+    // Re-render from this node down
+    this.Render(this.te, this.cfg, this.depth, this.parentDispDepth)
+
+    // Notify tree that structure changed (for width recalculation)
     this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
   }
 
-  // renderChildren populates the children container (assumes container is empty)
-  private renderChildren() {
+  // createChildren creates child VNode elements and adds them to DOM (assumes container is empty)
+  private createChildren() {
     for (const child of this.te.children) {
       const childNode = nerd.Create("vertigo-node") as VNode
       this.childrenElem.appendChild(childNode)
-      childNode.Render(child, this.cfg, this.depth + 1)
       this.childElems.push(childNode)
     }
   }
@@ -249,7 +302,8 @@ class VNode extends nerd.Component {
   displayDepth(): number {
     let maxDepth = this.depth
 
-    if (this.cfg.openList.has(this.te.id)) {
+    // If we have rendered children, check their depths
+    if (this.childElems.length > 0) {
       for (const child of this.childElems) {
         const childMaxDepth = child.displayDepth()
         maxDepth = Math.max(maxDepth, childMaxDepth)

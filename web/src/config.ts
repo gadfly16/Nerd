@@ -2,9 +2,8 @@
 
 // Vertigo configures a single Vertigo instance
 export class Vertigo {
-  rootId!: number // Node ID to start rendering from (0 = use guiDisplayRoot)
-  openList!: Set<number> // Node IDs whose children are visible
-  openDepth?: number // Optional: auto-open nodes to this depth (additive to openList)
+  rootId!: number // Node ID to start rendering from
+  openMap!: Map<number, number> // Node ID -> depth (0 = stop, -1 = infinite, >0 = N levels)
 }
 
 // BoardConfig holds configuration for all Vertigo trees on a board
@@ -29,9 +28,8 @@ export const defaultState: State = {
       {
         trees: [
           {
-            rootId: 0,
-            openList: new Set(),
-            openDepth: 6,
+            rootId: 1, // Root node
+            openMap: new Map([[1, 6]]), // Open root 6 levels deep
           },
         ],
       },
@@ -39,7 +37,7 @@ export const defaultState: State = {
         trees: [
           {
             rootId: 4,
-            openList: new Set(),
+            openMap: new Map([[4, 2]]), // Open node 4, 2 levels deep
           },
         ],
       },
