@@ -5,7 +5,7 @@ import * as config from "./config.js"
 import { $ } from "./util.js"
 
 // Layout constants (in pixels)
-const W_SIDEBAR = 32 // Width of sidebar/icon block (2ch ≈ 32px at 16px font)
+const W_SIDEBAR = 28 // Width of sidebar/icon block (2ch ≈ 32px at 16px font)
 const G = 6 // Gap between nodes (0.5ch ≈ 8px)
 const I = W_SIDEBAR + G // Indentation per level (40px)
 const W_MIN = 640 // Minimum width for content area (60ch ≈ 960px)
@@ -101,6 +101,8 @@ class Open extends nerd.Component {
 			background-color: #666;
 			cursor: pointer;
 			user-select: none;
+			font-size: 0.66em;
+			color: #bbb;
 		}
 	`
 }
@@ -122,8 +124,12 @@ class Header extends nerd.Component {
 		vertigo-header {
 			display: block;
 			background-color: #999;
-			padding: 0.25em;
-		}
+			padding: 0.2ch;
+			padding-left: 0.5ch;
+			color: #666;
+			font-size: 1.2em;
+			font-weight: 500;
+			}
 	`
 }
 
@@ -234,8 +240,23 @@ class VNode extends nerd.Component {
     const childDispDepth = this.dispDepth()
     const isOpen = childDispDepth !== 0
 
-    // Update icon and header
-    this.open.textContent = isOpen ? "○" : "●"
+    // Update icon based on openMap state
+    const OM_depth = this.cfg.openMap.get(this.te.id)
+    if (OM_depth !== undefined && OM_depth > 0) {
+      // Node has explicit depth in map
+      if (OM_depth === -1) {
+        this.open.textContent = "Ⓘ" // Circled I for infinite
+      } else if (OM_depth <= 9) {
+        // Circled numbers 1-9 (Unicode: ① = U+2460)
+        this.open.textContent = String.fromCharCode(0x2460 + OM_depth - 1)
+      } else {
+        this.open.textContent = "Ⓜ" // Circled M for > 9
+      }
+    } else {
+      // Neutral or explicit stop - use matching circles
+      this.open.textContent = isOpen ? "◯" : "⬤"
+    }
+
     this.header.textContent = te.name
 
     if (isOpen) {
