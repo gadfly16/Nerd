@@ -34,7 +34,7 @@ class Board extends nerd.Component {
     for (const treeCfg of cfg.trees) {
       const vertigoTree = nerd.Create("vertigo-tree") as vertigo.Tree
       this.appendChild(vertigoTree)
-      vertigoTree.Render(treeCfg, gui.displayRoot!)
+      vertigoTree.Render(treeCfg, gui.dispRoot!)
     }
   }
 }
@@ -318,7 +318,7 @@ class GUI extends nerd.Component {
   userId: number = 0
   admin: boolean = false
   state: config.State = new config.State()
-  displayRoot: nerd.TreeEntry | null = null
+  dispRoot: nerd.TreeEntry | null = null
   private auth = nerd.Create("nerd-auth") as Auth
   private workbench!: Workbench
 
@@ -352,9 +352,9 @@ class GUI extends nerd.Component {
   SwitchToAuth() {
     // Clear all sensitive information
     this.userId = 0
-    this.displayRoot = null
+    this.dispRoot = null
     this.state = new config.State()
-    nerd.TreeRegistry.clear()
+    nerd.Nodes.clear()
 
     this.workbench.classList.add("hidden")
     this.appendChild(this.auth)
@@ -394,7 +394,7 @@ class GUI extends nerd.Component {
     const targetId = this.admin ? 1 : this.userId
     const data = await nerd.AskGetTree(targetId)
     console.log("TreeEntry received:", data)
-    this.displayRoot = nerd.TreeEntry.init(data)
+    this.dispRoot = nerd.TreeEntry.init(data)
   }
 }
 

@@ -2,9 +2,9 @@
 
 // Vertigo configures a single Vertigo instance
 export class Vertigo {
-  rootId!: number // Node ID to start rendering from
+  rootId!: number // Node ID to start rendering from (0 = use guiDisplayRoot)
   openList!: Set<number> // Node IDs whose children are visible
-  displayRoot?: number // Optional: render displayRoot at this depth (macro expanded on first render)
+  openDepth?: number // Optional: auto-open nodes to this depth (additive to openList)
 }
 
 // BoardConfig holds configuration for all Vertigo trees on a board
@@ -23,7 +23,6 @@ export class State {
 }
 
 // Default state template
-// displayRoot macros are expanded during first render
 export const defaultState: State = {
   workbench: {
     boards: [
@@ -32,7 +31,7 @@ export const defaultState: State = {
           {
             rootId: 0,
             openList: new Set(),
-            displayRoot: 6, // Show displayRoot with depth 6
+            openDepth: 6,
           },
         ],
       },

@@ -3,7 +3,7 @@
 import { imsg } from "./imsg.js"
 
 // TreeRegistry is a global map of node ID to TreeEntry for fast lookups
-export const TreeRegistry = new Map<number, TreeEntry>()
+export const Nodes = new Map<number, TreeEntry>()
 
 // TreeEntry represents a node and its children
 // Received as JSON from server, then initialized with parent pointers
@@ -27,7 +27,7 @@ export class TreeEntry {
     entry.parent = parent
 
     // Register in global map
-    TreeRegistry.set(entry.id, entry)
+    Nodes.set(entry.id, entry)
 
     if (obj.children) {
       entry.children = obj.children.map((child: any) =>
