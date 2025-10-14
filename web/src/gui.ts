@@ -34,7 +34,7 @@ class Board extends nerd.Component {
     for (const treeCfg of cfg.trees) {
       const vertigoTree = nerd.Create("vertigo-tree") as vertigo.Tree
       this.appendChild(vertigoTree)
-      vertigoTree.Render(treeCfg, gui.displayRoot!, gui.displayRoot!)
+      vertigoTree.Render(treeCfg, gui.displayRoot!)
     }
   }
 }
@@ -354,6 +354,7 @@ class GUI extends nerd.Component {
     this.userId = 0
     this.displayRoot = null
     this.state = new config.State()
+    nerd.TreeRegistry.clear()
 
     this.workbench.classList.add("hidden")
     this.appendChild(this.auth)

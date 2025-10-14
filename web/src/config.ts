@@ -39,9 +39,8 @@ export const defaultState: State = {
       {
         trees: [
           {
-            rootId: 0,
+            rootId: 4,
             openList: new Set(),
-            displayRoot: 6, // Show displayRoot with depth 6
           },
         ],
       },

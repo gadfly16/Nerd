@@ -43,13 +43,8 @@ export class Tree extends nerd.Component {
   }
 
   // Render displays the tree using Vertigo block layout
-  Render(
-    cfg: config.Vertigo,
-    te: nerd.TreeEntry,
-    guiDisplayRoot: nerd.TreeEntry,
-  ): HTMLElement {
+  Render(cfg: config.Vertigo, guiDisplayRoot: nerd.TreeEntry): HTMLElement {
     this.config = cfg
-    this.treeRoot = te
 
     // Expand displayRoot macro if present
     if (cfg.displayRoot !== undefined) {
@@ -59,10 +54,14 @@ export class Tree extends nerd.Component {
         guiDisplayRoot.collectToDepth(cfg.displayRoot - 1, cfg.openList)
       }
       delete cfg.displayRoot
-
-      te = guiDisplayRoot
-      this.treeRoot = te
     }
+
+    // Look up the tree root from registry
+    const te = nerd.TreeRegistry.get(cfg.rootId)
+    if (!te) {
+      throw new Error(`TreeEntry with id ${cfg.rootId} not found in registry`)
+    }
+    this.treeRoot = te
 
     this.innerHTML = ""
 
@@ -202,41 +201,35 @@ class VNode extends nerd.Component {
     // Update elements directly
     this.open.textContent = isOpen ? "○" : "●"
     this.header.textContent = te.name
-    this.sidebar.style.display =
-      isOpen && te.children.length > 0 ? "block" : "none"
 
-    // Render children into container
+    // Render children into container if open
+    // Children container starts empty, sidebar collapses automatically via grid
     if (isOpen) {
       this.renderChildren()
-    } else {
-      this.clearChildren()
     }
   }
 
   // toggleOpen handles click on open/close icon
   private toggleOpen() {
+    const isOpen = this.cfg.openList.has(this.te.id)
+
     // Toggle open state
-    if (this.cfg.openList.has(this.te.id)) {
+    if (isOpen) {
       this.cfg.openList.delete(this.te.id)
       this.clearChildren()
+      this.open.textContent = "●"
     } else {
       this.cfg.openList.add(this.te.id)
       this.renderChildren()
+      this.open.textContent = "○"
     }
-
-    // Update UI
-    const isOpen = this.cfg.openList.has(this.te.id)
-    this.open.textContent = isOpen ? "○" : "●"
-    this.sidebar.style.display =
-      isOpen && this.te.children.length > 0 ? "block" : "none"
 
     // Notify tree that structure changed
     this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
   }
 
-  // renderChildren populates the children container
+  // renderChildren populates the children container (assumes container is empty)
   private renderChildren() {
-    this.clearChildren()
     for (const child of this.te.children) {
       const childNode = nerd.Create("vertigo-node") as VNode
       this.childrenContainer.appendChild(childNode)

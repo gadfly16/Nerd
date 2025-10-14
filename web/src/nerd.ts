@@ -2,6 +2,9 @@
 
 import { imsg } from "./imsg.js"
 
+// TreeRegistry is a global map of node ID to TreeEntry for fast lookups
+export const TreeRegistry = new Map<number, TreeEntry>()
+
 // TreeEntry represents a node and its children
 // Received as JSON from server, then initialized with parent pointers
 // Must match api/msg/types.go for nodeId field (mapped to id here)
@@ -18,9 +21,14 @@ export class TreeEntry {
   }
 
   // init converts plain JSON object to TreeEntry instances and sets parent pointers
+  // Also populates the global TreeRegistry for fast lookups
   static init(obj: any, parent: TreeEntry | null = null): TreeEntry {
     const entry = new TreeEntry(obj.nodeId, obj.name, [])
     entry.parent = parent
+
+    // Register in global map
+    TreeRegistry.set(entry.id, entry)
+
     if (obj.children) {
       entry.children = obj.children.map((child: any) =>
         TreeEntry.init(child, entry),
