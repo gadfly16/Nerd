@@ -25,8 +25,8 @@ export class Tree extends nerd.Component {
 	`
 
   config!: config.Vertigo
-  treeRoot!: nerd.TreeEntry
-  rootNode!: VNode
+  root!: nerd.TreeEntry
+  rootElement!: VNode
   private resizeObserver!: ResizeObserver
 
   connectedCallback() {
@@ -61,7 +61,7 @@ export class Tree extends nerd.Component {
     if (!te) {
       throw new Error(`TreeEntry with id ${cfg.rootId} not found in registry`)
     }
-    this.treeRoot = te
+    this.root = te
 
     this.innerHTML = ""
 
@@ -69,9 +69,9 @@ export class Tree extends nerd.Component {
     this.addEventListener("vertigo:change", () => this.updateWidth())
 
     // Create root vertigo-node, add to DOM, then render
-    this.rootNode = nerd.Create("vertigo-node") as VNode
-    this.appendChild(this.rootNode)
-    this.rootNode.Render(te, this.config, 0)
+    this.rootElement = nerd.Create("vertigo-node") as VNode
+    this.appendChild(this.rootElement)
+    this.rootElement.Render(te, this.config, 0)
 
     // Start observing parent - triggers initial width calculation
     if (this.parentElement) {
@@ -84,7 +84,7 @@ export class Tree extends nerd.Component {
   // updateWidth calculates and sets the tree width based on current open state
   // Called by ResizeObserver (parent size change) or vertigo:change event (structure change)
   updateWidth() {
-    const maxDepth = this.rootNode.displayDepth()
+    const maxDepth = this.rootElement.displayDepth()
     const computedWidth = computeWidthFromDepth(maxDepth)
     const viewportWidth = (this.parentElement?.clientWidth || 0) - G
     console.log(`clientWidth: ${viewportWidth}px`)
