@@ -1,9 +1,15 @@
 // Config - GUI configuration data structures
 
+// OpenState tracks both the open/closed state and preferred depth
+export interface OpenState {
+  open: boolean // Whether node is expanded
+  depth: number // Preferred depth when open (0 = neutral, -1 = infinite, >0 = N levels)
+}
+
 // Vertigo configures a single Vertigo instance
 export class Vertigo {
   rootId!: number // Node ID to start rendering from
-  openMap!: Map<number, number> // Node ID -> depth (0 = stop, -1 = infinite, >0 = N levels)
+  openMap!: { [nodeId: number]: OpenState } // Node ID -> open state and depth
 }
 
 // BoardConfig holds configuration for all Vertigo trees on a board
@@ -29,7 +35,7 @@ export const defaultState: State = {
         trees: [
           {
             rootId: 1, // Root node
-            openMap: new Map([[1, 6]]), // Open root 6 levels deep
+            openMap: { 1: { open: true, depth: 6 } }, // Open root 6 levels deep
           },
         ],
       },
@@ -37,7 +43,7 @@ export const defaultState: State = {
         trees: [
           {
             rootId: 4,
-            openMap: new Map([[4, 2]]), // Open node 4, 2 levels deep
+            openMap: { 4: { open: true, depth: 2 } }, // Open node 4, 2 levels deep
           },
         ],
       },

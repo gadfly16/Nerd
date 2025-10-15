@@ -58,18 +58,16 @@ export class Tree extends nerd.Component {
     }
     this.root = te
 
-    // Get initial depth for root from openMap
-    const rootDepth = cfg.openMap.get(cfg.rootId) ?? 0
-
     this.innerHTML = ""
 
     // Listen for structure change events from nodes
     this.addEventListener("vertigo:change", () => this.updateWidth())
 
     // Create root vertigo-node, add to DOM, then render
+    // Root node gets 0 as inheritedDispDepth (closed by default unless explicit openMap entry)
     this.rootElem = nerd.Create("vertigo-node") as VNode
     this.appendChild(this.rootElem)
-    this.rootElem.Render(te, this.config, 0, rootDepth)
+    this.rootElem.Render(te, this.config, 0, 0)
 
     // Start observing parent - triggers initial width calculation
     if (this.parentElement) {
@@ -174,7 +172,7 @@ class VNode extends nerd.Component {
   te!: nerd.TreeEntry
   cfg!: config.Vertigo
   depth!: number
-  parentDispDepth!: number // Display depth passed from parent
+  inheritedDispDepth!: number // Display depth inherited from parent
   childElems: VNode[] = []
 
   // Cached DOM elements
@@ -191,37 +189,54 @@ class VNode extends nerd.Component {
     this.childrenElem = this.Query(".children")!
 
     // Attach click handler once
-    this.open.onclick = () => this.toggleOpen()
+    this.open.onclick = (e) => {
+      if (e.shiftKey && e.ctrlKey) {
+        this.toggleInfinity()
+      } else if (e.shiftKey) {
+        this.incrementDepth()
+      } else if (e.ctrlKey) {
+        this.makeNeutral()
+      } else {
+        this.toggleOpen()
+      }
+    }
   }
 
-  // dispDepth calculates display depth for children (0 = closed, >0 = open N levels, -1 = infinite)
-  private dispDepth(): number {
-    const OM_depth = this.cfg.openMap.get(this.te.id)
+  // isOpen determines if this node should display its children
+  private isOpen(): boolean {
+    const ome = this.cfg.openMap[this.te.id]
 
-    if (OM_depth !== undefined) {
-      // Node has explicit depth in map
-      if (OM_depth === 0) {
-        // Explicit stop
-        return 0
-      } else if (OM_depth === -1) {
-        // Infinite
-        return -1
-      } else {
-        // Use max of map depth or parent display depth decremented
-        return Math.max(OM_depth, this.parentDispDepth - 1)
-      }
+    if (ome === undefined) {
+      // Neutral node - open if inheritedDispDepth allows it
+      return this.inheritedDispDepth !== 0
+    }
+
+    // Has explicit openMap entry
+    return ome.open
+  }
+
+  // childrenDepth calculates the depth value to pass to children
+  // Only call this when isOpen() returns true
+  private childrenDepth(): number {
+    const ome = this.cfg.openMap[this.te.id]
+
+    let myDepth: number
+    if (ome === undefined) {
+      // Neutral node - use inherited depth
+      myDepth = this.inheritedDispDepth
+    } else if (ome.depth > 0 || ome.depth === -1) {
+      // Has specific depth - use it
+      myDepth = ome.depth
     } else {
-      // Neutral state - use parent display depth
-      if (this.parentDispDepth === -1) {
-        // Infinite propagates
-        return -1
-      } else if (this.parentDispDepth > 0) {
-        // Decrement
-        return this.parentDispDepth - 1
-      } else {
-        // Exhausted
-        return 0
-      }
+      // depth === 0: neutral (accept inherited)
+      myDepth = this.inheritedDispDepth
+    }
+
+    // Calculate depth for children
+    if (myDepth === -1) {
+      return -1 // Infinite propagates
+    } else {
+      return myDepth - 1 // Decrement
     }
   }
 
@@ -230,48 +245,43 @@ class VNode extends nerd.Component {
     te: nerd.TreeEntry,
     cfg: config.Vertigo,
     depth: number,
-    parentDispDepth: number,
+    inheritedDispDepth: number,
   ): void {
     this.te = te
     this.cfg = cfg
     this.depth = depth
-    this.parentDispDepth = parentDispDepth
-
-    const childDispDepth = this.dispDepth()
-    const isOpen = childDispDepth !== 0
+    this.inheritedDispDepth = inheritedDispDepth
 
     // Update icon based on openMap state
-    const OM_depth = this.cfg.openMap.get(this.te.id)
-    if (OM_depth !== undefined && OM_depth > 0) {
-      // Node has explicit depth in map
-      if (OM_depth === -1) {
-        this.open.textContent = "Ⓘ" // Circled I for infinite
-      } else if (OM_depth <= 9) {
-        // Circled numbers 1-9 (Unicode: ① = U+2460)
-        this.open.textContent = String.fromCharCode(0x2460 + OM_depth - 1)
-      } else {
-        this.open.textContent = "Ⓜ" // Circled M for > 9
-      }
+    const ome = this.cfg.openMap[this.te.id]
+    if (ome !== undefined && ome.open && ome.depth > 0 && ome.depth <= 9) {
+      // Node has explicit depth 1-9
+      // Circled numbers 1-9 (Unicode: ① = U+2460)
+      this.open.textContent = String.fromCharCode(0x2460 + ome.depth - 1)
+    } else if (ome !== undefined && ome.open && ome.depth === -1) {
+      // Infinite depth
+      this.open.textContent = "Ⓘ" // Circled I for infinite
     } else {
-      // Neutral or explicit stop - use matching circles
-      this.open.textContent = isOpen ? "◯" : "⬤"
+      // Neutral or explicitly closed - use matching circles
+      this.open.textContent = this.isOpen() ? "◯" : "⬤"
     }
 
     this.header.textContent = te.name
 
-    if (isOpen) {
+    if (this.isOpen()) {
       // Should be open
       if (this.childElems.length === 0) {
         // Children not present - create them
         this.createChildren()
       }
       // Render all children (newly created or existing)
+      const childInheritedDepth = this.childrenDepth()
       for (let i = 0; i < this.childElems.length; i++) {
         this.childElems[i].Render(
           this.te.children[i],
           this.cfg,
           this.depth + 1,
-          childDispDepth,
+          childInheritedDepth,
         )
       }
     } else {
@@ -283,20 +293,116 @@ class VNode extends nerd.Component {
     }
   }
 
-  // toggleOpen handles click on open/close icon
+  // toggleOpen handles click on open/close icon - implements state restoration
   private toggleOpen() {
-    const isCurrentlyOpen = this.dispDepth() !== 0
+    const ome = this.cfg.openMap[this.te.id]
 
-    if (isCurrentlyOpen) {
-      // Currently open - close it with explicit stop signal
-      this.cfg.openMap.set(this.te.id, 0)
+    if (ome === undefined) {
+      // Neutral node - check if currently open or closed
+      if (this.inheritedDispDepth === 0) {
+        // Currently closed - open it with explicit depth 1
+        this.cfg.openMap[this.te.id] = { open: true, depth: 1 }
+      } else {
+        // Currently open - close it explicitly
+        this.cfg.openMap[this.te.id] = { open: false, depth: 0 }
+      }
+    } else if (ome.open) {
+      // Currently open - close it (preserve depth)
+      ome.open = false
     } else {
-      // Currently closed - open 1 level
-      this.cfg.openMap.set(this.te.id, 1)
+      // Currently closed - reopen it
+      if (ome.depth === 0) {
+        // Was neutral before closing - delete entry to restore neutral state
+        delete this.cfg.openMap[this.te.id]
+      } else {
+        // Has depth preference - restore to open state
+        ome.open = true
+      }
     }
 
     // Re-render from this node down
-    this.Render(this.te, this.cfg, this.depth, this.parentDispDepth)
+    this.Render(this.te, this.cfg, this.depth, this.inheritedDispDepth)
+
+    // Notify tree that structure changed (for width recalculation)
+    this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
+  }
+
+  // incrementDepth handles shift-click on open icon - increments explicit depth
+  private incrementDepth() {
+    const ome = this.cfg.openMap[this.te.id]
+
+    if (ome === undefined) {
+      // Neutral node - add explicit depth 1
+      this.cfg.openMap[this.te.id] = { open: true, depth: 1 }
+    } else if (ome.depth >= 1 && ome.depth < 9) {
+      // Has explicit depth 1-8 - increment it
+      ome.depth++
+      ome.open = true
+    } else if (ome.depth === 9) {
+      // At max depth - wrap to 1
+      ome.depth = 1
+      ome.open = true
+    } else {
+      // depth is 0 or -1 or closed - set to 1
+      ome.depth = 1
+      ome.open = true
+    }
+
+    // Re-render from this node down
+    this.Render(this.te, this.cfg, this.depth, this.inheritedDispDepth)
+
+    // Notify tree that structure changed (for width recalculation)
+    this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
+  }
+
+  // makeNeutral handles ctrl-click on open icon - removes explicit state
+  private makeNeutral() {
+    const ome = this.cfg.openMap[this.te.id]
+
+    if (ome === undefined) {
+      // Already neutral - nothing to do
+      return
+    }
+
+    if (ome.open) {
+      // Currently open - remove from openMap (becomes neutral)
+      delete this.cfg.openMap[this.te.id]
+    } else {
+      // Currently closed - set depth to 0 (neutral when closed)
+      ome.depth = 0
+    }
+
+    // Re-render from this node down
+    this.Render(this.te, this.cfg, this.depth, this.inheritedDispDepth)
+
+    // Notify tree that structure changed (for width recalculation)
+    this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
+  }
+
+  // toggleInfinity handles ctrl+shift-click on open icon - toggles infinite depth
+  private toggleInfinity() {
+    const ome = this.cfg.openMap[this.te.id]
+
+    if (ome === undefined) {
+      // Neutral node - set to infinite
+      this.cfg.openMap[this.te.id] = { open: true, depth: -1 }
+    } else if (ome.depth === -1) {
+      // Currently infinite - make neutral
+      if (ome.open) {
+        // Open infinite -> neutral open (delete entry)
+        delete this.cfg.openMap[this.te.id]
+      } else {
+        // Closed infinite -> neutral closed
+        ome.depth = 0
+      }
+    } else {
+      // Has other depth (0, 1-9) - set to infinite and open
+      ome.depth = -1
+      ome.open = true
+    }
+
+    // Re-render from this node down
+    this.Render(this.te, this.cfg, this.depth, this.inheritedDispDepth)
 
     // Notify tree that structure changed (for width recalculation)
     this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
