@@ -127,7 +127,14 @@ class Header extends nerd.Component {
 			color: #666;
 			font-size: 1.2em;
 			font-weight: 500;
-			}
+		}
+
+		vertigo-header .name {
+			position: sticky;
+			left: 0.5ch;
+			display: inline-block;
+			background-color: #999;
+		}
 	`
 }
 
@@ -162,7 +169,7 @@ class VNode extends nerd.Component {
 
   static html = `
 		<vertigo-open></vertigo-open>
-		<vertigo-header></vertigo-header>
+		<vertigo-header><span class="name"></span></vertigo-header>
 		<vertigo-sidebar></vertigo-sidebar>
 		<div class="details">
 			<div class="children"></div>
@@ -178,6 +185,7 @@ class VNode extends nerd.Component {
   // Cached DOM elements
   open!: Open
   header!: Header
+  nameElem!: HTMLElement
   sidebar!: Sidebar
   childrenElem!: HTMLElement
 
@@ -185,6 +193,7 @@ class VNode extends nerd.Component {
     this.innerHTML = VNode.html
     this.open = this.Query("vertigo-open")! as Open
     this.header = this.Query("vertigo-header")! as Header
+    this.nameElem = this.Query(".name")!
     this.sidebar = this.Query("vertigo-sidebar")! as Sidebar
     this.childrenElem = this.Query(".children")!
 
@@ -266,7 +275,7 @@ class VNode extends nerd.Component {
       this.open.textContent = this.isOpen() ? "◯" : "⬤"
     }
 
-    this.header.textContent = te.name
+    this.nameElem.textContent = te.name
 
     if (this.isOpen()) {
       // Should be open
