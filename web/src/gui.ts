@@ -21,10 +21,53 @@ class Board extends nerd.Component {
 			background: #555;
 			color: #ccc;
 			overflow: auto;
+			scrollbar-width: none; /* Firefox */
+		}
+
+		nerd-board::-webkit-scrollbar {
+			display: none; /* Chrome, Safari, Edge */
 		}
 	`
 
   config!: config.Board
+  private isDragging = false
+  private dragStartX = 0
+  private dragStartY = 0
+  private dragScrollLeft = 0
+  private dragScrollTop = 0
+
+  connectedCallback() {
+    // MMB drag scrolling
+    this.addEventListener("mousedown", (e) => this.handleMouseDown(e))
+    this.addEventListener("mousemove", (e) => this.handleMouseMove(e))
+    this.addEventListener("mouseup", () => this.handleMouseUp())
+    this.addEventListener("mouseleave", () => this.handleMouseUp())
+  }
+
+  private handleMouseDown(e: MouseEvent) {
+    if (e.button !== 1) return // Only middle mouse button
+    e.preventDefault()
+
+    this.isDragging = true
+    this.dragStartX = e.pageX
+    this.dragStartY = e.pageY
+    this.dragScrollLeft = this.scrollLeft
+    this.dragScrollTop = this.scrollTop
+  }
+
+  private handleMouseMove(e: MouseEvent) {
+    if (!this.isDragging) return
+    e.preventDefault()
+
+    const dx = e.pageX - this.dragStartX
+    const dy = e.pageY - this.dragStartY
+    this.scrollLeft = this.dragScrollLeft - dx
+    this.scrollTop = this.dragScrollTop - dy
+  }
+
+  private handleMouseUp() {
+    this.isDragging = false
+  }
 
   // Render displays all Vertigo trees for this board
   Render(cfg: config.Board) {
