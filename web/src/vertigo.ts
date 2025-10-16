@@ -9,6 +9,7 @@ const W_SIDEBAR = 28 // Width of sidebar/icon block (2ch ≈ 32px at 16px font)
 const G = 6 // Gap between nodes (0.5ch ≈ 8px)
 const I = W_SIDEBAR + G // Indentation per level (40px)
 const W_MIN = 640 // Minimum width for content area (60ch ≈ 960px)
+const NAME_PADDING = "0.5ch" // Horizontal padding for node names
 
 // computeWidthFromDepth calculates required tree width from maximum depth (in pixels)
 function computeWidth(maxDepth: number): number {
@@ -109,9 +110,22 @@ class Open extends nerd.Component {
 class Sidebar extends nerd.Component {
   static style = `
 		vertigo-sidebar {
-			display: block;
+			display: flex;
+			flex-direction: column;
+			justify-content: flex-end;
 			width: ${W_SIDEBAR}px;
 			background-color: #666;
+			color: #bbb;
+			padding-bottom: ${NAME_PADDING};
+		}
+
+		vertigo-sidebar .name {
+			position: sticky;
+			bottom: calc(${NAME_PADDING}*2);
+			background-color: #666;
+			transform: rotate(-90deg) translateY(23px);
+			transform-origin: bottom left;
+			white-space: nowrap;
 		}
 	`
 }
@@ -123,7 +137,7 @@ class Header extends nerd.Component {
 			display: block;
 			background-color: #999;
 			padding: 0.2ch;
-			padding-left: 0.5ch;
+			padding-left: ${NAME_PADDING};
 			color: #666;
 			font-size: 1.2em;
 			font-weight: 500;
@@ -131,7 +145,7 @@ class Header extends nerd.Component {
 
 		vertigo-header .name {
 			position: sticky;
-			left: 0.5ch;
+			left: ${NAME_PADDING};
 			display: inline-block;
 			background-color: #999;
 		}
@@ -170,7 +184,7 @@ class VNode extends nerd.Component {
   static html = `
 		<vertigo-open></vertigo-open>
 		<vertigo-header><span class="name"></span></vertigo-header>
-		<vertigo-sidebar></vertigo-sidebar>
+		<vertigo-sidebar><span class="name"></span></vertigo-sidebar>
 		<div class="details">
 			<div class="children"></div>
 		</div>
@@ -185,16 +199,18 @@ class VNode extends nerd.Component {
   // Cached DOM elements
   open!: Open
   header!: Header
-  nameElem!: HTMLElement
+  headerNameElem!: HTMLElement
   sidebar!: Sidebar
+  sidebarNameElem!: HTMLElement
   childrenElem!: HTMLElement
 
   connectedCallback() {
     this.innerHTML = VNode.html
     this.open = this.Query("vertigo-open")! as Open
     this.header = this.Query("vertigo-header")! as Header
-    this.nameElem = this.Query(".name")!
+    this.headerNameElem = this.header.Query(".name")!
     this.sidebar = this.Query("vertigo-sidebar")! as Sidebar
+    this.sidebarNameElem = this.sidebar.Query(".name")!
     this.childrenElem = this.Query(".children")!
 
     // Attach click handler once
@@ -275,7 +291,8 @@ class VNode extends nerd.Component {
       this.open.textContent = this.isOpen() ? "◯" : "⬤"
     }
 
-    this.nameElem.textContent = te.name
+    this.headerNameElem.textContent = te.name
+    this.sidebarNameElem.textContent = te.name
 
     if (this.isOpen()) {
       // Should be open

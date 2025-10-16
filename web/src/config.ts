@@ -45,6 +45,10 @@ export const defaultState: State = {
             rootId: 4,
             openMap: { 4: { open: true, depth: 2 } }, // Open node 4, 2 levels deep
           },
+          {
+            rootId: 1, // Root node (neutral - closed by default)
+            openMap: {}, // Empty - no explicit state
+          },
         ],
       },
     ],
