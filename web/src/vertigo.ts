@@ -2,7 +2,7 @@
 
 import * as nerd from "./nerd.js"
 import * as config from "./config.js"
-import { $ } from "./util.js"
+import "./util.js" // Side effect: extends DOMRect.prototype
 
 // Layout constants (in pixels)
 const W_SIDEBAR = 28 // Width of sidebar/icon block (2ch ≈ 32px at 16px font)
@@ -16,8 +16,8 @@ function computeWidth(maxDepth: number): number {
   return maxDepth * I + W_SIDEBAR + W_MIN - G
 }
 
-// Tree represents a displayed subtree using the Vertigo design pattern
-export class Tree extends nerd.Component {
+// VTree represents a displayed subtree using the Vertigo design pattern
+export class VTree extends nerd.Component {
   static style = `
 		vertigo-tree {
 			display: block;
@@ -28,23 +28,13 @@ export class Tree extends nerd.Component {
   config!: config.Vertigo
   root!: nerd.TreeEntry
   rootElem!: VNode
-  private resizeObs!: ResizeObserver
-
-  connectedCallback() {
-    // Set up ResizeObserver to watch parent container
-    // Fires automatically on initial observation and whenever parent size changes
-    this.resizeObs = new ResizeObserver(() => {
-      this.updateWidth()
-    })
-  }
-
-  disconnectedCallback() {
-    // Clean up observer when removed from DOM
-    this.resizeObs?.disconnect()
-  }
 
   // Render displays the tree using Vertigo block layout
-  Render(cfg: config.Vertigo, guiDispRoot: nerd.TreeEntry): HTMLElement {
+  Render(
+    ctx: CanvasRenderingContext2D,
+    cfg: config.Vertigo,
+    guiDispRoot: nerd.TreeEntry,
+  ): HTMLElement {
     this.config = cfg
 
     // rootId: 0 means use guiDispRoot
@@ -68,14 +58,21 @@ export class Tree extends nerd.Component {
     // Root node gets 0 as inheritedDispDepth (closed by default unless explicit openMap entry)
     this.rootElem = nerd.Create("vertigo-node") as VNode
     this.appendChild(this.rootElem)
-    this.rootElem.Render(te, this.config, 0, 0)
+    this.rootElem.Render(ctx, te, this.config, 0, 0)
 
-    // Start observing parent - triggers initial width calculation
-    if (this.parentElement) {
-      this.resizeObs.observe(this.parentElement)
-    }
+    // Calculate initial width
+    this.updateWidth()
 
     return this
+  }
+
+  // UpdateOverlay updates dynamic positioning and visibility based on viewport
+  UpdateOverlay(ctx: CanvasRenderingContext2D, viewport: DOMRect) {
+    const visible = this.bbox().In(viewport)
+    if (!visible) return
+
+    // Recursively update all visible nodes
+    this.rootElem.UpdateOverlay(ctx, viewport)
   }
 
   // updateWidth calculates and sets the tree width based on current open state
@@ -110,22 +107,9 @@ class Open extends nerd.Component {
 class Sidebar extends nerd.Component {
   static style = `
 		vertigo-sidebar {
-			display: flex;
-			flex-direction: column;
-			justify-content: flex-end;
+			display: block;
 			width: ${W_SIDEBAR}px;
 			background-color: #666;
-			color: #bbb;
-			padding-bottom: ${NAME_PADDING};
-		}
-
-		vertigo-sidebar .name {
-			position: sticky;
-			bottom: calc(${NAME_PADDING}*2);
-			background-color: #666;
-			transform: rotate(-90deg) translateY(23px);
-			transform-origin: bottom left;
-			white-space: nowrap;
 		}
 	`
 }
@@ -184,7 +168,7 @@ class VNode extends nerd.Component {
   static html = `
 		<vertigo-open></vertigo-open>
 		<vertigo-header><span class="name"></span></vertigo-header>
-		<vertigo-sidebar><span class="name"></span></vertigo-sidebar>
+		<vertigo-sidebar></vertigo-sidebar>
 		<div class="details">
 			<div class="children"></div>
 		</div>
@@ -192,16 +176,17 @@ class VNode extends nerd.Component {
 
   te!: nerd.TreeEntry
   cfg!: config.Vertigo
+  ctx!: CanvasRenderingContext2D
   depth!: number
   inheritedDispDepth!: number // Display depth inherited from parent
   childElems: VNode[] = []
+  sidebarNameWidth: number = 0 // Cached width of sidebar name text
 
   // Cached DOM elements
   open!: Open
   header!: Header
   headerNameElem!: HTMLElement
   sidebar!: Sidebar
-  sidebarNameElem!: HTMLElement
   childrenElem!: HTMLElement
 
   connectedCallback() {
@@ -210,7 +195,6 @@ class VNode extends nerd.Component {
     this.header = this.Query("vertigo-header")! as Header
     this.headerNameElem = this.header.Query(".name")!
     this.sidebar = this.Query("vertigo-sidebar")! as Sidebar
-    this.sidebarNameElem = this.sidebar.Query(".name")!
     this.childrenElem = this.Query(".children")!
 
     // Attach click handler once
@@ -267,15 +251,17 @@ class VNode extends nerd.Component {
 
   // Render updates node state and content (works for both initial and subsequent renders)
   Render(
+    ctx: CanvasRenderingContext2D,
     te: nerd.TreeEntry,
     cfg: config.Vertigo,
     depth: number,
-    inheritedDispDepth: number,
+    dispDepth: number,
   ): void {
+    this.ctx = ctx
     this.te = te
     this.cfg = cfg
     this.depth = depth
-    this.inheritedDispDepth = inheritedDispDepth
+    this.inheritedDispDepth = dispDepth
 
     // Update icon based on openMap state
     const ome = this.cfg.openMap[this.te.id]
@@ -291,8 +277,7 @@ class VNode extends nerd.Component {
       this.open.textContent = this.isOpen() ? "◯" : "⬤"
     }
 
-    this.headerNameElem.textContent = te.name
-    this.sidebarNameElem.textContent = te.name
+    this.setName(ctx, te.name)
 
     if (this.isOpen()) {
       // Should be open
@@ -304,6 +289,7 @@ class VNode extends nerd.Component {
       const childInheritedDepth = this.childrenDepth()
       for (let i = 0; i < this.childElems.length; i++) {
         this.childElems[i].Render(
+          ctx,
           this.te.children[i],
           this.cfg,
           this.depth + 1,
@@ -347,7 +333,13 @@ class VNode extends nerd.Component {
     }
 
     // Re-render from this node down
-    this.Render(this.te, this.cfg, this.depth, this.inheritedDispDepth)
+    this.Render(
+      this.ctx,
+      this.te,
+      this.cfg,
+      this.depth,
+      this.inheritedDispDepth,
+    )
 
     // Notify tree that structure changed (for width recalculation)
     this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
@@ -375,7 +367,13 @@ class VNode extends nerd.Component {
     }
 
     // Re-render from this node down
-    this.Render(this.te, this.cfg, this.depth, this.inheritedDispDepth)
+    this.Render(
+      this.ctx,
+      this.te,
+      this.cfg,
+      this.depth,
+      this.inheritedDispDepth,
+    )
 
     // Notify tree that structure changed (for width recalculation)
     this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
@@ -399,7 +397,13 @@ class VNode extends nerd.Component {
     }
 
     // Re-render from this node down
-    this.Render(this.te, this.cfg, this.depth, this.inheritedDispDepth)
+    this.Render(
+      this.ctx,
+      this.te,
+      this.cfg,
+      this.depth,
+      this.inheritedDispDepth,
+    )
 
     // Notify tree that structure changed (for width recalculation)
     this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
@@ -428,10 +432,23 @@ class VNode extends nerd.Component {
     }
 
     // Re-render from this node down
-    this.Render(this.te, this.cfg, this.depth, this.inheritedDispDepth)
+    this.Render(
+      this.ctx,
+      this.te,
+      this.cfg,
+      this.depth,
+      this.inheritedDispDepth,
+    )
 
     // Notify tree that structure changed (for width recalculation)
     this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
+  }
+
+  // setName updates the node name and measures its width for canvas rendering
+  private setName(ctx: CanvasRenderingContext2D, name: string) {
+    this.headerNameElem.textContent = name
+    // Measure text width using canvas context for later overlay rendering
+    this.sidebarNameWidth = ctx.measureText(name).width
   }
 
   // createChildren creates child VNode elements and adds them to DOM (assumes container is empty)
@@ -465,10 +482,24 @@ class VNode extends nerd.Component {
 
     return maxDepth
   }
+
+  // UpdateOverlay draws this node's overlay elements (sidebar name) to canvas
+  UpdateOverlay(ctx: CanvasRenderingContext2D, viewport: DOMRect) {
+    const visible = this.bbox().In(viewport)
+    if (!visible) return
+
+    // TODO: Calculate sidebar name position from getBoundingClientRect()
+    // TODO: Draw rotated text on canvas
+
+    // Recursively update children
+    for (const child of this.childElems) {
+      child.UpdateOverlay(ctx, viewport)
+    }
+  }
 }
 
 // Register the Vertigo components
-Tree.register("vertigo-tree")
+VTree.register("vertigo-tree")
 Open.register("vertigo-open")
 Sidebar.register("vertigo-sidebar")
 Header.register("vertigo-header")

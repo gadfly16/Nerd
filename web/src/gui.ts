@@ -18,6 +18,7 @@ class Board extends nerd.Component {
   static style = `
 		nerd-board {
 			display: block;
+			position: relative;
 			background: #555;
 			color: #ccc;
 			overflow: auto;
@@ -27,21 +28,99 @@ class Board extends nerd.Component {
 		nerd-board::-webkit-scrollbar {
 			display: none; /* Chrome, Safari, Edge */
 		}
+
+		nerd-board canvas {
+			position: absolute;
+			top: 0;
+			left: 0;
+			pointer-events: none;
+		}
+	`
+
+  static html = `
+		<canvas></canvas>
 	`
 
   config!: config.Board
+  private trees: vertigo.VTree[] = []
+  private canvas!: HTMLCanvasElement
+  private ctx!: CanvasRenderingContext2D
   private isDragging = false
   private dragStartX = 0
   private dragStartY = 0
   private dragScrollLeft = 0
   private dragScrollTop = 0
+  private rafPending = false
+  private resizeObs!: ResizeObserver
 
   connectedCallback() {
+    this.innerHTML = Board.html
+    this.canvas = this.Query("canvas")!
+    this.ctx = this.canvas.getContext("2d")!
+
+    // Set up canvas font (matches sidebar name styling)
+    this.ctx.font = "500 1.2em Inter"
+
+    // Size canvas to match board viewport
+    this.resizeCanvas()
+
+    // Watch for size changes
+    this.resizeObs = new ResizeObserver(() => {
+      this.resizeCanvas()
+      // Recalculate tree widths (no re-render needed)
+      for (const tree of this.trees) {
+        tree.updateWidth()
+      }
+      this.updateOverlay()
+    })
+    this.resizeObs.observe(this)
+
     // MMB drag scrolling
     this.addEventListener("mousedown", (e) => this.handleMouseDown(e))
     this.addEventListener("mousemove", (e) => this.handleMouseMove(e))
     this.addEventListener("mouseup", () => this.handleMouseUp())
     this.addEventListener("mouseleave", () => this.handleMouseUp())
+
+    // Scroll listener with RAF batching
+    this.addEventListener("scroll", () => {
+      if (this.rafPending) return
+      this.rafPending = true
+
+      requestAnimationFrame(() => {
+        this.rafPending = false
+        this.updateOverlay()
+      })
+    })
+  }
+
+  disconnectedCallback() {
+    this.resizeObs?.disconnect()
+  }
+
+  // Clear removes all trees from the board
+  Clear() {
+    for (const tree of this.trees) {
+      tree.remove()
+    }
+    this.trees = []
+  }
+
+  private resizeCanvas() {
+    this.canvas.width = this.clientWidth
+    this.canvas.height = this.clientHeight
+    // Re-apply font after canvas resize (clears context state)
+    this.ctx.font = "500 1.2em Inter"
+  }
+
+  private updateOverlay() {
+    // Clear canvas
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
+
+    const viewport = this.bbox()
+
+    for (const tree of this.trees) {
+      tree.UpdateOverlay(this.ctx, viewport)
+    }
   }
 
   private handleMouseDown(e: MouseEvent) {
@@ -70,15 +149,19 @@ class Board extends nerd.Component {
   }
 
   // Render displays all Vertigo trees for this board
+  // Assumes board is already clear
   Render(cfg: config.Board) {
     this.config = cfg
-    this.innerHTML = ""
 
     for (const treeCfg of cfg.trees) {
-      const vertigoTree = nerd.Create("vertigo-tree") as vertigo.Tree
+      const vertigoTree = nerd.Create("vertigo-tree") as vertigo.VTree
       this.appendChild(vertigoTree)
-      vertigoTree.Render(treeCfg, gui.dispRoot!)
+      vertigoTree.Render(this.ctx, treeCfg, gui.dispRoot!)
+      this.trees.push(vertigoTree)
     }
+
+    // Trigger initial overlay update
+    this.updateOverlay()
   }
 }
 
@@ -204,6 +287,13 @@ class Workbench extends nerd.Component {
     this.config = cfg
     for (let i = 0; i < this.boardElements.length; i++) {
       this.boardElements[i].Render(cfg.boards[i])
+    }
+  }
+
+  // Clear removes all content from all boards
+  Clear() {
+    for (const board of this.boardElements) {
+      board.Clear()
     }
   }
 }
@@ -399,6 +489,9 @@ class GUI extends nerd.Component {
     this.state = new config.State()
     nerd.Nodes.clear()
 
+    // Clear board contents
+    this.workbench.Clear()
+
     this.workbench.classList.add("hidden")
     this.appendChild(this.auth)
   }
@@ -407,6 +500,7 @@ class GUI extends nerd.Component {
   // Called after successful authentication
   SwitchToWorkbench(userId: number) {
     this.userId = userId
+    nerd.GUIContext.userId = userId
 
     this.workbench.classList.remove("hidden")
     this.auth.remove()

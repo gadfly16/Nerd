@@ -81,6 +81,11 @@ export class Component extends HTMLElement {
   ): void {
     this.addEventListener(type, listener, options)
   }
+
+  // bbox is a shorthand for getBoundingClientRect
+  bbox(): DOMRect {
+    return this.getBoundingClientRect()
+  }
 }
 
 // Ask sends an API message to the server and returns the response payload
