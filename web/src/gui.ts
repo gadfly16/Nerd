@@ -390,7 +390,11 @@ class Auth extends nerd.Component {
         regmode ? imsg.CreateUser : imsg.AuthenticateUser,
         pl,
       )
-      gui.SwitchToWorkbench(a.userid)
+      gui.userId = a.userid
+      gui.admin = a.admin
+      nerd.GUIContext.userId = a.userid
+      nerd.GUIContext.admin = a.admin
+      gui.SwitchToWorkbench()
     } catch (err) {
       this.showError(
         err instanceof Error ? err.message : "Network error. Please try again.",
@@ -476,7 +480,7 @@ class GUI extends nerd.Component {
     if (this.userId === 0) {
       this.SwitchToAuth()
     } else {
-      this.SwitchToWorkbench(this.userId)
+      this.SwitchToWorkbench()
     }
   }
 
@@ -496,12 +500,9 @@ class GUI extends nerd.Component {
     this.appendChild(this.auth)
   }
 
-  // SwitchToWorkbench sets user ID, hides auth, and loads workbench
-  // Called after successful authentication
-  SwitchToWorkbench(userId: number) {
-    this.userId = userId
-    nerd.GUIContext.userId = userId
-
+  // SwitchToWorkbench hides auth and loads workbench
+  // Called after successful authentication (userId/admin already set by caller)
+  SwitchToWorkbench() {
     this.workbench.classList.remove("hidden")
     this.auth.remove()
     this.init()
