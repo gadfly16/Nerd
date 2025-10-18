@@ -50,9 +50,14 @@ export class TreeEntry {
 
 // GUIContext holds minimal global state needed across components
 // Simple data object - no methods, no coupling
-export const GUIContext = {
-  userId: 0,
+export const Ctx: {
+  userID: number
+  admin: boolean
+  dispRoot: TreeEntry | null
+} = {
+  userID: 0,
   admin: false,
+  dispRoot: null,
 }
 
 // Component provides base functionality for all custom elements

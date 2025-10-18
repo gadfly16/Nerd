@@ -25,27 +25,24 @@ export class VTree extends nerd.Component {
 		}
 	`
 
-  config!: config.Vertigo
+  cfg!: config.Vertigo
   root!: nerd.TreeEntry
   rootElem!: VNode
 
   // Render displays the tree using Vertigo block layout
-  Render(
-    ctx: CanvasRenderingContext2D,
-    cfg: config.Vertigo,
-    guiDispRoot: nerd.TreeEntry,
-  ): HTMLElement {
-    this.config = cfg
+  Render(ctx: CanvasRenderingContext2D, cfg: config.Vertigo): HTMLElement {
+    this.cfg = cfg
 
     // rootId: 0 means use guiDispRoot
-    if (cfg.rootId === 0) {
-      cfg.rootId = guiDispRoot.id
+    if (this.cfg.rootID === 0) {
+      this.cfg.rootID = nerd.Ctx.dispRoot!.id
+      this.cfg.openMap[this.cfg.rootID] = this.cfg.openMap[0]
     }
 
     // Look up the tree root from registry
-    const te = nerd.Nodes.get(cfg.rootId)
+    const te = nerd.Nodes.get(cfg.rootID)
     if (!te) {
-      throw new Error(`TreeEntry with id ${cfg.rootId} not found in registry`)
+      throw new Error(`TreeEntry with id ${cfg.rootID} not found in registry`)
     }
     this.root = te
 
@@ -58,7 +55,7 @@ export class VTree extends nerd.Component {
     // Root node gets 0 as inheritedDispDepth (closed by default unless explicit openMap entry)
     this.rootElem = nerd.Create("vertigo-node") as VNode
     this.appendChild(this.rootElem)
-    this.rootElem.Render(ctx, te, this.config, 0, 0)
+    this.rootElem.Render(ctx, te, this.cfg, 0, 0)
 
     // Calculate initial width
     this.updateWidth()
@@ -83,6 +80,313 @@ export class VTree extends nerd.Component {
     const viewportWidth = (this.parentElement?.clientWidth || 0) - G
     const width = Math.max(computedWidth, viewportWidth)
     this.style.width = `${width}px`
+  }
+}
+
+// VNode represents a single node and its children recursively
+class VNode extends nerd.Component {
+  static style = `
+		vertigo-node {
+			display: grid;
+			grid-template-columns: ${W_SIDEBAR}px 1fr;
+			grid-template-rows: auto 1fr;
+			margin: ${G}px 0 0 ${G}px;
+		}
+
+		vertigo-node > vertigo-open {
+			grid-area: 1 / 1;
+		}
+
+		vertigo-node > vertigo-header {
+			grid-area: 1 / 2;
+		}
+
+		vertigo-node > vertigo-sidebar {
+			grid-area: 2 / 1;
+		}
+
+		vertigo-node > .details {
+			grid-area: 2 / 2;
+			display: flex;
+			flex-direction: column;
+		}
+	`
+
+  static html = `
+		<vertigo-open></vertigo-open>
+		<vertigo-header><span class="name"></span></vertigo-header>
+		<vertigo-sidebar></vertigo-sidebar>
+		<div class="details">
+			<div class="children"></div>
+		</div>
+	`
+
+  node!: nerd.TreeEntry
+  cfg!: config.Vertigo
+  ctx!: CanvasRenderingContext2D
+  depth!: number
+  inheritedDispDepth!: number // Display depth inherited from parent
+  childVNodes: VNode[] = []
+  sidebarNameWidth: number = 0 // Cached width of sidebar name text
+
+  // Cached DOM elements
+  open!: Open
+  header!: Header
+  headerNameElem!: HTMLElement
+  sidebar!: Sidebar
+  childrenDetail!: HTMLElement
+
+  connectedCallback() {
+    this.innerHTML = VNode.html
+    this.open = this.Query("vertigo-open")! as Open
+    this.header = this.Query("vertigo-header")! as Header
+    this.headerNameElem = this.header.Query(".name")!
+    this.sidebar = this.Query("vertigo-sidebar")! as Sidebar
+    this.childrenDetail = this.Query(".children")!
+
+    // Attach click handler once
+    this.open.onclick = (e) => this.openClickHandler(e)
+  }
+
+  // Render updates node state and content (works for both initial and subsequent renders)
+  Render(
+    ctx: CanvasRenderingContext2D,
+    te: nerd.TreeEntry,
+    cfg: config.Vertigo,
+    depth: number,
+    dispDepth: number,
+  ): void {
+    this.ctx = ctx
+    this.node = te
+    this.cfg = cfg
+    this.depth = depth
+    this.inheritedDispDepth = dispDepth
+
+    // Update icon based on openMap state
+    const ome = this.cfg.openMap[this.node.id]
+    if (ome !== undefined && ome.open && ome.depth > 0 && ome.depth <= 9) {
+      // Node has explicit depth 1-9
+      // Circled numbers 1-9 (Unicode: ① = U+2460)
+      this.open.textContent = String.fromCharCode(0x2460 + ome.depth - 1)
+    } else if (ome !== undefined && ome.open && ome.depth === -1) {
+      // Infinite depth
+      this.open.textContent = "Ⓘ" // Circled I for infinite
+    } else {
+      // Neutral or explicitly closed - use matching circles
+      this.open.textContent = this.isOpen() ? "◯" : "●"
+    }
+
+    this.setName(ctx, te.name)
+
+    if (this.isOpen()) {
+      // Should be open
+      if (this.childVNodes.length === 0) {
+        // Children not present - create them
+        this.createChildren()
+      }
+      // Render all children (newly created or existing)
+      const childDispDepth = this.childrenDepth()
+      for (let i = 0; i < this.childVNodes.length; i++) {
+        this.childVNodes[i].Render(
+          ctx,
+          this.node.children[i],
+          this.cfg,
+          this.depth + 1,
+          childDispDepth,
+        )
+      }
+    } else {
+      // Should be closed
+      if (this.childVNodes.length > 0) {
+        // Children present - delete them
+        this.clearChildren()
+      }
+    }
+  }
+
+  // isOpen determines if this node should display its children
+  private isOpen(): boolean {
+    const ome = this.cfg.openMap[this.node.id]
+
+    if (ome === undefined) {
+      // Neutral node - open if inheritedDispDepth allows it
+      return this.inheritedDispDepth !== 0
+    }
+
+    // Has explicit openMap entry
+    return ome.open
+  }
+
+  // childrenDepth calculates the depth value to pass to children
+  // Only call this when isOpen() returns true
+  private childrenDepth(): number {
+    const ome = this.cfg.openMap[this.node.id]
+
+    let myDepth: number
+    if (ome === undefined) {
+      // Neutral node - use inherited depth
+      myDepth = this.inheritedDispDepth
+    } else if (ome.depth > 0 || ome.depth === -1) {
+      // Has specific depth - use it
+      myDepth = ome.depth
+    } else {
+      // depth === 0: neutral (accept inherited)
+      myDepth = this.inheritedDispDepth
+    }
+
+    // Calculate depth for children
+    if (myDepth === -1) {
+      return -1 // Infinite propagates
+    } else {
+      return myDepth - 1 // Decrement
+    }
+  }
+
+  // openClickHandler handles all clicks on open icon based on modifier keys
+  private openClickHandler(e: MouseEvent) {
+    const ome = this.cfg.openMap[this.node.id]
+
+    if (e.shiftKey && e.ctrlKey) {
+      // Ctrl+Shift: Toggle infinite depth
+      if (ome === undefined) {
+        // Neutral node - set to infinite
+        this.cfg.openMap[this.node.id] = { open: true, depth: -1 }
+      } else if (ome.depth === -1) {
+        // Currently infinite - make neutral
+        if (ome.open) {
+          // Open infinite -> neutral open (delete entry)
+          delete this.cfg.openMap[this.node.id]
+        } else {
+          // Closed infinite -> neutral closed
+          ome.depth = 0
+        }
+      } else {
+        // Has other depth (0, 1-9) - set to infinite and open
+        ome.depth = -1
+        ome.open = true
+      }
+    } else if (e.shiftKey) {
+      // Shift: Increment explicit depth
+      if (ome === undefined) {
+        // Neutral node - add explicit depth 1
+        this.cfg.openMap[this.node.id] = { open: true, depth: 1 }
+      } else if (ome.depth >= 1 && ome.depth < 9) {
+        // Has explicit depth 1-8 - increment it
+        ome.depth++
+        ome.open = true
+      } else if (ome.depth === 9) {
+        // At max depth - wrap to 1
+        ome.depth = 1
+        ome.open = true
+      } else {
+        // depth is 0 or -1 or closed - set to 1
+        ome.depth = 1
+        ome.open = true
+      }
+    } else if (e.ctrlKey) {
+      // Ctrl: Make neutral
+      if (ome === undefined) {
+        // Already neutral - nothing to do
+        return
+      }
+
+      if (ome.open) {
+        // Currently open - remove from openMap (becomes neutral)
+        delete this.cfg.openMap[this.node.id]
+      } else {
+        // Currently closed - set depth to 0 (neutral when closed)
+        ome.depth = 0
+      }
+    } else {
+      // No modifiers: Toggle open/closed
+      if (ome === undefined) {
+        // Neutral node - check if currently open or closed
+        if (this.inheritedDispDepth === 0) {
+          // Currently closed - open it with explicit depth 1
+          this.cfg.openMap[this.node.id] = { open: true, depth: 1 }
+        } else {
+          // Currently open - close it explicitly
+          this.cfg.openMap[this.node.id] = { open: false, depth: 0 }
+        }
+      } else if (ome.open) {
+        // Currently open - close it (preserve depth)
+        ome.open = false
+      } else {
+        // Currently closed - reopen it
+        if (ome.depth === 0) {
+          // Was neutral before closing - delete entry to restore neutral state
+          delete this.cfg.openMap[this.node.id]
+        } else {
+          // Has depth preference - restore to open state
+          ome.open = true
+        }
+      }
+    }
+
+    // Re-render from this node down
+    this.Render(
+      this.ctx,
+      this.node,
+      this.cfg,
+      this.depth,
+      this.inheritedDispDepth,
+    )
+
+    // Notify tree that structure changed (for width recalculation)
+    this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
+  }
+
+  // setName updates the node name and measures its width for canvas rendering
+  private setName(ctx: CanvasRenderingContext2D, name: string) {
+    this.headerNameElem.textContent = name
+    // Measure text width using canvas context for later overlay rendering
+    this.sidebarNameWidth = ctx.measureText(name).width
+  }
+
+  // createChildren creates child VNode elements and adds them to DOM (assumes container is empty)
+  private createChildren() {
+    for (const child of this.node.children) {
+      const childNode = nerd.Create("vertigo-node") as VNode
+      this.childrenDetail.appendChild(childNode)
+      this.childVNodes.push(childNode)
+    }
+  }
+
+  // clearChildren removes all child nodes
+  private clearChildren() {
+    for (const child of this.childVNodes) {
+      child.remove()
+    }
+    this.childVNodes = []
+  }
+
+  // displayDepth recursively finds the maximum depth of open nodes from this node
+  displayDepth(): number {
+    let maxDepth = this.depth
+
+    // If we have rendered children, check their depths
+    if (this.childVNodes.length > 0) {
+      for (const child of this.childVNodes) {
+        const childMaxDepth = child.displayDepth()
+        maxDepth = Math.max(maxDepth, childMaxDepth)
+      }
+    }
+
+    return maxDepth
+  }
+
+  // UpdateOverlay draws this node's overlay elements (sidebar name) to canvas
+  UpdateOverlay(ctx: CanvasRenderingContext2D, viewport: DOMRect) {
+    const visible = this.bbox().In(viewport)
+    if (!visible) return
+
+    // TODO: Calculate sidebar name position from getBoundingClientRect()
+    // TODO: Draw rotated text on canvas
+
+    // Recursively update children
+    for (const child of this.childVNodes) {
+      child.UpdateOverlay(ctx, viewport)
+    }
   }
 }
 
@@ -134,368 +438,6 @@ class Header extends nerd.Component {
 			background-color: #999;
 		}
 	`
-}
-
-// VNode renders a single node and its children recursively
-class VNode extends nerd.Component {
-  static style = `
-		vertigo-node {
-			display: grid;
-			grid-template-columns: ${W_SIDEBAR}px 1fr;
-			grid-template-rows: auto 1fr;
-			margin: ${G}px 0 0 ${G}px;
-		}
-
-		vertigo-node > vertigo-open {
-			grid-area: 1 / 1;
-		}
-
-		vertigo-node > vertigo-header {
-			grid-area: 1 / 2;
-		}
-
-		vertigo-node > vertigo-sidebar {
-			grid-area: 2 / 1;
-		}
-
-		vertigo-node > .details {
-			grid-area: 2 / 2;
-			display: flex;
-			flex-direction: column;
-		}
-	`
-
-  static html = `
-		<vertigo-open></vertigo-open>
-		<vertigo-header><span class="name"></span></vertigo-header>
-		<vertigo-sidebar></vertigo-sidebar>
-		<div class="details">
-			<div class="children"></div>
-		</div>
-	`
-
-  te!: nerd.TreeEntry
-  cfg!: config.Vertigo
-  ctx!: CanvasRenderingContext2D
-  depth!: number
-  inheritedDispDepth!: number // Display depth inherited from parent
-  childElems: VNode[] = []
-  sidebarNameWidth: number = 0 // Cached width of sidebar name text
-
-  // Cached DOM elements
-  open!: Open
-  header!: Header
-  headerNameElem!: HTMLElement
-  sidebar!: Sidebar
-  childrenElem!: HTMLElement
-
-  connectedCallback() {
-    this.innerHTML = VNode.html
-    this.open = this.Query("vertigo-open")! as Open
-    this.header = this.Query("vertigo-header")! as Header
-    this.headerNameElem = this.header.Query(".name")!
-    this.sidebar = this.Query("vertigo-sidebar")! as Sidebar
-    this.childrenElem = this.Query(".children")!
-
-    // Attach click handler once
-    this.open.onclick = (e) => {
-      if (e.shiftKey && e.ctrlKey) {
-        this.toggleInfinity()
-      } else if (e.shiftKey) {
-        this.incrementDepth()
-      } else if (e.ctrlKey) {
-        this.makeNeutral()
-      } else {
-        this.toggleOpen()
-      }
-    }
-  }
-
-  // isOpen determines if this node should display its children
-  private isOpen(): boolean {
-    const ome = this.cfg.openMap[this.te.id]
-
-    if (ome === undefined) {
-      // Neutral node - open if inheritedDispDepth allows it
-      return this.inheritedDispDepth !== 0
-    }
-
-    // Has explicit openMap entry
-    return ome.open
-  }
-
-  // childrenDepth calculates the depth value to pass to children
-  // Only call this when isOpen() returns true
-  private childrenDepth(): number {
-    const ome = this.cfg.openMap[this.te.id]
-
-    let myDepth: number
-    if (ome === undefined) {
-      // Neutral node - use inherited depth
-      myDepth = this.inheritedDispDepth
-    } else if (ome.depth > 0 || ome.depth === -1) {
-      // Has specific depth - use it
-      myDepth = ome.depth
-    } else {
-      // depth === 0: neutral (accept inherited)
-      myDepth = this.inheritedDispDepth
-    }
-
-    // Calculate depth for children
-    if (myDepth === -1) {
-      return -1 // Infinite propagates
-    } else {
-      return myDepth - 1 // Decrement
-    }
-  }
-
-  // Render updates node state and content (works for both initial and subsequent renders)
-  Render(
-    ctx: CanvasRenderingContext2D,
-    te: nerd.TreeEntry,
-    cfg: config.Vertigo,
-    depth: number,
-    dispDepth: number,
-  ): void {
-    this.ctx = ctx
-    this.te = te
-    this.cfg = cfg
-    this.depth = depth
-    this.inheritedDispDepth = dispDepth
-
-    // Update icon based on openMap state
-    const ome = this.cfg.openMap[this.te.id]
-    if (ome !== undefined && ome.open && ome.depth > 0 && ome.depth <= 9) {
-      // Node has explicit depth 1-9
-      // Circled numbers 1-9 (Unicode: ① = U+2460)
-      this.open.textContent = String.fromCharCode(0x2460 + ome.depth - 1)
-    } else if (ome !== undefined && ome.open && ome.depth === -1) {
-      // Infinite depth
-      this.open.textContent = "Ⓘ" // Circled I for infinite
-    } else {
-      // Neutral or explicitly closed - use matching circles
-      this.open.textContent = this.isOpen() ? "◯" : "⬤"
-    }
-
-    this.setName(ctx, te.name)
-
-    if (this.isOpen()) {
-      // Should be open
-      if (this.childElems.length === 0) {
-        // Children not present - create them
-        this.createChildren()
-      }
-      // Render all children (newly created or existing)
-      const childInheritedDepth = this.childrenDepth()
-      for (let i = 0; i < this.childElems.length; i++) {
-        this.childElems[i].Render(
-          ctx,
-          this.te.children[i],
-          this.cfg,
-          this.depth + 1,
-          childInheritedDepth,
-        )
-      }
-    } else {
-      // Should be closed
-      if (this.childElems.length > 0) {
-        // Children present - delete them
-        this.clearChildren()
-      }
-    }
-  }
-
-  // toggleOpen handles click on open/close icon - implements state restoration
-  private toggleOpen() {
-    const ome = this.cfg.openMap[this.te.id]
-
-    if (ome === undefined) {
-      // Neutral node - check if currently open or closed
-      if (this.inheritedDispDepth === 0) {
-        // Currently closed - open it with explicit depth 1
-        this.cfg.openMap[this.te.id] = { open: true, depth: 1 }
-      } else {
-        // Currently open - close it explicitly
-        this.cfg.openMap[this.te.id] = { open: false, depth: 0 }
-      }
-    } else if (ome.open) {
-      // Currently open - close it (preserve depth)
-      ome.open = false
-    } else {
-      // Currently closed - reopen it
-      if (ome.depth === 0) {
-        // Was neutral before closing - delete entry to restore neutral state
-        delete this.cfg.openMap[this.te.id]
-      } else {
-        // Has depth preference - restore to open state
-        ome.open = true
-      }
-    }
-
-    // Re-render from this node down
-    this.Render(
-      this.ctx,
-      this.te,
-      this.cfg,
-      this.depth,
-      this.inheritedDispDepth,
-    )
-
-    // Notify tree that structure changed (for width recalculation)
-    this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
-  }
-
-  // incrementDepth handles shift-click on open icon - increments explicit depth
-  private incrementDepth() {
-    const ome = this.cfg.openMap[this.te.id]
-
-    if (ome === undefined) {
-      // Neutral node - add explicit depth 1
-      this.cfg.openMap[this.te.id] = { open: true, depth: 1 }
-    } else if (ome.depth >= 1 && ome.depth < 9) {
-      // Has explicit depth 1-8 - increment it
-      ome.depth++
-      ome.open = true
-    } else if (ome.depth === 9) {
-      // At max depth - wrap to 1
-      ome.depth = 1
-      ome.open = true
-    } else {
-      // depth is 0 or -1 or closed - set to 1
-      ome.depth = 1
-      ome.open = true
-    }
-
-    // Re-render from this node down
-    this.Render(
-      this.ctx,
-      this.te,
-      this.cfg,
-      this.depth,
-      this.inheritedDispDepth,
-    )
-
-    // Notify tree that structure changed (for width recalculation)
-    this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
-  }
-
-  // makeNeutral handles ctrl-click on open icon - removes explicit state
-  private makeNeutral() {
-    const ome = this.cfg.openMap[this.te.id]
-
-    if (ome === undefined) {
-      // Already neutral - nothing to do
-      return
-    }
-
-    if (ome.open) {
-      // Currently open - remove from openMap (becomes neutral)
-      delete this.cfg.openMap[this.te.id]
-    } else {
-      // Currently closed - set depth to 0 (neutral when closed)
-      ome.depth = 0
-    }
-
-    // Re-render from this node down
-    this.Render(
-      this.ctx,
-      this.te,
-      this.cfg,
-      this.depth,
-      this.inheritedDispDepth,
-    )
-
-    // Notify tree that structure changed (for width recalculation)
-    this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
-  }
-
-  // toggleInfinity handles ctrl+shift-click on open icon - toggles infinite depth
-  private toggleInfinity() {
-    const ome = this.cfg.openMap[this.te.id]
-
-    if (ome === undefined) {
-      // Neutral node - set to infinite
-      this.cfg.openMap[this.te.id] = { open: true, depth: -1 }
-    } else if (ome.depth === -1) {
-      // Currently infinite - make neutral
-      if (ome.open) {
-        // Open infinite -> neutral open (delete entry)
-        delete this.cfg.openMap[this.te.id]
-      } else {
-        // Closed infinite -> neutral closed
-        ome.depth = 0
-      }
-    } else {
-      // Has other depth (0, 1-9) - set to infinite and open
-      ome.depth = -1
-      ome.open = true
-    }
-
-    // Re-render from this node down
-    this.Render(
-      this.ctx,
-      this.te,
-      this.cfg,
-      this.depth,
-      this.inheritedDispDepth,
-    )
-
-    // Notify tree that structure changed (for width recalculation)
-    this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
-  }
-
-  // setName updates the node name and measures its width for canvas rendering
-  private setName(ctx: CanvasRenderingContext2D, name: string) {
-    this.headerNameElem.textContent = name
-    // Measure text width using canvas context for later overlay rendering
-    this.sidebarNameWidth = ctx.measureText(name).width
-  }
-
-  // createChildren creates child VNode elements and adds them to DOM (assumes container is empty)
-  private createChildren() {
-    for (const child of this.te.children) {
-      const childNode = nerd.Create("vertigo-node") as VNode
-      this.childrenElem.appendChild(childNode)
-      this.childElems.push(childNode)
-    }
-  }
-
-  // clearChildren removes all child nodes
-  private clearChildren() {
-    for (const child of this.childElems) {
-      child.remove()
-    }
-    this.childElems = []
-  }
-
-  // displayDepth recursively finds the maximum depth of open nodes from this node
-  displayDepth(): number {
-    let maxDepth = this.depth
-
-    // If we have rendered children, check their depths
-    if (this.childElems.length > 0) {
-      for (const child of this.childElems) {
-        const childMaxDepth = child.displayDepth()
-        maxDepth = Math.max(maxDepth, childMaxDepth)
-      }
-    }
-
-    return maxDepth
-  }
-
-  // UpdateOverlay draws this node's overlay elements (sidebar name) to canvas
-  UpdateOverlay(ctx: CanvasRenderingContext2D, viewport: DOMRect) {
-    const visible = this.bbox().In(viewport)
-    if (!visible) return
-
-    // TODO: Calculate sidebar name position from getBoundingClientRect()
-    // TODO: Draw rotated text on canvas
-
-    // Recursively update children
-    for (const child of this.childElems) {
-      child.UpdateOverlay(ctx, viewport)
-    }
-  }
 }
 
 // Register the Vertigo components
