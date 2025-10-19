@@ -258,7 +258,6 @@ class Board extends nerd.Component {
   private dragStartY = 0
   private dragScrollLeft = 0
   private dragScrollTop = 0
-  private rafPending = false
   private resizeObs!: ResizeObserver
 
   connectedCallback() {
@@ -270,15 +269,9 @@ class Board extends nerd.Component {
     this.addEventListener("mouseup", () => this.handleMouseUp())
     this.addEventListener("mouseleave", () => this.handleMouseUp())
 
-    // Scroll listener with RAF batching
+    // Scroll listener - update overlay synchronously to avoid frame lag
     this.addEventListener("scroll", () => {
-      if (this.rafPending) return
-      this.rafPending = true
-
-      requestAnimationFrame(() => {
-        this.rafPending = false
-        this.updateOverlay()
-      })
+      this.updateOverlay()
     })
   }
 

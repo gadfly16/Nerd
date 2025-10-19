@@ -10,6 +10,7 @@ const G = 6 // Gap between nodes (0.5ch ≈ 8px)
 const I = W_SIDEBAR + G // Indentation per level (40px)
 const W_MIN = 640 // Minimum width for content area (60ch ≈ 960px)
 const NAME_PADDING = "0.5ch" // Horizontal padding for node names
+const SIDEBAR_GAP = 8 // Gap above/below sidebar name text
 
 // VTree represents a displayed subtree using the Vertigo design pattern
 export class VTree extends nerd.Component {
@@ -17,6 +18,7 @@ export class VTree extends nerd.Component {
 		vertigo-tree {
 			display: block;
 			padding-right: ${G}px;
+			padding-bottom: ${G}px;
 		}
 	`
 
@@ -353,25 +355,30 @@ class VNode extends nerd.Component {
 
   // UpdateOverlay draws this node's overlay elements (sidebar name) to canvas
   UpdateOverlay() {
-    const viewport = this.vtree.board.viewport
-    const visible = this.bbox().In(viewport)
-    if (!visible) return
+    const vp = this.vtree.board.viewport
+    if (!this.bbox().In(vp)) return
 
     // Get sidebar bounding box (viewport coordinates)
-    const sidebarRect = this.sidebar.bbox()
+    const sb = this.sidebar.bbox()
+    const nameRoom = this.sidebarNameWidth + 2 * SIDEBAR_GAP
 
-    // Only render if sidebar has height (node has children)
-    if (sidebarRect.height > 0) {
+    // Only render if sidebar has enough space for the name
+    if (sb.height >= nameRoom) {
       const ctx = this.vtree.board.ctx
 
-      // Convert viewport coordinates to canvas coordinates
-      const canvasX = sidebarRect.left - viewport.left
-      const canvasY = sidebarRect.bottom - viewport.top
+      // Calculate name anchor position (stick to viewport bottom when possible)
+      const anchorY = Math.min(
+        sb.bottom,
+        Math.max(vp.bottom, sb.top + nameRoom),
+      )
 
-      // Save context state
+      // Convert viewport coordinates to canvas coordinates
+      const canvasX = sb.left - vp.left
+      const canvasY = anchorY - vp.top
+
       ctx.save()
 
-      // Translate to bottom-left corner of sidebar (in canvas coordinates)
+      // Translate to anchor point (in canvas coordinates)
       ctx.translate(canvasX, canvasY)
 
       // Rotate 90° counter-clockwise (-π/2 radians)
@@ -380,9 +387,8 @@ class VNode extends nerd.Component {
       // Draw text (after rotation, positive X moves up the sidebar)
       ctx.fillStyle = "#bbb"
       ctx.textBaseline = "middle"
-      ctx.fillText(this.te.name, 8, W_SIDEBAR / 2 + 1)
+      ctx.fillText(this.te.name, SIDEBAR_GAP, W_SIDEBAR / 2 + 1)
 
-      // Restore context state
       ctx.restore()
     }
 
