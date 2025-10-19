@@ -53,19 +53,19 @@ export class VTree extends nerd.Component {
   }
 
   // UpdateOverlay updates dynamic positioning and visibility based on viewport
-  UpdateOverlay(viewport: DOMRect) {
-    const visible = this.bbox().In(viewport)
+  UpdateOverlay() {
+    const visible = this.bbox().In(this.board.viewport)
     if (!visible) return
 
     // Recursively update all visible nodes
-    this.root.UpdateOverlay(viewport)
+    this.root.UpdateOverlay()
   }
 
   // updateWidth calculates and sets the tree width based on current open state
-  // Called by ResizeObserver (parent size change) or vtree:change event (structure change)
+  // Called by ResizeObserver (parent size change) or when structure changes
   updateWidth() {
     const computed = this.root.displayDepth() * I + W_SIDEBAR + W_MIN - G
-    const viewport = (this.parentElement?.clientWidth || 0) - G
+    const viewport = this.board.clientWidth - G
     this.style.width = `${Math.max(computed, viewport)}px`
   }
 }
@@ -352,7 +352,8 @@ class VNode extends nerd.Component {
   }
 
   // UpdateOverlay draws this node's overlay elements (sidebar name) to canvas
-  UpdateOverlay(viewport: DOMRect) {
+  UpdateOverlay() {
+    const viewport = this.vtree.board.viewport
     const visible = this.bbox().In(viewport)
     if (!visible) return
 
@@ -387,7 +388,7 @@ class VNode extends nerd.Component {
 
     // Recursively update children
     for (const child of this.childVNodes) {
-      child.UpdateOverlay(viewport)
+      child.UpdateOverlay()
     }
   }
 }

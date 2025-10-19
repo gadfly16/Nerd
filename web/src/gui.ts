@@ -10,6 +10,9 @@ import * as vertigo from "./vertigo.js"
 import "./widgets.js"
 import "./vertigo.js"
 
+// Design constants
+export const BOARDER = 8 // Board border width in pixels
+
 // Global GUI singleton - set during GUI.connectedCallback()
 let gui: GUI
 
@@ -103,73 +106,52 @@ class Workbench extends nerd.Component {
   static style = `
 		nerd-workbench {
 			display: grid;
-			grid-template-columns: 1fr 1fr;
 			grid-template-rows: auto 1fr auto;
-			grid-template-areas:
-				"header header"
-				"board_0 board_1"
-				"footer footer";
 			width: 100%;
 			height: 100%;
 		}
 
-		nerd-workbench nerd-header {
-			grid-area: header;
+		nerd-workbench .arena {
+			display: flex;
+			padding: 0 ${BOARDER}px ${BOARDER}px 0;
+			overflow: hidden;
+			background: #333;
 		}
 
-		nerd-workbench nerd-board.board_0 {
-			grid-area: board_0;
-			border: 0.5em solid #333;
-			border-width: 0.5em 0.29em 0.5em 0.5em;
+		nerd-workbench nerd-board {
+			flex: 1;
+			min-width: 0;
+			min-height: 0;
+			margin: ${BOARDER}px 0 0 ${BOARDER}px;
+			overflow: auto;
 		}
 
-		nerd-workbench nerd-board.board_1 {
-			grid-area: board_1;
-			border: 0.5em solid #333;
-			border-width: 0.5em 0.5em 0.5em 0.29em;
-		}
-
-		nerd-workbench canvas.overlay_0 {
-			grid-area: board_0;
+		nerd-workbench canvas {
+			position: absolute;
 			pointer-events: none;
 			z-index: 10;
-		}
-
-		nerd-workbench canvas.overlay_1 {
-			grid-area: board_1;
-			pointer-events: none;
-			z-index: 10;
-		}
-
-		nerd-workbench nerd-footer {
-			grid-area: footer;
 		}
 	`
 
   static html = `
 		<nerd-header></nerd-header>
-		<nerd-board class="board_0"></nerd-board>
-		<canvas class="overlay_0"></canvas>
-		<nerd-board class="board_1"></nerd-board>
-		<canvas class="overlay_1"></canvas>
+		<div class="arena">
+			<nerd-board class="board_0"></nerd-board>
+			<nerd-board class="board_1"></nerd-board>
+		</div>
 		<nerd-footer></nerd-footer>
 	`
 
   // Workbench instance fields
   cfg!: config.Workbench
   private boardElements: Board[] = []
-  overlayCanvases: HTMLCanvasElement[] = []
   private saveTimer: number | null = null
 
   connectedCallback() {
     this.innerHTML = Workbench.html
     this.boardElements = [
-      this.Query<Board>("nerd-board.board_0")!,
-      this.Query<Board>("nerd-board.board_1")!,
-    ]
-    this.overlayCanvases = [
-      this.Query<HTMLCanvasElement>("canvas.overlay_0")!,
-      this.Query<HTMLCanvasElement>("canvas.overlay_1")!,
+      this.Query("nerd-board.board_0") as Board,
+      this.Query("nerd-board.board_1") as Board,
     ]
   }
 
@@ -267,6 +249,7 @@ class Board extends nerd.Component {
 
   workbench!: Workbench
   cfg!: config.Board
+  viewport!: DOMRect
   private trees: vertigo.VTree[] = []
   canvas!: HTMLCanvasElement
   ctx!: CanvasRenderingContext2D
@@ -312,8 +295,16 @@ class Board extends nerd.Component {
   }
 
   private resizeCanvas() {
-    this.canvas.width = this.clientWidth
-    this.canvas.height = this.clientHeight
+    this.viewport = this.bbox()
+
+    // Position canvas absolutely in screen coordinates to overlay board
+    this.canvas.style.left = `${this.viewport.left}px`
+    this.canvas.style.top = `${this.viewport.top}px`
+
+    // Size canvas to match board's content area
+    this.canvas.width = this.viewport.width
+    this.canvas.height = this.viewport.height
+
     // Re-apply font after canvas resize (clears context state)
     this.ctx.font = "400 1.6ch Inter"
   }
@@ -322,10 +313,8 @@ class Board extends nerd.Component {
     // Clear canvas
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
 
-    const viewport = this.bbox()
-
     for (const tree of this.trees) {
-      tree.UpdateOverlay(viewport)
+      tree.UpdateOverlay()
     }
   }
 
@@ -359,7 +348,10 @@ class Board extends nerd.Component {
   Populate(workbench: Workbench, index: number) {
     this.workbench = workbench
     this.cfg = workbench.cfg.boards[index]
-    this.canvas = workbench.overlayCanvases[index]
+
+    // Create canvas and append to parent (arena) to avoid scrolling with board content
+    this.canvas = document.createElement("canvas")
+    this.parentElement!.appendChild(this.canvas)
     this.ctx = this.canvas.getContext("2d")!
 
     // Size canvas to match board viewport
