@@ -91,16 +91,14 @@ class GUI extends nerd.Component {
   }
 
   // SwitchToWorkbench hides auth and loads workbench
-  // Called after successful authentication (userId/admin already set by caller)
   SwitchToWorkbench() {
-    this.workbench.Init()
     this.auth.remove()
     this.appendChild(this.workbench)
+    this.workbench.Populate()
   }
 }
 
 // Workbench is the main authenticated UI with header, footer, and two board areas
-// The board areas are placeholders for future agent interaction interfaces
 class Workbench extends nerd.Component {
   static style = `
 		nerd-workbench {
@@ -179,8 +177,8 @@ class Workbench extends nerd.Component {
     this.stopAutoSave()
   }
 
-  // Init loads the tree and initializes the board displays
-  async Init() {
+  // Populate loads the tree and populates the board displays
+  async Populate() {
     try {
       // Fetch tree from server and initialize with parent pointers
       const targetId = nerd.Ctx.admin ? 1 : nerd.Ctx.userID
@@ -191,13 +189,18 @@ class Workbench extends nerd.Component {
       const savedCfg = this.loadConfig()
       this.cfg = savedCfg || structuredClone(config.defaultWorkbench)
 
-      // Render workbench
-      this.Render(this.cfg)
+      // Populate all boards with their configs
+      for (let i = 0; i < this.boardElements.length; i++) {
+        this.boardElements[i].Populate(
+          this.cfg.boards[i],
+          this.overlayCanvases[i],
+        )
+      }
 
       // Start auto-save timer
       this.startAutoSave()
     } catch (err) {
-      console.error("Failed to initialize workbench:", err)
+      console.error("Failed to populate workbench:", err)
       // TODO: Show error to user
     }
   }
@@ -235,14 +238,6 @@ class Workbench extends nerd.Component {
     if (this.saveTimer !== null) {
       clearInterval(this.saveTimer)
       this.saveTimer = null
-    }
-  }
-
-  // Render displays all boards with their configs
-  Render(cfg: config.Workbench) {
-    this.cfg = cfg
-    for (let i = 0; i < this.boardElements.length; i++) {
-      this.boardElements[i].Render(this.cfg.boards[i], this.overlayCanvases[i])
     }
   }
 
@@ -364,9 +359,9 @@ class Board extends nerd.Component {
     this.isDragging = false
   }
 
-  // Render displays all Vertigo trees for this board
+  // Populate displays all Vertigo trees for this board
   // Assumes board is already clear
-  Render(cfg: config.Board, canvas: HTMLCanvasElement) {
+  Populate(cfg: config.Board, canvas: HTMLCanvasElement) {
     this.cfg = cfg
     this.canvas = canvas
     this.ctx = this.canvas.getContext("2d")!
@@ -377,7 +372,7 @@ class Board extends nerd.Component {
     for (const treeCfg of this.cfg.trees) {
       const vertigoTree = nerd.Create("vertigo-tree") as vertigo.VTree
       this.appendChild(vertigoTree)
-      vertigoTree.Render(this.ctx, treeCfg)
+      vertigoTree.Populate(this.ctx, treeCfg)
       this.trees.push(vertigoTree)
     }
 

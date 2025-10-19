@@ -11,11 +11,6 @@ const I = W_SIDEBAR + G // Indentation per level (40px)
 const W_MIN = 640 // Minimum width for content area (60ch ≈ 960px)
 const NAME_PADDING = "0.5ch" // Horizontal padding for node names
 
-// computeWidthFromDepth calculates required tree width from maximum depth (in pixels)
-function computeWidth(maxDepth: number): number {
-  return maxDepth * I + W_SIDEBAR + W_MIN - G
-}
-
 // VTree represents a displayed subtree using the Vertigo design pattern
 export class VTree extends nerd.Component {
   static style = `
@@ -26,11 +21,10 @@ export class VTree extends nerd.Component {
 	`
 
   cfg!: config.Vertigo
-  root!: nerd.TreeEntry
   rootElem!: VNode
 
-  // Render displays the tree using Vertigo block layout
-  Render(ctx: CanvasRenderingContext2D, cfg: config.Vertigo): HTMLElement {
+  // Populate displays the tree using Vertigo block layout
+  Populate(canvas: CanvasRenderingContext2D, cfg: config.Vertigo): HTMLElement {
     this.cfg = cfg
 
     // rootId: 0 means use guiDispRoot
@@ -44,20 +38,17 @@ export class VTree extends nerd.Component {
     if (!te) {
       throw new Error(`TreeEntry with id ${cfg.rootID} not found in registry`)
     }
-    this.root = te
-
-    this.innerHTML = ""
 
     // Listen for structure change events from nodes
     this.addEventListener("vtree:change", () => this.updateWidth())
 
-    // Create root vertigo-node, add to DOM, then render
+    // Create root vertigo-node, add to DOM, then populate
     // Root node gets 0 as inheritedDispDepth (closed by default unless explicit openMap entry)
     this.rootElem = nerd.Create("vertigo-node") as VNode
     this.appendChild(this.rootElem)
-    this.rootElem.Render(ctx, te, this.cfg, 0, 0)
+    this.rootElem.Populate(canvas, te, this.cfg, 0, 0)
 
-    // Calculate initial width
+    // Set initial width
     this.updateWidth()
 
     return this
@@ -75,11 +66,9 @@ export class VTree extends nerd.Component {
   // updateWidth calculates and sets the tree width based on current open state
   // Called by ResizeObserver (parent size change) or vtree:change event (structure change)
   updateWidth() {
-    const maxDepth = this.rootElem.displayDepth()
-    const computedWidth = computeWidth(maxDepth)
-    const viewportWidth = (this.parentElement?.clientWidth || 0) - G
-    const width = Math.max(computedWidth, viewportWidth)
-    this.style.width = `${width}px`
+    const computed = this.rootElem.displayDepth() * I + W_SIDEBAR + W_MIN - G
+    const viewport = (this.parentElement?.clientWidth || 0) - G
+    this.style.width = `${Math.max(computed, viewport)}px`
   }
 }
 
@@ -148,8 +137,8 @@ class VNode extends nerd.Component {
     this.open.onclick = (e) => this.openClickHandler(e)
   }
 
-  // Render updates node state and content (works for both initial and subsequent renders)
-  Render(
+  // Populate updates node state and content (works for both initial and subsequent populates)
+  Populate(
     ctx: CanvasRenderingContext2D,
     te: nerd.TreeEntry,
     cfg: config.Vertigo,
@@ -184,10 +173,10 @@ class VNode extends nerd.Component {
         // Children not present - create them
         this.createChildren()
       }
-      // Render all children (newly created or existing)
+      // Populate all children (newly created or existing)
       const childDispDepth = this.childrenDepth()
       for (let i = 0; i < this.childVNodes.length; i++) {
-        this.childVNodes[i].Render(
+        this.childVNodes[i].Populate(
           ctx,
           this.node.children[i],
           this.cfg,
@@ -323,8 +312,8 @@ class VNode extends nerd.Component {
       }
     }
 
-    // Re-render from this node down
-    this.Render(
+    // Re-populate from this node down
+    this.Populate(
       this.ctx,
       this.node,
       this.cfg,
