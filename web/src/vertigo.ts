@@ -20,11 +20,13 @@ export class VTree extends nerd.Component {
 		}
 	`
 
+  board!: any // Import cycle prevention - Board type from gui.ts
   cfg!: config.Vertigo
-  rootElem!: VNode
+  root!: VNode
 
   // Populate displays the tree using Vertigo block layout
-  Populate(canvas: CanvasRenderingContext2D, cfg: config.Vertigo): HTMLElement {
+  Populate(board: any, cfg: config.Vertigo): HTMLElement {
+    this.board = board
     this.cfg = cfg
 
     // rootId: 0 means use guiDispRoot
@@ -39,14 +41,10 @@ export class VTree extends nerd.Component {
       throw new Error(`TreeEntry with id ${cfg.rootID} not found in registry`)
     }
 
-    // Listen for structure change events from nodes
-    this.addEventListener("vtree:change", () => this.updateWidth())
-
     // Create root vertigo-node, add to DOM, then populate
-    // Root node gets 0 as inheritedDispDepth (closed by default unless explicit openMap entry)
-    this.rootElem = nerd.Create("vertigo-node") as VNode
-    this.appendChild(this.rootElem)
-    this.rootElem.Populate(canvas, te, this.cfg, 0, 0)
+    this.root = nerd.Create("vertigo-node") as VNode
+    this.appendChild(this.root)
+    this.root.Populate(this, te, 0, 0)
 
     // Set initial width
     this.updateWidth()
@@ -55,18 +53,18 @@ export class VTree extends nerd.Component {
   }
 
   // UpdateOverlay updates dynamic positioning and visibility based on viewport
-  UpdateOverlay(ctx: CanvasRenderingContext2D, viewport: DOMRect) {
+  UpdateOverlay(viewport: DOMRect) {
     const visible = this.bbox().In(viewport)
     if (!visible) return
 
     // Recursively update all visible nodes
-    this.rootElem.UpdateOverlay(ctx, viewport)
+    this.root.UpdateOverlay(viewport)
   }
 
   // updateWidth calculates and sets the tree width based on current open state
   // Called by ResizeObserver (parent size change) or vtree:change event (structure change)
   updateWidth() {
-    const computed = this.rootElem.displayDepth() * I + W_SIDEBAR + W_MIN - G
+    const computed = this.root.displayDepth() * I + W_SIDEBAR + W_MIN - G
     const viewport = (this.parentElement?.clientWidth || 0) - G
     this.style.width = `${Math.max(computed, viewport)}px`
   }
@@ -110,9 +108,8 @@ class VNode extends nerd.Component {
 		</div>
 	`
 
-  node!: nerd.TreeEntry
-  cfg!: config.Vertigo
-  ctx!: CanvasRenderingContext2D
+  vtree!: VTree
+  te!: nerd.TreeEntry
   depth!: number
   inheritedDispDepth!: number // Display depth inherited from parent
   childVNodes: VNode[] = []
@@ -139,33 +136,30 @@ class VNode extends nerd.Component {
 
   // Populate updates node state and content (works for both initial and subsequent populates)
   Populate(
-    ctx: CanvasRenderingContext2D,
+    vtree: VTree,
     te: nerd.TreeEntry,
-    cfg: config.Vertigo,
     depth: number,
     dispDepth: number,
   ): void {
-    this.ctx = ctx
-    this.node = te
-    this.cfg = cfg
+    this.vtree = vtree
+    this.te = te
     this.depth = depth
     this.inheritedDispDepth = dispDepth
 
     // Update icon based on openMap state
-    const ome = this.cfg.openMap[this.node.id]
+    const ome = this.vtree.cfg.openMap[this.te.id]
     if (ome !== undefined && ome.open && ome.depth > 0 && ome.depth <= 9) {
-      // Node has explicit depth 1-9
-      // Circled numbers 1-9 (Unicode: ① = U+2460)
+      // Explicit depth 1-9
       this.open.textContent = String.fromCharCode(0x2460 + ome.depth - 1)
     } else if (ome !== undefined && ome.open && ome.depth === -1) {
       // Infinite depth
       this.open.textContent = "Ⓘ" // Circled I for infinite
     } else {
-      // Neutral or explicitly closed - use matching circles
+      // Neutral or explicitly closed
       this.open.textContent = this.isOpen() ? "◯" : "●"
     }
 
-    this.setName(ctx, te.name)
+    this.setName(te.name)
 
     if (this.isOpen()) {
       // Should be open
@@ -177,9 +171,8 @@ class VNode extends nerd.Component {
       const childDispDepth = this.childrenDepth()
       for (let i = 0; i < this.childVNodes.length; i++) {
         this.childVNodes[i].Populate(
-          ctx,
-          this.node.children[i],
-          this.cfg,
+          this.vtree,
+          this.te.children[i],
           this.depth + 1,
           childDispDepth,
         )
@@ -195,7 +188,7 @@ class VNode extends nerd.Component {
 
   // isOpen determines if this node should display its children
   private isOpen(): boolean {
-    const ome = this.cfg.openMap[this.node.id]
+    const ome = this.vtree.cfg.openMap[this.te.id]
 
     if (ome === undefined) {
       // Neutral node - open if inheritedDispDepth allows it
@@ -209,7 +202,7 @@ class VNode extends nerd.Component {
   // childrenDepth calculates the depth value to pass to children
   // Only call this when isOpen() returns true
   private childrenDepth(): number {
-    const ome = this.cfg.openMap[this.node.id]
+    const ome = this.vtree.cfg.openMap[this.te.id]
 
     let myDepth: number
     if (ome === undefined) {
@@ -233,18 +226,18 @@ class VNode extends nerd.Component {
 
   // openClickHandler handles all clicks on open icon based on modifier keys
   private openClickHandler(e: MouseEvent) {
-    const ome = this.cfg.openMap[this.node.id]
+    const ome = this.vtree.cfg.openMap[this.te.id]
 
     if (e.shiftKey && e.ctrlKey) {
       // Ctrl+Shift: Toggle infinite depth
       if (ome === undefined) {
         // Neutral node - set to infinite
-        this.cfg.openMap[this.node.id] = { open: true, depth: -1 }
+        this.vtree.cfg.openMap[this.te.id] = { open: true, depth: -1 }
       } else if (ome.depth === -1) {
         // Currently infinite - make neutral
         if (ome.open) {
           // Open infinite -> neutral open (delete entry)
-          delete this.cfg.openMap[this.node.id]
+          delete this.vtree.cfg.openMap[this.te.id]
         } else {
           // Closed infinite -> neutral closed
           ome.depth = 0
@@ -258,7 +251,7 @@ class VNode extends nerd.Component {
       // Shift: Increment explicit depth
       if (ome === undefined) {
         // Neutral node - add explicit depth 1
-        this.cfg.openMap[this.node.id] = { open: true, depth: 1 }
+        this.vtree.cfg.openMap[this.te.id] = { open: true, depth: 1 }
       } else if (ome.depth >= 1 && ome.depth < 9) {
         // Has explicit depth 1-8 - increment it
         ome.depth++
@@ -281,7 +274,7 @@ class VNode extends nerd.Component {
 
       if (ome.open) {
         // Currently open - remove from openMap (becomes neutral)
-        delete this.cfg.openMap[this.node.id]
+        delete this.vtree.cfg.openMap[this.te.id]
       } else {
         // Currently closed - set depth to 0 (neutral when closed)
         ome.depth = 0
@@ -292,10 +285,10 @@ class VNode extends nerd.Component {
         // Neutral node - check if currently open or closed
         if (this.inheritedDispDepth === 0) {
           // Currently closed - open it with explicit depth 1
-          this.cfg.openMap[this.node.id] = { open: true, depth: 1 }
+          this.vtree.cfg.openMap[this.te.id] = { open: true, depth: 1 }
         } else {
           // Currently open - close it explicitly
-          this.cfg.openMap[this.node.id] = { open: false, depth: 0 }
+          this.vtree.cfg.openMap[this.te.id] = { open: false, depth: 0 }
         }
       } else if (ome.open) {
         // Currently open - close it (preserve depth)
@@ -304,7 +297,7 @@ class VNode extends nerd.Component {
         // Currently closed - reopen it
         if (ome.depth === 0) {
           // Was neutral before closing - delete entry to restore neutral state
-          delete this.cfg.openMap[this.node.id]
+          delete this.vtree.cfg.openMap[this.te.id]
         } else {
           // Has depth preference - restore to open state
           ome.open = true
@@ -313,27 +306,22 @@ class VNode extends nerd.Component {
     }
 
     // Re-populate from this node down
-    this.Populate(
-      this.ctx,
-      this.node,
-      this.cfg,
-      this.depth,
-      this.inheritedDispDepth,
-    )
+    this.Populate(this.vtree, this.te, this.depth, this.inheritedDispDepth)
 
-    // Notify tree that structure changed (for width recalculation)
-    this.dispatchEvent(new CustomEvent("vtree:change", { bubbles: true }))
+    // Update tree width and overlay
+    this.vtree.updateWidth()
+    this.vtree.board.updateOverlay()
   }
 
   // setName updates the node name and measures its width for canvas rendering
-  private setName(ctx: CanvasRenderingContext2D, name: string) {
+  private setName(name: string) {
     this.headerNameElem.textContent = name
-    this.sidebarNameWidth = ctx.measureText(name).width
+    this.sidebarNameWidth = this.vtree.board.ctx.measureText(name).width
   }
 
   // createChildren creates child VNode elements and adds them to DOM (assumes container is empty)
   private createChildren() {
-    for (const child of this.node.children) {
+    for (const child of this.te.children) {
       const childNode = nerd.Create("vertigo-node") as VNode
       this.childrenDetail.appendChild(childNode)
       this.childVNodes.push(childNode)
@@ -364,7 +352,7 @@ class VNode extends nerd.Component {
   }
 
   // UpdateOverlay draws this node's overlay elements (sidebar name) to canvas
-  UpdateOverlay(ctx: CanvasRenderingContext2D, viewport: DOMRect) {
+  UpdateOverlay(viewport: DOMRect) {
     const visible = this.bbox().In(viewport)
     if (!visible) return
 
@@ -373,6 +361,8 @@ class VNode extends nerd.Component {
 
     // Only render if sidebar has height (node has children)
     if (sidebarRect.height > 0) {
+      const ctx = this.vtree.board.ctx
+
       // Convert viewport coordinates to canvas coordinates
       const canvasX = sidebarRect.left - viewport.left
       const canvasY = sidebarRect.bottom - viewport.top
@@ -389,7 +379,7 @@ class VNode extends nerd.Component {
       // Draw text (after rotation, positive X moves up the sidebar)
       ctx.fillStyle = "#bbb"
       ctx.textBaseline = "middle"
-      ctx.fillText(this.node.name, 8, W_SIDEBAR / 2 + 1)
+      ctx.fillText(this.te.name, 8, W_SIDEBAR / 2 + 1)
 
       // Restore context state
       ctx.restore()
@@ -397,7 +387,7 @@ class VNode extends nerd.Component {
 
     // Recursively update children
     for (const child of this.childVNodes) {
-      child.UpdateOverlay(ctx, viewport)
+      child.UpdateOverlay(viewport)
     }
   }
 }

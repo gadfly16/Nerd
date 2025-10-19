@@ -158,7 +158,7 @@ class Workbench extends nerd.Component {
   // Workbench instance fields
   cfg!: config.Workbench
   private boardElements: Board[] = []
-  private overlayCanvases: HTMLCanvasElement[] = []
+  overlayCanvases: HTMLCanvasElement[] = []
   private saveTimer: number | null = null
 
   connectedCallback() {
@@ -191,10 +191,7 @@ class Workbench extends nerd.Component {
 
       // Populate all boards with their configs
       for (let i = 0; i < this.boardElements.length; i++) {
-        this.boardElements[i].Populate(
-          this.cfg.boards[i],
-          this.overlayCanvases[i],
-        )
+        this.boardElements[i].Populate(this, i)
       }
 
       // Start auto-save timer
@@ -268,10 +265,11 @@ class Board extends nerd.Component {
 
   static html = ``
 
+  workbench!: Workbench
   cfg!: config.Board
   private trees: vertigo.VTree[] = []
-  private canvas!: HTMLCanvasElement
-  private ctx!: CanvasRenderingContext2D
+  canvas!: HTMLCanvasElement
+  ctx!: CanvasRenderingContext2D
   private isDragging = false
   private dragStartX = 0
   private dragStartY = 0
@@ -299,9 +297,6 @@ class Board extends nerd.Component {
         this.updateOverlay()
       })
     })
-
-    // Listen for tree structure changes to update overlay
-    this.addEventListener("vtree:change", () => this.updateOverlay())
   }
 
   disconnectedCallback() {
@@ -330,7 +325,7 @@ class Board extends nerd.Component {
     const viewport = this.bbox()
 
     for (const tree of this.trees) {
-      tree.UpdateOverlay(this.ctx, viewport)
+      tree.UpdateOverlay(viewport)
     }
   }
 
@@ -361,9 +356,10 @@ class Board extends nerd.Component {
 
   // Populate displays all Vertigo trees for this board
   // Assumes board is already clear
-  Populate(cfg: config.Board, canvas: HTMLCanvasElement) {
-    this.cfg = cfg
-    this.canvas = canvas
+  Populate(workbench: Workbench, index: number) {
+    this.workbench = workbench
+    this.cfg = workbench.cfg.boards[index]
+    this.canvas = workbench.overlayCanvases[index]
     this.ctx = this.canvas.getContext("2d")!
 
     // Size canvas to match board viewport
@@ -372,7 +368,7 @@ class Board extends nerd.Component {
     for (const treeCfg of this.cfg.trees) {
       const vertigoTree = nerd.Create("vertigo-tree") as vertigo.VTree
       this.appendChild(vertigoTree)
-      vertigoTree.Populate(this.ctx, treeCfg)
+      vertigoTree.Populate(this, treeCfg)
       this.trees.push(vertigoTree)
     }
 
