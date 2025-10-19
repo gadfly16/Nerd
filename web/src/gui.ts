@@ -131,6 +131,18 @@ class Workbench extends nerd.Component {
 			border-width: 0.5em 0.5em 0.5em 0.29em;
 		}
 
+		nerd-workbench canvas.overlay_0 {
+			grid-area: board_0;
+			pointer-events: none;
+			z-index: 10;
+		}
+
+		nerd-workbench canvas.overlay_1 {
+			grid-area: board_1;
+			pointer-events: none;
+			z-index: 10;
+		}
+
 		nerd-workbench nerd-footer {
 			grid-area: footer;
 		}
@@ -139,13 +151,16 @@ class Workbench extends nerd.Component {
   static html = `
 		<nerd-header></nerd-header>
 		<nerd-board class="board_0"></nerd-board>
+		<canvas class="overlay_0"></canvas>
 		<nerd-board class="board_1"></nerd-board>
+		<canvas class="overlay_1"></canvas>
 		<nerd-footer></nerd-footer>
 	`
 
   // Workbench instance fields
   cfg!: config.Workbench
   private boardElements: Board[] = []
+  private overlayCanvases: HTMLCanvasElement[] = []
   private saveTimer: number | null = null
 
   connectedCallback() {
@@ -153,6 +168,10 @@ class Workbench extends nerd.Component {
     this.boardElements = [
       this.Query<Board>("nerd-board.board_0")!,
       this.Query<Board>("nerd-board.board_1")!,
+    ]
+    this.overlayCanvases = [
+      this.Query<HTMLCanvasElement>("canvas.overlay_0")!,
+      this.Query<HTMLCanvasElement>("canvas.overlay_1")!,
     ]
   }
 
@@ -223,7 +242,7 @@ class Workbench extends nerd.Component {
   Render(cfg: config.Workbench) {
     this.cfg = cfg
     for (let i = 0; i < this.boardElements.length; i++) {
-      this.boardElements[i].Render(this.cfg.boards[i])
+      this.boardElements[i].Render(this.cfg.boards[i], this.overlayCanvases[i])
     }
   }
 
@@ -250,18 +269,9 @@ class Board extends nerd.Component {
 		nerd-board::-webkit-scrollbar {
 			display: none; /* Chrome, Safari, Edge */
 		}
-
-		nerd-board canvas {
-			position: absolute;
-			top: 0;
-			left: 0;
-			pointer-events: none;
-		}
 	`
 
-  static html = `
-		<canvas></canvas>
-	`
+  static html = ``
 
   cfg!: config.Board
   private trees: vertigo.VTree[] = []
@@ -277,25 +287,6 @@ class Board extends nerd.Component {
 
   connectedCallback() {
     this.innerHTML = Board.html
-    this.canvas = this.Query("canvas")!
-    this.ctx = this.canvas.getContext("2d")!
-
-    // Set up canvas font (matches sidebar name styling)
-    this.ctx.font = "500 1.2em Inter"
-
-    // Size canvas to match board viewport
-    this.resizeCanvas()
-
-    // Watch for size changes
-    this.resizeObs = new ResizeObserver(() => {
-      this.resizeCanvas()
-      // Recalculate tree widths (no re-render needed)
-      for (const tree of this.trees) {
-        tree.updateWidth()
-      }
-      this.updateOverlay()
-    })
-    this.resizeObs.observe(this)
 
     // MMB drag scrolling
     this.addEventListener("mousedown", (e) => this.handleMouseDown(e))
@@ -313,6 +304,9 @@ class Board extends nerd.Component {
         this.updateOverlay()
       })
     })
+
+    // Listen for tree structure changes to update overlay
+    this.addEventListener("vtree:change", () => this.updateOverlay())
   }
 
   disconnectedCallback() {
@@ -331,7 +325,7 @@ class Board extends nerd.Component {
     this.canvas.width = this.clientWidth
     this.canvas.height = this.clientHeight
     // Re-apply font after canvas resize (clears context state)
-    this.ctx.font = "500 1.2em Inter"
+    this.ctx.font = "400 1.6ch Inter"
   }
 
   private updateOverlay() {
@@ -372,8 +366,13 @@ class Board extends nerd.Component {
 
   // Render displays all Vertigo trees for this board
   // Assumes board is already clear
-  Render(cfg: config.Board) {
+  Render(cfg: config.Board, canvas: HTMLCanvasElement) {
     this.cfg = cfg
+    this.canvas = canvas
+    this.ctx = this.canvas.getContext("2d")!
+
+    // Size canvas to match board viewport
+    this.resizeCanvas()
 
     for (const treeCfg of this.cfg.trees) {
       const vertigoTree = nerd.Create("vertigo-tree") as vertigo.VTree
@@ -381,6 +380,17 @@ class Board extends nerd.Component {
       vertigoTree.Render(this.ctx, treeCfg)
       this.trees.push(vertigoTree)
     }
+
+    // Watch for size changes
+    this.resizeObs = new ResizeObserver(() => {
+      this.resizeCanvas()
+      // Recalculate tree widths (no re-render needed)
+      for (const tree of this.trees) {
+        tree.updateWidth()
+      }
+      this.updateOverlay()
+    })
+    this.resizeObs.observe(this)
 
     // Trigger initial overlay update
     this.updateOverlay()

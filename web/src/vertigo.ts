@@ -49,7 +49,7 @@ export class VTree extends nerd.Component {
     this.innerHTML = ""
 
     // Listen for structure change events from nodes
-    this.addEventListener("vertigo:change", () => this.updateWidth())
+    this.addEventListener("vtree:change", () => this.updateWidth())
 
     // Create root vertigo-node, add to DOM, then render
     // Root node gets 0 as inheritedDispDepth (closed by default unless explicit openMap entry)
@@ -73,7 +73,7 @@ export class VTree extends nerd.Component {
   }
 
   // updateWidth calculates and sets the tree width based on current open state
-  // Called by ResizeObserver (parent size change) or vertigo:change event (structure change)
+  // Called by ResizeObserver (parent size change) or vtree:change event (structure change)
   updateWidth() {
     const maxDepth = this.rootElem.displayDepth()
     const computedWidth = computeWidth(maxDepth)
@@ -333,13 +333,12 @@ class VNode extends nerd.Component {
     )
 
     // Notify tree that structure changed (for width recalculation)
-    this.dispatchEvent(new CustomEvent("vertigo:change", { bubbles: true }))
+    this.dispatchEvent(new CustomEvent("vtree:change", { bubbles: true }))
   }
 
   // setName updates the node name and measures its width for canvas rendering
   private setName(ctx: CanvasRenderingContext2D, name: string) {
     this.headerNameElem.textContent = name
-    // Measure text width using canvas context for later overlay rendering
     this.sidebarNameWidth = ctx.measureText(name).width
   }
 
@@ -380,8 +379,32 @@ class VNode extends nerd.Component {
     const visible = this.bbox().In(viewport)
     if (!visible) return
 
-    // TODO: Calculate sidebar name position from getBoundingClientRect()
-    // TODO: Draw rotated text on canvas
+    // Get sidebar bounding box (viewport coordinates)
+    const sidebarRect = this.sidebar.bbox()
+
+    // Only render if sidebar has height (node has children)
+    if (sidebarRect.height > 0) {
+      // Convert viewport coordinates to canvas coordinates
+      const canvasX = sidebarRect.left - viewport.left
+      const canvasY = sidebarRect.bottom - viewport.top
+
+      // Save context state
+      ctx.save()
+
+      // Translate to bottom-left corner of sidebar (in canvas coordinates)
+      ctx.translate(canvasX, canvasY)
+
+      // Rotate 90° counter-clockwise (-π/2 radians)
+      ctx.rotate(-Math.PI / 2)
+
+      // Draw text (after rotation, positive X moves up the sidebar)
+      ctx.fillStyle = "#bbb"
+      ctx.textBaseline = "middle"
+      ctx.fillText(this.node.name, 8, W_SIDEBAR / 2 + 1)
+
+      // Restore context state
+      ctx.restore()
+    }
 
     // Recursively update children
     for (const child of this.childVNodes) {
