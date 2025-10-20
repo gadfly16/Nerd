@@ -238,6 +238,7 @@ class Board extends nerd.Component {
 			color: #ccc;
 			overflow: auto;
 			scrollbar-width: none; /* Firefox */
+			overscroll-behavior: none; /* Prevent bounce/rubber-band effect */
 		}
 
 		nerd-board::-webkit-scrollbar {
@@ -259,6 +260,7 @@ class Board extends nerd.Component {
   private dragScrollLeft = 0
   private dragScrollTop = 0
   private resizeObs!: ResizeObserver
+  private rafScheduled = false
 
   connectedCallback() {
     this.innerHTML = Board.html
@@ -269,9 +271,15 @@ class Board extends nerd.Component {
     this.addEventListener("mouseup", () => this.handleMouseUp())
     this.addEventListener("mouseleave", () => this.handleMouseUp())
 
-    // Scroll listener - update overlay synchronously to avoid frame lag
+    // Scroll listener - batch updates with RAF to avoid redundant calculations
     this.addEventListener("scroll", () => {
-      this.updateOverlay()
+      if (!this.rafScheduled) {
+        this.rafScheduled = true
+        requestAnimationFrame(() => {
+          this.rafScheduled = false
+          this.updateOverlay()
+        })
+      }
     })
   }
 
@@ -299,7 +307,7 @@ class Board extends nerd.Component {
     this.canvas.height = this.viewport.height
 
     // Re-apply font after canvas resize (clears context state)
-    this.ctx.font = "400 1.6ch Inter"
+    this.ctx.font = "400 16px Inter"
   }
 
   private updateOverlay() {
