@@ -315,7 +315,7 @@ class Board extends nerd.Component {
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
 
     for (const tree of this.trees) {
-      tree.UpdateOverlay()
+      if (!tree.UpdateOverlay()) break
     }
   }
 

@@ -8,7 +8,7 @@ import "./util.js" // Side effect: extends DOMRect.prototype
 const W_SIDEBAR = 28 // Width of sidebar/icon block (2ch ≈ 32px at 16px font)
 const G = 6 // Gap between nodes (0.5ch ≈ 8px)
 const I = W_SIDEBAR + G // Indentation per level (40px)
-const W_MIN = 640 // Minimum width for content area (60ch ≈ 960px)
+const W_MIN = 320 // Minimum width for content area (60ch ≈ 960px)
 const NAME_PADDING = "0.5ch" // Horizontal padding for node names
 const SIDEBAR_GAP = 8 // Gap above/below sidebar name text
 
@@ -65,12 +65,19 @@ export class VTree extends nerd.Component {
   }
 
   // UpdateOverlay updates dynamic positioning and visibility based on viewport
-  UpdateOverlay() {
-    const visible = this.bbox().In(this.board.viewport)
-    if (!visible) return
+  // Returns false if tree is below viewport (signals caller to stop iterating)
+  UpdateOverlay(): boolean {
+    const vp = this.board.viewport
+    const bb = this.bbox()
+
+    if (!bb.In(vp)) {
+      // Not in viewport - return false if below (stop signal), true if above (continue)
+      return bb.top <= vp.bottom
+    }
 
     // Recursively update all visible nodes
     this.root.UpdateOverlay()
+    return true
   }
 
   // updateWidth calculates and sets the tree width based on current open state
@@ -108,6 +115,7 @@ class VNode extends nerd.Component {
 			grid-area: 2 / 2;
 			display: flex;
 			flex-direction: column;
+			background-color: hsl(var(--base-hue), 20%, 42%);
 		}
 	`
 
@@ -376,9 +384,15 @@ class VNode extends nerd.Component {
   }
 
   // UpdateOverlay draws this node's overlay elements (type and name) to canvas
-  UpdateOverlay() {
+  // Returns false if node is below viewport (signals caller to stop iterating siblings)
+  UpdateOverlay(): boolean {
     const vp = this.vtree.board.viewport
-    if (!this.bbox().In(vp)) return
+    const bb = this.bbox()
+
+    if (!bb.In(vp)) {
+      // Not in viewport - return false if below (stop signal), true if above (continue)
+      return bb.top <= vp.bottom
+    }
 
     // Get sidebar bounding box (viewport coordinates)
     const sb = this.sidebar.bbox()
@@ -430,8 +444,10 @@ class VNode extends nerd.Component {
 
     // Recursively update children
     for (const child of this.childVNodes) {
-      child.UpdateOverlay()
+      if (!child.UpdateOverlay()) break
     }
+
+    return true
   }
 }
 
