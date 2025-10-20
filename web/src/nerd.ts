@@ -2,6 +2,31 @@
 
 import { imsg } from "./imsg.js"
 
+// NodeType enum - must match api/node/types.go
+export enum NodeType {
+  Group = 0,
+  Root = 1,
+  Authenticator = 2,
+  User = 3,
+  BuiltinSeparator = 4,
+}
+
+// nodeTypeName returns the string representation of a NodeType
+export function nodeTypeName(nt: number): string {
+  switch (nt) {
+    case NodeType.Group:
+      return "Group"
+    case NodeType.Root:
+      return "Root"
+    case NodeType.Authenticator:
+      return "Authenticator"
+    case NodeType.User:
+      return "User"
+    default:
+      return "Unknown"
+  }
+}
+
 // TreeRegistry is a global map of node ID to TreeEntry for fast lookups
 export const Nodes = new Map<number, TreeEntry>()
 
@@ -11,19 +36,26 @@ export const Nodes = new Map<number, TreeEntry>()
 export class TreeEntry {
   id: number
   name: string
+  nodeType: number
   children: TreeEntry[]
   parent: TreeEntry | null = null
 
-  constructor(id: number, name: string, children: TreeEntry[] = []) {
+  constructor(
+    id: number,
+    name: string,
+    nodeType: number,
+    children: TreeEntry[] = [],
+  ) {
     this.id = id
     this.name = name
+    this.nodeType = nodeType
     this.children = children
   }
 
   // init converts plain JSON object to TreeEntry instances and sets parent pointers
   // Also populates the global TreeRegistry for fast lookups
   static init(obj: any, parent: TreeEntry | null = null): TreeEntry {
-    const entry = new TreeEntry(obj.nodeId, obj.name, [])
+    const entry = new TreeEntry(obj.nodeId, obj.name, obj.nodeType, [])
     entry.parent = parent
 
     // Register in global map

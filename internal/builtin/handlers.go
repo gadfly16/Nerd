@@ -115,8 +115,9 @@ func handleGetTree(_ *msg.Msg, n node.Node) (any, error) {
 
 	// Build tree entry for this node
 	entry := &msg.TreeEntry{
-		NodeID: e.NodeID,
-		Name:   e.Name,
+		NodeID:   e.NodeID,
+		Name:     e.Name,
+		NodeType: e.NodeType,
 	}
 
 	// Build children entries (always full subtree)

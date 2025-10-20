@@ -71,9 +71,10 @@ type RenameChildPayload struct {
 
 // TreeEntry represents a node and its children in the tree structure
 type TreeEntry struct {
-	NodeID   nerd.NodeID  `json:"nodeId"`
-	Name     string       `json:"name"`
-	Children []*TreeEntry `json:"children"`
+	NodeID   nerd.NodeID   `json:"nodeId"`
+	Name     string        `json:"name"`
+	NodeType nerd.NodeType `json:"nodeType"`
+	Children []*TreeEntry  `json:"children"`
 }
 
 // CredentialsPayload contains username and password for authentication and user creation

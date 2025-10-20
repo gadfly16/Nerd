@@ -12,6 +12,15 @@ const W_MIN = 640 // Minimum width for content area (60ch ≈ 960px)
 const NAME_PADDING = "0.5ch" // Horizontal padding for node names
 const SIDEBAR_GAP = 8 // Gap above/below sidebar name text
 
+// TypeName stores the display name and measured width for a node type
+interface TypeName {
+  name: string
+  size: number // Measured width in pixels, 0 means not yet measured
+}
+
+// TypeNames is a global map from node type to TypeName (lazy-initialized widths)
+const TypeNames = new Map<number, TypeName>()
+
 // VTree represents a displayed subtree using the Vertigo design pattern
 export class VTree extends nerd.Component {
   static style = `
@@ -116,6 +125,7 @@ class VNode extends nerd.Component {
   inheritedDispDepth!: number // Display depth inherited from parent
   childVNodes: VNode[] = []
   sidebarNameWidth: number = 0 // Cached width of sidebar name text
+  typeName!: TypeName // Reference to TypeName entry for this node's type
 
   // Cached DOM elements
   open!: Open
@@ -147,6 +157,14 @@ class VNode extends nerd.Component {
     this.te = te
     this.depth = depth
     this.inheritedDispDepth = dispDepth
+
+    // Get TypeName and lazy-measure width if not yet measured
+    this.typeName = TypeNames.get(te.nodeType)!
+    if (this.typeName.size === 0) {
+      this.typeName.size = this.vtree.board.ctx.measureText(
+        this.typeName.name,
+      ).width
+    }
 
     // Update icon based on openMap state
     const ome = this.vtree.cfg.openMap[this.te.id]
@@ -353,42 +371,56 @@ class VNode extends nerd.Component {
     return maxDepth
   }
 
-  // UpdateOverlay draws this node's overlay elements (sidebar name) to canvas
+  // UpdateOverlay draws this node's overlay elements (type and name) to canvas
   UpdateOverlay() {
     const vp = this.vtree.board.viewport
     if (!this.bbox().In(vp)) return
 
     // Get sidebar bounding box (viewport coordinates)
     const sb = this.sidebar.bbox()
+    const typeRoom = this.typeName.size + 2 * SIDEBAR_GAP
     const nameRoom = this.sidebarNameWidth + 2 * SIDEBAR_GAP
+    const effNameRoom = sb.height >= typeRoom + nameRoom ? nameRoom : 0
 
-    // Only render if sidebar has enough space for the name
-    if (sb.height >= nameRoom) {
-      const ctx = this.vtree.board.ctx
+    const ctx = this.vtree.board.ctx
+    ctx.fillStyle = "#bbb"
+    ctx.textBaseline = "middle"
 
-      // Calculate name anchor position (stick to viewport bottom when possible)
-      const anchorY = Math.min(
-        sb.bottom,
-        Math.max(vp.bottom, sb.top + nameRoom),
+    // Draw type name (priority - sticks to top)
+    if (sb.height >= typeRoom) {
+      // Calculate type anchor position (anchor at top, draws downward with clockwise rotation)
+      const typeAnchorY = Math.max(
+        sb.top,
+        Math.min(vp.top, sb.bottom - typeRoom - effNameRoom),
       )
 
       // Convert viewport coordinates to canvas coordinates
       const canvasX = sb.left - vp.left
-      const canvasY = anchorY - vp.top
+      const canvasY = typeAnchorY - vp.top
 
       ctx.save()
-
-      // Translate to anchor point (in canvas coordinates)
       ctx.translate(canvasX, canvasY)
+      ctx.rotate(Math.PI / 2) // Rotate clockwise to distinguish from node name
+      ctx.fillText(this.typeName.name, SIDEBAR_GAP, -W_SIDEBAR / 2)
+      ctx.restore()
+    }
 
-      // Rotate 90° counter-clockwise (-π/2 radians)
+    // Draw node name (sticks to bottom, only if there's room after type)
+    if (effNameRoom) {
+      // Calculate name anchor position (stick to viewport bottom when possible)
+      const nameAnchorY = Math.min(
+        sb.bottom,
+        Math.max(vp.bottom, sb.top + typeRoom + nameRoom),
+      )
+
+      // Convert viewport coordinates to canvas coordinates
+      const canvasX = sb.left - vp.left
+      const canvasY = nameAnchorY - vp.top
+
+      ctx.save()
+      ctx.translate(canvasX, canvasY)
       ctx.rotate(-Math.PI / 2)
-
-      // Draw text (after rotation, positive X moves up the sidebar)
-      ctx.fillStyle = "#bbb"
-      ctx.textBaseline = "middle"
       ctx.fillText(this.te.name, SIDEBAR_GAP, W_SIDEBAR / 2 + 1)
-
       ctx.restore()
     }
 
@@ -448,6 +480,12 @@ class Header extends nerd.Component {
 		}
 	`
 }
+
+// Initialize TypeNames map with all known node types
+TypeNames.set(nerd.NodeType.Group, { name: "Group", size: 0 })
+TypeNames.set(nerd.NodeType.Root, { name: "Root", size: 0 })
+TypeNames.set(nerd.NodeType.Authenticator, { name: "Authenticator", size: 0 })
+TypeNames.set(nerd.NodeType.User, { name: "User", size: 0 })
 
 // Register the Vertigo components
 VTree.register("vertigo-tree")
