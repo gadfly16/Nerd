@@ -12,14 +12,15 @@ const W_MIN = 640 // Minimum width for content area (60ch ≈ 960px)
 const NAME_PADDING = "0.5ch" // Horizontal padding for node names
 const SIDEBAR_GAP = 8 // Gap above/below sidebar name text
 
-// TypeName stores the display name and measured width for a node type
-interface TypeName {
+// TypeInfo stores the display name, measured width, and base hue for a node type
+interface TypeInfo {
   name: string
   size: number // Measured width in pixels, 0 means not yet measured
+  hue: number // Base hue value (0-360) for HSL color derivation
 }
 
-// TypeNames is a global map from node type to TypeName (lazy-initialized widths)
-const TypeNames = new Map<number, TypeName>()
+// TypeInfos is a global map from node type to TypeInfo (lazy-initialized widths)
+const TypeInfos = new Map<number, TypeInfo>()
 
 // VTree represents a displayed subtree using the Vertigo design pattern
 export class VTree extends nerd.Component {
@@ -125,7 +126,7 @@ class VNode extends nerd.Component {
   inheritedDispDepth!: number // Display depth inherited from parent
   childVNodes: VNode[] = []
   sidebarNameWidth: number = 0 // Cached width of sidebar name text
-  typeName!: TypeName // Reference to TypeName entry for this node's type
+  typeInfo!: TypeInfo // Reference to TypeInfo entry for this node's type
 
   // Cached DOM elements
   open!: Open
@@ -159,12 +160,15 @@ class VNode extends nerd.Component {
     this.inheritedDispDepth = dispDepth
 
     // Get TypeName and lazy-measure width if not yet measured
-    this.typeName = TypeNames.get(te.nodeType)!
-    if (this.typeName.size === 0) {
-      this.typeName.size = this.vtree.board.ctx.measureText(
-        this.typeName.name,
+    this.typeInfo = TypeInfos.get(te.nodeType)!
+    if (this.typeInfo.size === 0) {
+      this.typeInfo.size = this.vtree.board.ctx.measureText(
+        this.typeInfo.name,
       ).width
     }
+
+    // Set base hue for color derivation
+    this.style.setProperty("--base-hue", this.typeInfo.hue.toString())
 
     // Update icon based on openMap state
     const ome = this.vtree.cfg.openMap[this.te.id]
@@ -378,12 +382,12 @@ class VNode extends nerd.Component {
 
     // Get sidebar bounding box (viewport coordinates)
     const sb = this.sidebar.bbox()
-    const typeRoom = this.typeName.size + 2 * SIDEBAR_GAP
+    const typeRoom = this.typeInfo.size + 2 * SIDEBAR_GAP
     const nameRoom = this.sidebarNameWidth + 2 * SIDEBAR_GAP
     const effNameRoom = sb.height >= typeRoom + nameRoom ? nameRoom : 0
 
     const ctx = this.vtree.board.ctx
-    ctx.fillStyle = "#bbb"
+    ctx.fillStyle = "#bbbb"
     ctx.textBaseline = "middle"
 
     // Draw type name (priority - sticks to top)
@@ -401,7 +405,7 @@ class VNode extends nerd.Component {
       ctx.save()
       ctx.translate(canvasX, canvasY)
       ctx.rotate(Math.PI / 2) // Rotate clockwise to distinguish from node name
-      ctx.fillText(this.typeName.name, SIDEBAR_GAP, -W_SIDEBAR / 2)
+      ctx.fillText(this.typeInfo.name, SIDEBAR_GAP, -W_SIDEBAR / 2)
       ctx.restore()
     }
 
@@ -439,11 +443,11 @@ class Open extends nerd.Component {
 			align-items: center;
 			justify-content: center;
 			width: ${W_SIDEBAR}px;
-			background-color: #666;
+			background-color: hsl(var(--base-hue), 20%, 35%);
 			cursor: pointer;
 			user-select: none;
 			font-size: 0.66em;
-			color: #bbb;
+			color: hsl(var(--base-hue), 20%, 70%);
 		}
 	`
 }
@@ -454,7 +458,7 @@ class Sidebar extends nerd.Component {
 		vertigo-sidebar {
 			display: block;
 			width: ${W_SIDEBAR}px;
-			background-color: #666;
+			background-color: hsl(var(--base-hue), 20%, 35%);
 		}
 	`
 }
@@ -464,10 +468,10 @@ class Header extends nerd.Component {
   static style = `
 		vertigo-header {
 			display: block;
-			background-color: #999;
+			background-color: hsl(var(--base-hue), 5%, 55%);
 			padding: 0.2ch;
 			padding-left: ${NAME_PADDING};
-			color: #666;
+			color: hsl(var(--base-hue), 15%, 25%);
 			font-size: 1.2em;
 			font-weight: 500;
 		}
@@ -476,16 +480,20 @@ class Header extends nerd.Component {
 			position: sticky;
 			left: ${NAME_PADDING};
 			display: inline-block;
-			background-color: #999;
 		}
 	`
 }
 
-// Initialize TypeNames map with all known node types
-TypeNames.set(nerd.NodeType.Group, { name: "Group", size: 0 })
-TypeNames.set(nerd.NodeType.Root, { name: "Root", size: 0 })
-TypeNames.set(nerd.NodeType.Authenticator, { name: "Authenticator", size: 0 })
-TypeNames.set(nerd.NodeType.User, { name: "User", size: 0 })
+// Initialize TypeInfos map with all known node types
+// Hues centered around blue (240°), clustered closer together
+TypeInfos.set(nerd.NodeType.Group, { name: "Group", size: 0, hue: 200 })
+TypeInfos.set(nerd.NodeType.Root, { name: "Root", size: 0, hue: 260 })
+TypeInfos.set(nerd.NodeType.Authenticator, {
+  name: "Authenticator",
+  size: 0,
+  hue: 220,
+})
+TypeInfos.set(nerd.NodeType.User, { name: "User", size: 0, hue: 240 })
 
 // Register the Vertigo components
 VTree.register("vertigo-tree")
