@@ -15,7 +15,7 @@ const SIDEBAR_GAP = 8 // Gap above/below sidebar name text
 // TypeInfo stores the display name, measured width, and base hue for a node type
 interface TypeInfo {
   name: string
-  size: number // Measured width in pixels, 0 means not yet measured
+  size: number // 0 means not yet measured
   hue: number // Base hue value (0-360) for HSL color derivation
 }
 

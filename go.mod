@@ -3,6 +3,7 @@ module github.com/gadfly16/nerd
 go 1.24.6
 
 require (
+	github.com/coder/websocket v1.8.14
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/spf13/cobra v1.10.1
 	golang.org/x/crypto v0.42.0
@@ -11,7 +12,6 @@ require (
 )
 
 require (
-	github.com/coder/websocket v1.8.14 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jinzhu/inflection v1.0.0 // indirect
 	github.com/jinzhu/now v1.1.5 // indirect

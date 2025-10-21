@@ -81,19 +81,21 @@ export class TreeEntry {
 }
 
 // GUIContext holds minimal global state needed across components
-// Simple data object - no methods, no coupling
 export const Ctx: {
   userID: number
   admin: boolean
   dispRoot: TreeEntry | null
+  status: HTMLElement | null
+  statusMessage: HTMLElement | null
 } = {
   userID: 0,
   admin: false,
   dispRoot: null,
+  status: null,
+  statusMessage: null,
 }
 
 // Component provides base functionality for all custom elements
-// Uses global style injection rather than shadow DOM for simplicity
 export class Component extends HTMLElement {
   static style = ""
 
@@ -126,8 +128,6 @@ export class Component extends HTMLElement {
 }
 
 // Ask sends an API message to the server and returns the response payload
-// Throws on HTTP errors or network failures
-// On 401 Unauthorized, dispatches event for security handling
 export async function Ask(
   type: imsg,
   targetId: number,
@@ -150,7 +150,6 @@ export async function Ask(
 }
 
 // AskAuth sends an authentication message to the server
-// Used for login, registration, and logout
 export async function AskAuth(type: imsg, pl: any): Promise<any> {
   const response = await fetch("/auth", {
     method: "POST",
@@ -166,8 +165,6 @@ export async function AskAuth(type: imsg, pl: any): Promise<any> {
 }
 
 // AskGetTree fetches the tree structure from the server
-// For admins: fetches entire tree from Root (targetId = 1)
-// For users: fetches subtree rooted at user node (targetId = userId)
 export async function AskGetTree(targetId: number): Promise<TreeEntry> {
   return (await Ask(imsg.GetTree, targetId)) as TreeEntry
 }
@@ -175,4 +172,30 @@ export async function AskGetTree(targetId: number): Promise<TreeEntry> {
 // Create is a shorthand for document.createElement
 export function Create(tagName: string): HTMLElement {
   return document.createElement(tagName)
+}
+
+// Status types
+export enum Status {
+  OK,
+  Warning,
+  Error,
+}
+
+// Status hue mapping (for HSL color system)
+const STATUS_HUES = new Map<Status, number>([
+  [Status.OK, 120], // Green
+  [Status.Warning, 60], // Yellow
+  [Status.Error, 0], // Red
+])
+
+// Log updates the status indicator and displays message
+export function Log(status: Status, message: string) {
+  // Log to console
+  const statusName = Status[status]
+  console.log(`${new Date().toISOString()}:  ${statusName}: ${message}`)
+
+  // Set status hue via CSS variable
+  const hue = STATUS_HUES.get(status) || 0
+  Ctx.status!.style.setProperty("--base-hue", hue.toString())
+  Ctx.statusMessage!.textContent = message
 }

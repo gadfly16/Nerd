@@ -12,6 +12,8 @@ import "./vertigo.js"
 
 // Design constants
 export const BOARDER = 8 // Board border width in pixels
+export const STATUS_S = 20 // Status indicator size in pixels
+export const FOOTER_H = 32 // Footer height in pixels
 
 // Global GUI singleton - set during GUI.connectedCallback()
 let gui: GUI
@@ -148,6 +150,7 @@ class Workbench extends nerd.Component {
   private saveTimer: number | null = null
   private ws: WebSocket | null = null
   private guiNodeId: number = 0
+  private footer!: Footer
 
   connectedCallback() {
     this.innerHTML = Workbench.html
@@ -155,6 +158,7 @@ class Workbench extends nerd.Component {
       this.Query("nerd-board.board_0") as Board,
       this.Query("nerd-board.board_1") as Board,
     ]
+    this.footer = this.Query("nerd-footer") as Footer
   }
 
   disconnectedCallback() {
@@ -241,7 +245,7 @@ class Workbench extends nerd.Component {
     this.ws = new WebSocket(wsUrl)
 
     this.ws.onopen = () => {
-      console.log("WebSocket connected")
+      nerd.Log(nerd.Status.OK, "WebSocket connected")
     }
 
     this.ws.onmessage = (event) => {
@@ -250,11 +254,12 @@ class Workbench extends nerd.Component {
     }
 
     this.ws.onerror = (error) => {
-      console.error("WebSocket error:", error)
+      nerd.Log(nerd.Status.Error, "WebSocket error")
     }
 
-    this.ws.onclose = () => {
-      console.log("WebSocket closed")
+    this.ws.onclose = (event) => {
+      const reason = event.reason || "Connection closed"
+      nerd.Log(nerd.Status.Error, reason)
     }
   }
 
@@ -441,7 +446,7 @@ class Header extends nerd.Component {
 			display: flex;
 			justify-content: space-between;
 			align-items: center;
-			background: #222;
+			background: #444;
 			color: white;
 			padding: 1rem;
 			font-size: 1.2rem;
@@ -476,20 +481,47 @@ class Header extends nerd.Component {
 class Footer extends nerd.Component {
   static style = `
 		nerd-footer {
-			display: block;
-			background: #222;
-			color: white;
-			padding: 1rem;
-			text-align: center;
+			display: flex;
+			align-items: center;
+			background: #444;
+			height: ${FOOTER_H}px;
+		}
+
+		nerd-footer .status {
+			display: flex;
+			align-items: center;
+			padding: ${BOARDER}px;
+			opacity: 0.5;
+		}
+
+		nerd-footer .icon {
+			width: ${STATUS_S}px;
+			height: ${STATUS_S}px;
+			background: hsl(var(--base-hue), 90%, 35%);
+		}
+
+		nerd-footer .message {
+			height: ${STATUS_S}px;
+			display: flex;
+			align-items: center;
+			padding: 0 6px;
+			background: hsl(var(--base-hue), 20%, 75%);
+			color: hsl(var(--base-hue), 60%, 20%);
+			font-size: 14px;
 		}
 	`
 
   static html = `
-		Footer
+		<div class="status">
+			<div class="icon"></div>
+			<div class="message"></div>
+		</div>
 	`
 
   connectedCallback() {
     this.innerHTML = Footer.html
+    nerd.Ctx.status = this.Query(".status")!
+    nerd.Ctx.statusMessage = this.Query(".message")!
   }
 }
 
