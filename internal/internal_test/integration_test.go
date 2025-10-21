@@ -30,7 +30,7 @@ func TestIntegration(t *testing.T) {
 
 	// Ensure tree shutdown for clean test isolation
 	defer func() {
-		_, err := tree.AskNode(imsg.IMsg{
+		_, err := tree.IAsk(imsg.IMsg{
 			Type:     imsg.Shutdown,
 			TargetID: 1, // Root node
 			UserID:   1,
@@ -42,7 +42,7 @@ func TestIntegration(t *testing.T) {
 
 	// Phase 1: Add "Projects" group under Root
 	t.Log("Phase 1: Creating Projects group under Root")
-	_, err = tree.AskNode(imsg.IMsg{
+	_, err = tree.IAsk(imsg.IMsg{
 		Type:     imsg.CreateChild,
 		TargetID: 1, // Root node
 		UserID:   1,
@@ -57,7 +57,7 @@ func TestIntegration(t *testing.T) {
 
 	// Phase 2: Add children under System
 	t.Log("Phase 2: Creating Config and Logs under System")
-	_, err = tree.AskNode(imsg.IMsg{
+	_, err = tree.IAsk(imsg.IMsg{
 		Type:     imsg.CreateChild,
 		TargetID: 2, // System node
 		UserID:   1,
@@ -70,7 +70,7 @@ func TestIntegration(t *testing.T) {
 		t.Fatalf("Failed to create Config group: %v", err)
 	}
 
-	_, err = tree.AskNode(imsg.IMsg{
+	_, err = tree.IAsk(imsg.IMsg{
 		Type:     imsg.CreateChild,
 		TargetID: 2, // System node
 		UserID:   1,
@@ -85,7 +85,7 @@ func TestIntegration(t *testing.T) {
 
 	// Phase 3: Add children under Projects (need to find Projects node ID)
 	// First get the tree to find Projects node ID
-	result, err := tree.AskNode(imsg.IMsg{
+	result, err := tree.IAsk(imsg.IMsg{
 		Type:     imsg.GetTree,
 		TargetID: 1, // Root
 		UserID:   1,
@@ -114,7 +114,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	t.Log("Phase 3: Creating ProjectA and ProjectB under Projects")
-	_, err = tree.AskNode(imsg.IMsg{
+	_, err = tree.IAsk(imsg.IMsg{
 		Type:     imsg.CreateChild,
 		TargetID: projectsNodeID,
 		UserID:   1,
@@ -127,7 +127,7 @@ func TestIntegration(t *testing.T) {
 		t.Fatalf("Failed to create ProjectA: %v", err)
 	}
 
-	_, err = tree.AskNode(imsg.IMsg{
+	_, err = tree.IAsk(imsg.IMsg{
 		Type:     imsg.CreateChild,
 		TargetID: projectsNodeID,
 		UserID:   1,
@@ -142,7 +142,7 @@ func TestIntegration(t *testing.T) {
 
 	// Phase 4: Test name collision
 	t.Log("Phase 4: Testing name collision")
-	_, err = tree.AskNode(imsg.IMsg{
+	_, err = tree.IAsk(imsg.IMsg{
 		Type:     imsg.CreateChild,
 		TargetID: 2, // System node
 		UserID:   1,
@@ -159,7 +159,7 @@ func TestIntegration(t *testing.T) {
 
 	// Phase 5: Test rename operation
 	t.Log("Phase 5: Testing rename operation")
-	_, err = tree.AskNode(imsg.IMsg{
+	_, err = tree.IAsk(imsg.IMsg{
 		Type:     imsg.RenameChild,
 		TargetID: 2, // System node
 		UserID:   1,
@@ -180,7 +180,7 @@ func TestIntegration(t *testing.T) {
 	t.Logf("Goroutines before shutdown: %d", goroutinesBefore)
 
 	// Shutdown the entire tree
-	_, err = tree.AskNode(imsg.IMsg{
+	_, err = tree.IAsk(imsg.IMsg{
 		Type:     imsg.Shutdown,
 		TargetID: 1, // Root node
 		UserID:   1,
@@ -217,7 +217,7 @@ func TestIntegration(t *testing.T) {
 
 	// Phase 8: Final tree verification
 	t.Log("Phase 8: Verifying final tree structure after restart")
-	finalResult, err := tree.AskNode(imsg.IMsg{
+	finalResult, err := tree.IAsk(imsg.IMsg{
 		Type:     imsg.GetTree,
 		TargetID: 1, // Root
 		UserID:   1,
@@ -301,7 +301,7 @@ func TestIntegration(t *testing.T) {
 	t.Log("Phase 9: Testing Lookup functionality")
 
 	// Test 1: Lookup Config from System node (single level)
-	lookupResult, err := tree.AskNode(imsg.IMsg{
+	lookupResult, err := tree.IAsk(imsg.IMsg{
 		Type:     imsg.Lookup,
 		TargetID: 2, // System node
 		UserID:   1,
@@ -316,7 +316,7 @@ func TestIntegration(t *testing.T) {
 	t.Logf("Successfully looked up Config from System node (ID: %d)", configTag.NodeID)
 
 	// Test 2: Lookup with multi-level path from Root (System/SystemLogs)
-	lookupResult, err = tree.AskNode(imsg.IMsg{
+	lookupResult, err = tree.IAsk(imsg.IMsg{
 		Type:     imsg.Lookup,
 		TargetID: 1, // Root
 		UserID:   1,
@@ -331,7 +331,7 @@ func TestIntegration(t *testing.T) {
 	t.Logf("Successfully looked up SystemLogs via path System/SystemLogs from Root (ID: %d)", systemLogsTag.NodeID)
 
 	// Test 3: Lookup non-existent path (System/Logs - was renamed to SystemLogs)
-	_, err = tree.AskNode(imsg.IMsg{
+	_, err = tree.IAsk(imsg.IMsg{
 		Type:     imsg.Lookup,
 		TargetID: 1, // Root
 		UserID:   1,
@@ -355,7 +355,7 @@ func TestIntegration(t *testing.T) {
 
 	// First call - should compute and cache
 	start1 := time.Now()
-	_, err = tree.AskNode(getTreeMsg)
+	_, err = tree.IAsk(getTreeMsg)
 	duration1 := time.Since(start1)
 	if err != nil {
 		t.Fatalf("Failed first GetTree call: %v", err)
@@ -363,7 +363,7 @@ func TestIntegration(t *testing.T) {
 
 	// Second call - should return from cache
 	start2 := time.Now()
-	_, err = tree.AskNode(getTreeMsg)
+	_, err = tree.IAsk(getTreeMsg)
 	duration2 := time.Since(start2)
 	if err != nil {
 		t.Fatalf("Failed second GetTree call: %v", err)

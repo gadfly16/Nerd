@@ -2,9 +2,10 @@ package builtin
 
 import (
 	"strings"
+
+	"github.com/gadfly16/nerd/api/imsg"
 	"github.com/gadfly16/nerd/api/msg"
 	"github.com/gadfly16/nerd/api/nerd"
-	"github.com/gadfly16/nerd/api/imsg"
 )
 
 // translateHttpGetTree converts HttpGetTree message to native GetTree message
@@ -133,7 +134,6 @@ func translateHttpAuthenticateUser(httpMsg imsg.IMsg) (*msg.Msg, error) {
 
 // translateHttpCreateUser converts HttpCreateUser to native CreateUser message
 func translateHttpCreateUser(httpMsg imsg.IMsg) (*msg.Msg, error) {
-	// Extract username and password from payload
 	username, ok := httpMsg.Payload["username"].(string)
 	if !ok {
 		return nil, nerd.ErrMalformedHttpMessage
@@ -155,7 +155,6 @@ func translateHttpCreateUser(httpMsg imsg.IMsg) (*msg.Msg, error) {
 
 // translateHttpLookup converts HttpLookup message to native Lookup message
 func translateHttpLookup(httpMsg imsg.IMsg) (*msg.Msg, error) {
-	// Extract path string from payload
 	pathStr, ok := httpMsg.Payload["path"].(string)
 	if !ok {
 		return nil, nerd.ErrMalformedHttpMessage

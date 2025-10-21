@@ -1,15 +1,15 @@
 package tree
 
 import (
+	"github.com/gadfly16/nerd/api/imsg"
 	"github.com/gadfly16/nerd/api/msg"
 	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/api/node"
 	"github.com/gadfly16/nerd/internal/builtin"
-	"github.com/gadfly16/nerd/api/imsg"
 )
 
-// NotifyNode translates HTTP message to native message and sends non-blocking
-func NotifyNode(httpMsg imsg.IMsg) error {
+// INotify translates interface message to native message and sends it to target
+func INotify(httpMsg imsg.IMsg) error {
 	// Validate target exists
 	tag, exists := getTag(httpMsg.TargetID)
 	if !exists {
@@ -27,8 +27,8 @@ func NotifyNode(httpMsg imsg.IMsg) error {
 	return nil
 }
 
-// AskNode translates HTTP message to native message and sends blocking
-func AskNode(httpMsg imsg.IMsg) (any, error) {
+// IAsk translates interface message to native message and waits for answer
+func IAsk(httpMsg imsg.IMsg) (any, error) {
 	// Validate target exists
 	tag, exists := getTag(httpMsg.TargetID)
 	if !exists {

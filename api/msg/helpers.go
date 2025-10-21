@@ -102,3 +102,15 @@ func (t *Tag) AskAuthenticate(password string) (*Tag, error) {
 	}
 	return result.(*Tag), nil
 }
+
+// AskLookup sends a Lookup message to resolve a path to a node tag
+func (t *Tag) AskLookup(path []string) (*Tag, error) {
+	result, err := t.Ask(&Msg{
+		Type:    Lookup,
+		Payload: LookupPayload(path),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.(*Tag), nil
+}

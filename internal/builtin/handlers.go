@@ -239,8 +239,5 @@ func handleLookup(m *msg.Msg, n node.Node) (any, error) {
 
 	// Recursively lookup in child with remaining path
 	remainingPath := path[1:]
-	return childTag.Ask(&msg.Msg{
-		Type:    msg.Lookup,
-		Payload: msg.LookupPayload(remainingPath),
-	})
+	return childTag.AskLookup(remainingPath)
 }

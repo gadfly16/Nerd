@@ -131,7 +131,7 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 	// TODO: Validate user has access to target node
 
 	// Route to tree
-	result, err := tree.AskNode(httpMsg)
+	result, err := tree.IAsk(httpMsg)
 	if err != nil {
 		log.Printf("API request failed: %v", err)
 		w.Header().Set("Content-Type", "application/json")

@@ -41,6 +41,7 @@ func newAuthenticator(entity *node.Entity) *Authenticator {
 
 	return auth
 }
+
 // Save persists the Authenticator node to the database
 func (n *Authenticator) Save() error {
 	// Note: Only saves Entity, no config for Authenticator nodes
@@ -152,6 +153,12 @@ func (n *Authenticator) handleCreateUser(m *msg.Msg) (any, error) {
 
 	// Start user node
 	user.Run()
+
+	// Create Clients group under new user
+	_, err = user.Tag.AskCreateChild(node.Group, "Clients")
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Clients group: %w", err)
+	}
 
 	return user.Tag, nil
 }
