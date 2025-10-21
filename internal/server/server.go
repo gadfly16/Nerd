@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/coder/websocket"
+
 	"github.com/gadfly16/nerd/api/imsg"
 	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/internal/tree"
@@ -46,6 +48,8 @@ func (s *Server) Start() error {
 	// API endpoint for authenticated messages
 	mux.HandleFunc("/api", s.handleAPI)
 
+	// WebSocket endpoint for real-time updates
+	mux.HandleFunc("/ws", s.handleWebSocket)
 
 	addr := ":" + s.port
 	log.Printf("Starting Nerd HTTP server on %s", addr)
@@ -241,6 +245,32 @@ func (s *Server) handleAuthenticateUser(w http.ResponseWriter, m *imsg.IMsg) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(resultMap)
+}
+
+// handleWebSocket upgrades HTTP connection to WebSocket and creates GUI node
+func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
+	// Authenticate user from JWT
+	userID, _, err := s.getUserFromJWT(r)
+	if err != nil {
+		log.Printf("WebSocket authentication failed: %v", err)
+		http.Error(w, "authentication required", http.StatusUnauthorized)
+		return
+	}
+
+	// Upgrade to WebSocket
+	conn, err := websocket.Accept(w, r, nil)
+	if err != nil {
+		log.Printf("WebSocket upgrade failed: %v", err)
+		return
+	}
+
+	log.Printf("WebSocket connected for user %d", userID)
+
+	// TODO: Create GUI node and send init message
+
+	// Keep connection alive
+	<-r.Context().Done()
+	conn.Close(websocket.StatusNormalClosure, "")
 }
 
 // handleLogout clears the authentication cookie

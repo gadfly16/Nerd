@@ -8,7 +8,7 @@ export const enum info {
 }
 
 // toString returns a human-readable representation for debugging
-export function infoToString(c: info): string {
+export function infoToString(c: number): string {
   if (c === 0) {
     return "None"
   }

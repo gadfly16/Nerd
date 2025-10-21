@@ -146,6 +146,8 @@ class Workbench extends nerd.Component {
   cfg!: config.Workbench
   private boardElements: Board[] = []
   private saveTimer: number | null = null
+  private ws: WebSocket | null = null
+  private guiNodeId: number = 0
 
   connectedCallback() {
     this.innerHTML = Workbench.html
@@ -156,6 +158,7 @@ class Workbench extends nerd.Component {
   }
 
   disconnectedCallback() {
+    this.closeWebSocket()
     this.stopAutoSave()
   }
 
@@ -178,6 +181,9 @@ class Workbench extends nerd.Component {
 
       // Start auto-save timer
       this.startAutoSave()
+
+      // Setup WebSocket connection
+      this.setupWebSocket()
     } catch (err) {
       console.error("Failed to populate workbench:", err)
       // TODO: Show error to user
@@ -224,6 +230,51 @@ class Workbench extends nerd.Component {
   Clear() {
     for (const board of this.boardElements) {
       board.Clear()
+    }
+  }
+
+  // setupWebSocket establishes WebSocket connection for real-time updates
+  private setupWebSocket() {
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:"
+    const wsUrl = `${protocol}//${window.location.host}/ws`
+
+    this.ws = new WebSocket(wsUrl)
+
+    this.ws.onopen = () => {
+      console.log("WebSocket connected")
+    }
+
+    this.ws.onmessage = (event) => {
+      const msg = JSON.parse(event.data)
+      this.handleWebSocketMessage(msg)
+    }
+
+    this.ws.onerror = (error) => {
+      console.error("WebSocket error:", error)
+    }
+
+    this.ws.onclose = () => {
+      console.log("WebSocket closed")
+    }
+  }
+
+  // closeWebSocket closes the WebSocket connection
+  private closeWebSocket() {
+    if (this.ws) {
+      this.ws.close()
+      this.ws = null
+    }
+  }
+
+  // handleWebSocketMessage processes incoming WebSocket messages
+  private handleWebSocketMessage(msg: any) {
+    if (msg.type === "init") {
+      // Store GUI node ID for future Subscribe messages
+      this.guiNodeId = msg.guiNodeId
+      console.log(`GUI node ID: ${this.guiNodeId}`)
+    } else {
+      // Handle other message types (UpdateTopo, InfoUpdate, etc.)
+      console.log("Received WebSocket message:", msg)
     }
   }
 }
