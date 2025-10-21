@@ -6,16 +6,16 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gadfly16/nerd/api/imsg"
 	"github.com/gadfly16/nerd/api/msg"
 	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/api/node"
-	"github.com/gadfly16/nerd/internal/imsg"
 	"github.com/gadfly16/nerd/internal/tree"
 )
 
-func TestComprehensiveTreeOperations(t *testing.T) {
+func TestIntegration(t *testing.T) {
 	// Setup: Initialize and run tree
-	testDB := "./test_comprehensive.db"
+	testDB := "./test_integration.db"
 	defer os.Remove(testDB)
 
 	err := tree.InitInstance(testDB)
@@ -297,8 +297,55 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 		}
 	}
 
-	// Phase 9: Performance measurement for cache effectiveness
-	t.Log("Phase 9: Measuring GetTree performance - first call vs cached call")
+	// Phase 9: Testing Lookup functionality
+	t.Log("Phase 9: Testing Lookup functionality")
+
+	// Test 1: Lookup Config from System node (single level)
+	lookupResult, err := tree.AskNode(imsg.IMsg{
+		Type:     imsg.Lookup,
+		TargetID: 2, // System node
+		UserID:   1,
+		Payload: map[string]any{
+			"path": "Config",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Failed to lookup Config from System: %v", err)
+	}
+	configTag := lookupResult.(*msg.Tag)
+	t.Logf("Successfully looked up Config from System node (ID: %d)", configTag.NodeID)
+
+	// Test 2: Lookup with multi-level path from Root (System/SystemLogs)
+	lookupResult, err = tree.AskNode(imsg.IMsg{
+		Type:     imsg.Lookup,
+		TargetID: 1, // Root
+		UserID:   1,
+		Payload: map[string]any{
+			"path": "System/SystemLogs",
+		},
+	})
+	if err != nil {
+		t.Fatalf("Failed to lookup System/SystemLogs from Root: %v", err)
+	}
+	systemLogsTag := lookupResult.(*msg.Tag)
+	t.Logf("Successfully looked up SystemLogs via path System/SystemLogs from Root (ID: %d)", systemLogsTag.NodeID)
+
+	// Test 3: Lookup non-existent path (System/Logs - was renamed to SystemLogs)
+	_, err = tree.AskNode(imsg.IMsg{
+		Type:     imsg.Lookup,
+		TargetID: 1, // Root
+		UserID:   1,
+		Payload: map[string]any{
+			"path": "System/Logs",
+		},
+	})
+	if err == nil {
+		t.Fatal("Expected error for non-existent path System/Logs, got nil")
+	}
+	t.Logf("Correctly returned error for non-existent path System/Logs: %v", err)
+
+	// Phase 10: Performance measurement for cache effectiveness
+	t.Log("Phase 10: Measuring GetTree performance - first call vs cached call")
 
 	getTreeMsg := imsg.IMsg{
 		Type:     imsg.GetTree,
@@ -332,5 +379,5 @@ func TestComprehensiveTreeOperations(t *testing.T) {
 		t.Logf("Cache performance: cached call took %v vs %v", duration2, duration1)
 	}
 
-	t.Log("Comprehensive tree operations test completed successfully")
+	t.Log("Integration test completed successfully")
 }

@@ -46,6 +46,7 @@ const (
 	RenameChild
 	Rename  // internal operation only
 	GetTree // get tree structure for GUI
+	Lookup  // lookup node by path
 
 	// Separator - messages >= this value are node-specific
 	CommonMsgSeparator
@@ -82,3 +83,6 @@ type CredentialsPayload struct {
 	Username string
 	Password string
 }
+
+// LookupPayload contains path segments for node lookup
+type LookupPayload []string

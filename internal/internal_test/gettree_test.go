@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/gadfly16/nerd/api/msg"
-	"github.com/gadfly16/nerd/internal/imsg"
+	"github.com/gadfly16/nerd/api/imsg"
 	"github.com/gadfly16/nerd/internal/tree"
 )
 

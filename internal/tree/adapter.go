@@ -5,7 +5,7 @@ import (
 	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/api/node"
 	"github.com/gadfly16/nerd/internal/builtin"
-	"github.com/gadfly16/nerd/internal/imsg"
+	"github.com/gadfly16/nerd/api/imsg"
 )
 
 // NotifyNode translates HTTP message to native message and sends non-blocking

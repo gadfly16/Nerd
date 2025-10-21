@@ -1,9 +1,10 @@
 package builtin
 
 import (
+	"strings"
 	"github.com/gadfly16/nerd/api/msg"
 	"github.com/gadfly16/nerd/api/nerd"
-	"github.com/gadfly16/nerd/internal/imsg"
+	"github.com/gadfly16/nerd/api/imsg"
 )
 
 // translateHttpGetTree converts HttpGetTree message to native GetTree message
@@ -17,6 +18,8 @@ func translateHttpGetTree(_ imsg.IMsg) (*msg.Msg, error) {
 // TranslateHttpMessage converts HTTP message to native message using appropriate translator
 func TranslateHttpMessage(httpMsg imsg.IMsg) (*msg.Msg, error) {
 	switch httpMsg.Type {
+	case imsg.Lookup:
+		return translateHttpLookup(httpMsg)
 	case imsg.GetTree:
 		return translateHttpGetTree(httpMsg)
 	case imsg.CreateChild:
@@ -147,5 +150,25 @@ func translateHttpCreateUser(httpMsg imsg.IMsg) (*msg.Msg, error) {
 			Username: username,
 			Password: password,
 		},
+	}, nil
+}
+
+// translateHttpLookup converts HttpLookup message to native Lookup message
+func translateHttpLookup(httpMsg imsg.IMsg) (*msg.Msg, error) {
+	// Extract path string from payload
+	pathStr, ok := httpMsg.Payload["path"].(string)
+	if !ok {
+		return nil, nerd.ErrMalformedHttpMessage
+	}
+
+	// Split path by "/" to create path segments
+	var path msg.LookupPayload
+	if pathStr != "" {
+		path = strings.Split(pathStr, "/")
+	}
+
+	return &msg.Msg{
+		Type:    msg.Lookup,
+		Payload: path,
 	}, nil
 }

@@ -7,12 +7,15 @@ type Type int
 
 const (
 	GetTree Type = iota
+	Lookup
 	CreateChild
 	RenameChild
 	Shutdown
 	AuthenticateUser
 	CreateUser
 	Logout
+	Subscribe
+	Unsubscribe
 	// Future interface message types can be added here
 )
 

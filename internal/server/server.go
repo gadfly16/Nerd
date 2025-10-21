@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gadfly16/nerd/api/imsg"
 	"github.com/gadfly16/nerd/api/nerd"
-	"github.com/gadfly16/nerd/internal/imsg"
 	"github.com/gadfly16/nerd/internal/tree"
 	"github.com/golang-jwt/jwt/v5"
 )
@@ -45,6 +45,7 @@ func (s *Server) Start() error {
 
 	// API endpoint for authenticated messages
 	mux.HandleFunc("/api", s.handleAPI)
+
 
 	addr := ":" + s.port
 	log.Printf("Starting Nerd HTTP server on %s", addr)

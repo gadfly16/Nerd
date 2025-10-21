@@ -22,6 +22,8 @@ func handleCommonMessage(m *msg.Msg, node node.Node) (any, error) {
 		return handleRename(m, node)
 	case msg.GetTree:
 		return handleGetTree(m, node)
+	case msg.Lookup:
+		return handleLookup(m, node)
 	default:
 		// This should never happen if CommonMsgSeparator is used correctly
 		panic(fmt.Sprintf("handleCommonMessage called with non-common message type: %d", m.Type))
@@ -204,4 +206,41 @@ func handleRename(m *msg.Msg, n node.Node) (any, error) {
 	}
 
 	return nil, nil
+}
+
+// handleLookup processes lookup requests by path (shared logic)
+func handleLookup(m *msg.Msg, n node.Node) (any, error) {
+	// Parse payload
+	path, ok := m.Payload.(msg.LookupPayload)
+	if !ok {
+		return nil, nerd.ErrInvalidPayload
+	}
+
+	// Empty path returns this node
+	if len(path) == 0 {
+		return n.GetTag(), nil
+	}
+
+	e := n.GetEntity()
+
+	// Get first segment
+	childName := path[0]
+
+	// Find child by name
+	childTag, exists := e.Children[childName]
+	if !exists {
+		return nil, nerd.ErrNodeNotFound
+	}
+
+	// If this is the last segment, return the child
+	if len(path) == 1 {
+		return childTag, nil
+	}
+
+	// Recursively lookup in child with remaining path
+	remainingPath := path[1:]
+	return childTag.Ask(&msg.Msg{
+		Type:    msg.Lookup,
+		Payload: msg.LookupPayload(remainingPath),
+	})
 }
