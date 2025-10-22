@@ -3,7 +3,7 @@ package builtin
 import (
 	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/gadfly16/nerd/api/nerd"
-	"github.com/gadfly16/nerd/api/node"
+	"github.com/gadfly16/nerd/sdk/node"
 )
 
 // Group represents a group node for organizing other nodes

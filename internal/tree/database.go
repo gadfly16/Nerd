@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/gadfly16/nerd/api/node"
+	"github.com/gadfly16/nerd/sdk/node"
 	"github.com/gadfly16/nerd/internal/builtin"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"

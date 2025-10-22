@@ -1,7 +1,7 @@
 package tree
 
 import (
-	"github.com/gadfly16/nerd/api/node"
+	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/internal/builtin"
 )
 
@@ -17,7 +17,7 @@ func InitInstance(dbPath string) error {
 	initTree()
 
 	// Bootstrap Root node
-	rootNode := builtin.NewNode(node.Root, "") // Root ignores name parameter
+	rootNode := builtin.NewNode(nerd.RootNode, "") // Root ignores name parameter
 	err = rootNode.Save()
 	if err != nil {
 		return err
@@ -29,14 +29,14 @@ func InitInstance(dbPath string) error {
 	addTag(root)
 
 	// Create System group directly with name
-	t, err := root.AskCreateChild(node.Group, "System")
+	t, err := root.AskCreateChild(nerd.GroupNode, "System")
 	if err != nil {
 		return err
 	}
 	addTag(t)
 
 	// Create Authenticator singleton
-	t, err = root.AskCreateChild(node.Authenticator, "")
+	t, err = root.AskCreateChild(nerd.AuthenticatorNode, "")
 	if err != nil {
 		return err
 	}

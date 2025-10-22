@@ -5,7 +5,7 @@ import (
 
 	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/gadfly16/nerd/api/nerd"
-	"github.com/gadfly16/nerd/api/node"
+	"github.com/gadfly16/nerd/sdk/node"
 )
 
 // handleCommonMessage processes messages shared across all node types

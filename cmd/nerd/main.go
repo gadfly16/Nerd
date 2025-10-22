@@ -7,7 +7,6 @@ import (
 
 	"github.com/gadfly16/nerd/api"
 	"github.com/gadfly16/nerd/api/nerd"
-	"github.com/gadfly16/nerd/api/node"
 	"github.com/gadfly16/nerd/internal/tree"
 	"github.com/spf13/cobra"
 )
@@ -92,7 +91,7 @@ var generateCmd = &cobra.Command{
 			parentID := nodes[rand.Intn(len(nodes))]
 
 			// Create child node with default name
-			it, err := api.IAskCreateChild(parentID, 1, node.Group, "")
+			it, err := api.IAskCreateChild(parentID, 1, nerd.GroupNode, "")
 			if err != nil {
 				return fmt.Errorf("failed to create node %d: %w", i+1, err)
 			}

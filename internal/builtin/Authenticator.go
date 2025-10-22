@@ -3,9 +3,9 @@ package builtin
 import (
 	"fmt"
 
-	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/gadfly16/nerd/api/nerd"
-	"github.com/gadfly16/nerd/api/node"
+	"github.com/gadfly16/nerd/sdk/node"
+	"github.com/gadfly16/nerd/sdk/msg"
 )
 
 // Authenticator represents the authentication singleton node
@@ -155,7 +155,7 @@ func (n *Authenticator) handleCreateUser(m *msg.Msg) (any, error) {
 	user.Run()
 
 	// Create Clients group under new user
-	_, err = user.Tag.AskCreateChild(node.Group, "Clients")
+	_, err = user.Tag.AskCreateChild(nerd.GroupNode, "Clients")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Clients group: %w", err)
 	}

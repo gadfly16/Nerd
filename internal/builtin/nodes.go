@@ -3,9 +3,9 @@ package builtin
 import (
 	"fmt"
 
-	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/gadfly16/nerd/api/nerd"
-	"github.com/gadfly16/nerd/api/node"
+	"github.com/gadfly16/nerd/sdk/node"
+	"github.com/gadfly16/nerd/sdk/msg"
 )
 
 // System holds references to system nodes for easy access
@@ -23,7 +23,7 @@ func NewNode(nodeType nerd.NodeType, name string) node.Node {
 
 	// Auto-generate name if not provided
 	if name == "" {
-		name = fmt.Sprintf("New %s #%d", node.NodeTypeName(nodeType), id)
+		name = fmt.Sprintf("New %s #%d", nerd.NodeTypeName(nodeType), id)
 	}
 
 	// Create base Entity with common fields initialized
@@ -38,11 +38,11 @@ func NewNode(nodeType nerd.NodeType, name string) node.Node {
 	}
 
 	switch nodeType {
-	case node.Group:
+	case nerd.GroupNode:
 		return newGroup(entity)
-	case node.Root:
+	case nerd.RootNode:
 		return newRoot(entity)
-	case node.Authenticator:
+	case nerd.AuthenticatorNode:
 		return newAuthenticator(entity)
 	default:
 		// At this point the createChildHandler already checked the node type

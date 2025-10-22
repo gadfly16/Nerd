@@ -5,7 +5,7 @@ import (
 
 	"github.com/gadfly16/nerd/api/imsg"
 	"github.com/gadfly16/nerd/api/nerd"
-	"github.com/gadfly16/nerd/api/node"
+	"github.com/gadfly16/nerd/sdk/node"
 	"github.com/gadfly16/nerd/internal/builtin"
 	"github.com/gadfly16/nerd/sdk/msg"
 )

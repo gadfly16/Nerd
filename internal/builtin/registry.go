@@ -3,19 +3,20 @@ package builtin
 import (
 	"fmt"
 
-	"github.com/gadfly16/nerd/api/node"
+	"github.com/gadfly16/nerd/api/nerd"
+	"github.com/gadfly16/nerd/sdk/node"
 )
 
 // loadNodeFromIdentity creates a node from an existing Entity using a switch statement
 func loadNodeFromIdentity(identity *node.Entity) (node.Node, error) {
 	switch identity.NodeType {
-	case node.Root:
+	case nerd.RootNode:
 		return loadRoot(identity)
-	case node.Group:
+	case nerd.GroupNode:
 		return loadGroup(identity)
-	case node.Authenticator:
+	case nerd.AuthenticatorNode:
 		return loadAuthenticator(identity)
-	case node.User:
+	case nerd.UserNode:
 		return loadUser(identity)
 	default:
 		panic(fmt.Sprintf("unsupported node type: %d", identity.NodeType))

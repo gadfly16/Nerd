@@ -3,9 +3,9 @@ package builtin
 import (
 	"fmt"
 
-	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/gadfly16/nerd/api/nerd"
-	"github.com/gadfly16/nerd/api/node"
+	"github.com/gadfly16/nerd/sdk/node"
+	"github.com/gadfly16/nerd/sdk/msg"
 	"golang.org/x/crypto/bcrypt"
 	"gorm.io/gorm"
 )
@@ -49,7 +49,7 @@ func newUser(name string, password string, admin bool) (*User, error) {
 			Admin:    admin,
 		},
 		Name:     name,
-		NodeType: node.User,
+		NodeType: nerd.UserNode,
 		Children: make(map[string]*msg.Tag),
 	}
 

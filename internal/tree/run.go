@@ -3,7 +3,7 @@ package tree
 import (
 	"fmt"
 
-	"github.com/gadfly16/nerd/api/node"
+	"github.com/gadfly16/nerd/sdk/node"
 )
 
 // Run loads the existing tree from database and starts all nodes
