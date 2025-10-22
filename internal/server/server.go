@@ -220,7 +220,7 @@ func (s *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 // handleAuthenticateUser processes user authentication
 func (s *Server) handleAuthenticateUser(w http.ResponseWriter, m *imsg.IMsg) {
 	// Send authentication request to Authenticator
-	result, err := tree.AskAuth(*m)
+	result, err := tree.IAskAuth(*m)
 	if err != nil {
 		log.Printf("Authentication failed: %v", err)
 		w.Header().Set("Content-Type", "application/json")
@@ -323,7 +323,7 @@ func (s *Server) setJWTCookie(w http.ResponseWriter, userID nerd.NodeID, admin b
 // handleCreateUser processes user creation
 func (s *Server) handleCreateUser(w http.ResponseWriter, m *imsg.IMsg) {
 	// Send user creation request to Authenticator
-	result, err := tree.AskAuth(*m)
+	result, err := tree.IAskAuth(*m)
 	if err != nil {
 		log.Printf("User creation failed: %v", err)
 		w.Header().Set("Content-Type", "application/json")

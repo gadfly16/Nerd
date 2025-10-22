@@ -1,6 +1,9 @@
 package msg
 
-import "github.com/gadfly16/nerd/api/nerd"
+import (
+	"github.com/gadfly16/nerd/api/imsg"
+	"github.com/gadfly16/nerd/api/nerd"
+)
 
 // Msg represents a message sent between nodes
 type Msg struct {
@@ -19,11 +22,11 @@ type Tag struct {
 	Admin    bool        // True if this node represents an admin user
 }
 
-// ToMap converts Tag to map[string]any for HTTP responses
-func (t *Tag) ToMap() map[string]any {
-	return map[string]any{
-		"nodeId": float64(t.NodeID),
-		"admin":  t.Admin,
+// Converts native tag to interface tag
+func (t *Tag) ToITag() *imsg.ITag {
+	return &imsg.ITag{
+		ID:    t.NodeID,
+		Admin: t.Admin,
 	}
 }
 

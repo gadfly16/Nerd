@@ -44,3 +44,6 @@ CLAUDE.md
 # Transpiled JavaScript files
 *.js
 *.js.map
+
+# Zed config
+.zed

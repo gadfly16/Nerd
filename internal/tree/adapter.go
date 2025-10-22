@@ -1,99 +1,217 @@
 package tree
 
 import (
+	"strings"
+
 	"github.com/gadfly16/nerd/api/imsg"
-	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/api/node"
 	"github.com/gadfly16/nerd/internal/builtin"
+	"github.com/gadfly16/nerd/sdk/msg"
 )
 
-// INotify translates interface message to native message and sends it to target
-func INotify(httpMsg imsg.IMsg) error {
-	// Validate target exists
-	tag, exists := getTag(httpMsg.TargetID)
-	if !exists {
-		return nerd.ErrNodeNotFound
-	}
-
-	// Translate HTTP message to native message
-	nativeMsg, err := builtin.TranslateHttpMessage(httpMsg)
-	if err != nil {
-		return err
-	}
-
-	// Send to target node
-	tag.Notify(nativeMsg)
-	return nil
-}
-
 // IAsk translates interface message to native message and waits for answer
-func IAsk(httpMsg imsg.IMsg) (any, error) {
+func IAsk(im imsg.IMsg) (any, error) {
 	// Validate target exists
-	tag, exists := getTag(httpMsg.TargetID)
+	tag, exists := getTag(im.TargetID)
 	if !exists {
 		return nil, nerd.ErrNodeNotFound
 	}
 
-	// Translate HTTP message to native message
-	nativeMsg, err := builtin.TranslateHttpMessage(httpMsg)
-	if err != nil {
-		return nil, err
-	}
-
-	// Send to target node and get response
-	result, err := tag.Ask(nativeMsg)
-	if err != nil {
-		return nil, err
-	}
-
-	// Post-processing based on message type
-	switch httpMsg.Type {
+	switch im.Type {
+	case imsg.GetTree:
+		return HandleIGetTree(tag)
+	case imsg.Lookup:
+		return HandleILookup(tag, im)
+	case imsg.RenameChild:
+		return HandleIRenameChild(tag, im)
 	case imsg.CreateChild:
-		// Register newly created node in tree
-		addTag(result.(*msg.Tag))
+		return HandleICreateChild(tag, im)
 	case imsg.Shutdown:
-		// Remove all shutdown nodes from tree
-		shutdownTags := result.([]*msg.Tag)
-		for _, tag := range shutdownTags {
-			tree.removeTag(tag.NodeID)
-		}
-		// If Root node was shut down, clean up global state for restart
-		for _, tag := range shutdownTags {
-			if tag.NodeID == 1 {
-				node.ResetIDCounter()
-				node.CloseDatabase()
-				break
-			}
-		}
+		return HandleIShutdown(tag)
+	default:
+		return nil, nerd.ErrMalformedIMsg
 	}
-
-	return result, nil
 }
 
-// AskAuth routes authentication messages to the Authenticator node
-func AskAuth(httpMsg imsg.IMsg) (any, error) {
-	// Translate HTTP message to native message
-	nativeMsg, err := builtin.TranslateHttpMessage(httpMsg)
-	if err != nil {
-		return nil, err
-	}
-
-	// Send to Authenticator node and get response
-	result, err := builtin.System.Authenticator.Ask(nativeMsg)
-	if err != nil {
-		return nil, err
-	}
-
-	// Convert Tag to map for server
-	tag := result.(*msg.Tag)
-
-	// Post-processing based on message type
-	switch httpMsg.Type {
+// IAskAuth routes authentication messages to the Authenticator node
+func IAskAuth(im imsg.IMsg) (ia any, err error) {
+	switch im.Type {
+	case imsg.AuthenticateUser:
+		return HandleIAuthenticateUser(im)
 	case imsg.CreateUser:
-		// Register newly created user in tree
-		addTag(tag)
+		return HandleICreateUser(im)
+	default:
+		return nil, nerd.ErrMalformedIMsg
+	}
+}
+
+// HandleIGetTree converts HttpGetTree message to native GetTree message
+func HandleIGetTree(t *msg.Tag) (any, error) {
+	return t.Ask(&msg.Msg{
+		Type: msg.GetTree,
+	})
+}
+
+// HandleILookup converts HttpLookup message to native Lookup message
+func HandleILookup(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
+	pathStr, ok := im.Payload["path"].(string)
+	if !ok {
+		return nil, nerd.ErrMalformedIMsg
 	}
 
-	return tag.ToMap(), nil
+	// Split path by "/" to create path segments
+	var path msg.LookupPayload
+	if pathStr != "" {
+		path = strings.Split(pathStr, "/")
+	}
+
+	a, err := t.Ask(&msg.Msg{
+		Type:    msg.Lookup,
+		Payload: path,
+	})
+	if t, ok := a.(*msg.Tag); ok {
+		ia = t.ToITag()
+	}
+	return ia, err
+}
+
+// HandleIRenameChild converts HttpRenameChild message to native RenameChild message
+func HandleIRenameChild(t *msg.Tag, im imsg.IMsg) (any, error) {
+	// Validate payload contains oldName field
+	oldName, ok := im.Payload["oldName"]
+	if !ok {
+		return nil, nerd.ErrMalformedIMsg
+	}
+
+	oldNameStr, ok := oldName.(string)
+	if !ok {
+		return nil, nerd.ErrMalformedIMsg
+	}
+
+	// Validate payload contains newName field
+	newName, ok := im.Payload["newName"]
+	if !ok {
+		return nil, nerd.ErrMalformedIMsg
+	}
+
+	newNameStr, ok := newName.(string)
+	if !ok {
+		return nil, nerd.ErrMalformedIMsg
+	}
+
+	return t.Ask(&msg.Msg{
+		Type: msg.RenameChild,
+		Payload: msg.RenameChildPayload{
+			OldName: oldNameStr,
+			NewName: newNameStr,
+		},
+	})
+}
+
+// HandleICreateChild converts HttpCreateChild message to native CreateChild message
+func HandleICreateChild(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
+	nodeType, ok := im.Payload["nodeType"]
+	if !ok {
+		return nil, nerd.ErrMalformedIMsg
+	}
+
+	nodeTypeFloat, ok := nodeType.(float64)
+	if !ok {
+		return nil, nerd.ErrMalformedIMsg
+	}
+
+	// Get name field, create default name if empty
+	name := ""
+	if nameVal, exists := im.Payload["name"]; exists {
+		nameStr, ok := nameVal.(string)
+		if !ok {
+			return nil, nerd.ErrMalformedIMsg
+		}
+		name = nameStr
+	}
+
+	a, err := t.Ask(&msg.Msg{
+		Type: msg.CreateChild,
+		Payload: msg.CreateChildPayload{
+			NodeType: nerd.NodeType(nodeTypeFloat),
+			Name:     name,
+		},
+	})
+	if t, ok := a.(*msg.Tag); ok {
+		ia = t.ToITag()
+		addTag(t)
+	}
+	return ia, err
+}
+
+// HandleIShutdown converts HttpShutdown message to native Shutdown message
+func HandleIShutdown(t *msg.Tag) (ia any, err error) {
+	a, err := t.Ask(&msg.Msg{Type: msg.Shutdown})
+	shutdownTags := a.([]*msg.Tag)
+	var rootHalted bool
+	for _, tag := range shutdownTags {
+		tree.removeTag(tag.NodeID)
+		if tag.NodeID == 1 {
+			rootHalted = true
+		}
+	}
+	// If Root node was shut down, clean up global state for restart
+	if rootHalted {
+		node.ResetIDCounter()
+		node.CloseDatabase()
+	}
+	return nil, nil
+}
+
+// HandleIAuthenticateUser converts HttpAuthenticateUser to native AuthenticateUser message
+func HandleIAuthenticateUser(im imsg.IMsg) (ia any, err error) {
+	// Extract username and password from payload
+	username, ok := im.Payload["username"].(string)
+	if !ok {
+		return nil, nerd.ErrMalformedIMsg
+	}
+
+	password, ok := im.Payload["password"].(string)
+	if !ok {
+		return nil, nerd.ErrMalformedIMsg
+	}
+
+	a, err := builtin.System.Authenticator.Ask(&msg.Msg{
+		Type: msg.AuthenticateUser,
+		Payload: msg.CredentialsPayload{
+			Username: username,
+			Password: password,
+		},
+	})
+	if t, ok := a.(*msg.Tag); ok {
+		ia = t.ToITag()
+	}
+	return ia, err
+}
+
+// HandleICreateUser converts HttpCreateUser to native CreateUser message
+func HandleICreateUser(im imsg.IMsg) (ia any, err error) {
+	username, ok := im.Payload["username"].(string)
+	if !ok {
+		return nil, nerd.ErrMalformedIMsg
+	}
+
+	password, ok := im.Payload["password"].(string)
+	if !ok {
+		return nil, nerd.ErrMalformedIMsg
+	}
+
+	a, err := builtin.System.Authenticator.Ask(&msg.Msg{
+		Type: msg.CreateUser,
+		Payload: msg.CredentialsPayload{
+			Username: username,
+			Password: password,
+		},
+	})
+	if t, ok := a.(*msg.Tag); ok {
+		ia = t.ToITag()
+		addTag(t)
+	}
+	return ia, err
 }

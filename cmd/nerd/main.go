@@ -7,7 +7,6 @@ import (
 
 	"github.com/gadfly16/nerd/api"
 	"github.com/gadfly16/nerd/api/imsg"
-	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/api/node"
 	"github.com/gadfly16/nerd/internal/tree"
@@ -95,16 +94,15 @@ var generateCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("user %q not found: %w", userName, err)
 		}
-		userTag := result.(*msg.Tag)
+		uit := result.(*imsg.ITag)
 
 		// Slice to track potential parent nodes
-		nodes := []nerd.NodeID{userTag.NodeID}
+		nodes := []nerd.NodeID{uit.ID}
 
 		// Create count nodes
 		for i := 0; i < count; i++ {
 			// Select random parent from nodes slice
-			parentIdx := rand.Intn(len(nodes))
-			parentID := nodes[parentIdx]
+			parentID := nodes[rand.Intn(len(nodes))]
 
 			// Create child node with default name
 			result, err := tree.IAsk(imsg.IMsg{
@@ -121,8 +119,8 @@ var generateCmd = &cobra.Command{
 			}
 
 			// Add newly created node to slice for future parent selection
-			tag := result.(*msg.Tag)
-			nodes = append(nodes, tag.NodeID)
+			it := result.(*imsg.ITag)
+			nodes = append(nodes, it.ID)
 		}
 
 		fmt.Printf("Successfully generated %d nodes under user %q\n", count, userName)

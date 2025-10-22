@@ -5,6 +5,11 @@ import "github.com/gadfly16/nerd/api/nerd"
 // Type defines the types of interface messages for external API
 type Type int
 
+type ITag struct {
+	ID    nerd.NodeID
+	Admin bool
+}
+
 const (
 	GetTree Type = iota
 	Lookup
