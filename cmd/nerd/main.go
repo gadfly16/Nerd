@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/gadfly16/nerd/api"
-	"github.com/gadfly16/nerd/api/imsg"
 	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/api/node"
 	"github.com/gadfly16/nerd/internal/tree"
@@ -72,29 +71,17 @@ var generateCmd = &cobra.Command{
 
 		// Ensure graceful shutdown
 		defer func() {
-			_, err := tree.IAsk(imsg.IMsg{
-				Type:     imsg.Shutdown,
-				TargetID: 1, // Root node
-				UserID:   1,
-			})
+			err := api.IAskShutdown(1, 1) // Root node, user 1
 			if err != nil {
 				fmt.Printf("Warning: shutdown error: %v\n", err)
 			}
 		}()
 
 		// Lookup the user node
-		result, err := tree.IAsk(imsg.IMsg{
-			Type:     imsg.Lookup,
-			TargetID: 1, // Root
-			UserID:   1,
-			Payload: map[string]any{
-				"path": "Authenticator/" + userName,
-			},
-		})
+		uit, err := api.IAskLookup(1, 1, "Authenticator/"+userName) // Root, user 1
 		if err != nil {
 			return fmt.Errorf("user %q not found: %w", userName, err)
 		}
-		uit := result.(*imsg.ITag)
 
 		// Slice to track potential parent nodes
 		nodes := []nerd.NodeID{uit.ID}
@@ -105,21 +92,12 @@ var generateCmd = &cobra.Command{
 			parentID := nodes[rand.Intn(len(nodes))]
 
 			// Create child node with default name
-			result, err := tree.IAsk(imsg.IMsg{
-				Type:     imsg.CreateChild,
-				TargetID: parentID,
-				UserID:   1,
-				Payload: map[string]any{
-					"nodeType": float64(node.Group),
-					"name":     "",
-				},
-			})
+			it, err := api.IAskCreateChild(parentID, 1, node.Group, "")
 			if err != nil {
 				return fmt.Errorf("failed to create node %d: %w", i+1, err)
 			}
 
 			// Add newly created node to slice for future parent selection
-			it := result.(*imsg.ITag)
 			nodes = append(nodes, it.ID)
 		}
 

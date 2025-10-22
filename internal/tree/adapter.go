@@ -70,10 +70,13 @@ func HandleILookup(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
 		Type:    msg.Lookup,
 		Payload: path,
 	})
+	if err != nil {
+		return nil, err
+	}
 	if t, ok := a.(*msg.Tag); ok {
 		ia = t.ToITag()
 	}
-	return ia, err
+	return ia, nil
 }
 
 // HandleIRenameChild converts HttpRenameChild message to native RenameChild message

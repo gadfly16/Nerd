@@ -4,8 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/gadfly16/nerd/api/imsg"
-	"github.com/gadfly16/nerd/sdk/msg"
+	"github.com/gadfly16/nerd/api"
 	"github.com/gadfly16/nerd/internal/tree"
 )
 
@@ -27,32 +26,16 @@ func TestGetTree(t *testing.T) {
 
 	// Ensure tree shutdown for clean test isolation
 	defer func() {
-		_, err := tree.IAsk(imsg.IMsg{
-			Type:     imsg.Shutdown,
-			TargetID: 1, // Root node
-			UserID:   1,
-		})
+		err := api.IAskShutdown(1, 1) // Root node, user 1
 		if err != nil {
 			t.Logf("Shutdown error: %v", err)
 		}
 	}()
 
-	// Step 3: Send GetTree message to root node (ID=1) via HTTP adapter
-	httpMsg := imsg.IMsg{
-		Type:     imsg.GetTree,
-		TargetID: 1, // Root node ID
-		UserID:   1, // Using root as user for now
-	}
-
-	result, err := tree.IAsk(httpMsg)
+	// Step 3: Send GetTree message to root node (ID=1)
+	treeEntry, err := api.IAskGetTree(1, 1) // Root node, user 1
 	if err != nil {
 		t.Fatalf("Failed to get tree: %v", err)
-	}
-
-	// Step 4: Verify response is a TreeEntry
-	treeEntry, ok := result.(*msg.TreeEntry)
-	if !ok {
-		t.Fatalf("Expected *msg.TreeEntry, got %T", result)
 	}
 
 	// Step 5: Validate tree structure

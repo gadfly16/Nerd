@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gadfly16/nerd/api/imsg"
-	"github.com/gadfly16/nerd/sdk/msg"
+	"github.com/gadfly16/nerd/api"
 	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/api/node"
 	"github.com/gadfly16/nerd/internal/tree"
+	"github.com/gadfly16/nerd/sdk/msg"
 )
 
 func TestIntegration(t *testing.T) {
@@ -30,11 +30,7 @@ func TestIntegration(t *testing.T) {
 
 	// Ensure tree shutdown for clean test isolation
 	defer func() {
-		_, err := tree.IAsk(imsg.IMsg{
-			Type:     imsg.Shutdown,
-			TargetID: 1, // Root node
-			UserID:   1,
-		})
+		err := api.IAskShutdown(1, 1) // Root node, user 1
 		if err != nil {
 			t.Logf("Shutdown error: %v", err)
 		}
@@ -42,60 +38,31 @@ func TestIntegration(t *testing.T) {
 
 	// Phase 1: Add "Projects" group under Root
 	t.Log("Phase 1: Creating Projects group under Root")
-	_, err = tree.IAsk(imsg.IMsg{
-		Type:     imsg.CreateChild,
-		TargetID: 1, // Root node
-		UserID:   1,
-		Payload: map[string]any{
-			"nodeType": float64(node.Group),
-			"name":     "Projects",
-		},
-	})
+	_, err = api.IAskCreateChild(1, 1, node.Group, "Projects") // Root node, user 1
 	if err != nil {
 		t.Fatalf("Failed to create Projects group: %v", err)
 	}
 
 	// Phase 2: Add children under System
 	t.Log("Phase 2: Creating Config and Logs under System")
-	_, err = tree.IAsk(imsg.IMsg{
-		Type:     imsg.CreateChild,
-		TargetID: 2, // System node
-		UserID:   1,
-		Payload: map[string]any{
-			"nodeType": float64(node.Group),
-			"name":     "Config",
-		},
-	})
+	_, err = api.IAskCreateChild(2, 1, node.Group, "Config") // System node, user 1
 	if err != nil {
 		t.Fatalf("Failed to create Config group: %v", err)
 	}
 
-	_, err = tree.IAsk(imsg.IMsg{
-		Type:     imsg.CreateChild,
-		TargetID: 2, // System node
-		UserID:   1,
-		Payload: map[string]any{
-			"nodeType": float64(node.Group),
-			"name":     "Logs",
-		},
-	})
+	_, err = api.IAskCreateChild(2, 1, node.Group, "Logs") // System node, user 1
 	if err != nil {
 		t.Fatalf("Failed to create Logs group: %v", err)
 	}
 
 	// Phase 3: Add children under Projects (need to find Projects node ID)
 	// First get the tree to find Projects node ID
-	result, err := tree.IAsk(imsg.IMsg{
-		Type:     imsg.GetTree,
-		TargetID: 1, // Root
-		UserID:   1,
-	})
+	treeEntry, err := api.IAskGetTree(1, 1) // Root, user 1
 	if err != nil {
 		t.Fatalf("Failed to get tree: %v", err)
 	}
 
 	// Find Projects node ID from tree structure
-	treeEntry := result.(*msg.TreeEntry)
 	t.Logf("Current tree structure after phase 2:")
 	t.Logf("  Root (%d) has %d children", treeEntry.NodeID, len(treeEntry.Children))
 	for i, child := range treeEntry.Children {
@@ -114,43 +81,19 @@ func TestIntegration(t *testing.T) {
 	}
 
 	t.Log("Phase 3: Creating ProjectA and ProjectB under Projects")
-	_, err = tree.IAsk(imsg.IMsg{
-		Type:     imsg.CreateChild,
-		TargetID: projectsNodeID,
-		UserID:   1,
-		Payload: map[string]any{
-			"nodeType": float64(node.Group),
-			"name":     "ProjectA",
-		},
-	})
+	_, err = api.IAskCreateChild(projectsNodeID, 1, node.Group, "ProjectA")
 	if err != nil {
 		t.Fatalf("Failed to create ProjectA: %v", err)
 	}
 
-	_, err = tree.IAsk(imsg.IMsg{
-		Type:     imsg.CreateChild,
-		TargetID: projectsNodeID,
-		UserID:   1,
-		Payload: map[string]any{
-			"nodeType": float64(node.Group),
-			"name":     "ProjectB",
-		},
-	})
+	_, err = api.IAskCreateChild(projectsNodeID, 1, node.Group, "ProjectB")
 	if err != nil {
 		t.Fatalf("Failed to create ProjectB: %v", err)
 	}
 
 	// Phase 4: Test name collision
 	t.Log("Phase 4: Testing name collision")
-	_, err = tree.IAsk(imsg.IMsg{
-		Type:     imsg.CreateChild,
-		TargetID: 2, // System node
-		UserID:   1,
-		Payload: map[string]any{
-			"nodeType": float64(node.Group),
-			"name":     "Config", // This should collide with existing Config
-		},
-	})
+	_, err = api.IAskCreateChild(2, 1, node.Group, "Config") // System node, user 1 - should collide
 	if err == nil {
 		t.Errorf("Expected name collision error, but creation succeeded")
 	} else {
@@ -159,15 +102,7 @@ func TestIntegration(t *testing.T) {
 
 	// Phase 5: Test rename operation
 	t.Log("Phase 5: Testing rename operation")
-	_, err = tree.IAsk(imsg.IMsg{
-		Type:     imsg.RenameChild,
-		TargetID: 2, // System node
-		UserID:   1,
-		Payload: map[string]any{
-			"oldName": "Logs",
-			"newName": "SystemLogs",
-		},
-	})
+	err = api.IAskRenameChild(2, 1, "Logs", "SystemLogs") // System node, user 1
 	if err != nil {
 		t.Fatalf("Failed to rename Logs to SystemLogs: %v", err)
 	}
@@ -180,11 +115,7 @@ func TestIntegration(t *testing.T) {
 	t.Logf("Goroutines before shutdown: %d", goroutinesBefore)
 
 	// Shutdown the entire tree
-	_, err = tree.IAsk(imsg.IMsg{
-		Type:     imsg.Shutdown,
-		TargetID: 1, // Root node
-		UserID:   1,
-	})
+	err = api.IAskShutdown(1, 1) // Root node, user 1
 	if err != nil {
 		t.Fatalf("Failed to shutdown tree: %v", err)
 	}
@@ -217,17 +148,12 @@ func TestIntegration(t *testing.T) {
 
 	// Phase 8: Final tree verification
 	t.Log("Phase 8: Verifying final tree structure after restart")
-	finalResult, err := tree.IAsk(imsg.IMsg{
-		Type:     imsg.GetTree,
-		TargetID: 1, // Root
-		UserID:   1,
-	})
+	finalTree, err := api.IAskGetTree(1, 1) // Root, user 1
 	if err != nil {
 		t.Fatalf("Failed to get final tree: %v", err)
 	}
 
 	// Verify the final tree structure
-	finalTree := finalResult.(*msg.TreeEntry)
 
 	// Root should have 3 children: System, Projects, and Authenticator
 	if len(finalTree.Children) != 3 {
@@ -301,44 +227,21 @@ func TestIntegration(t *testing.T) {
 	t.Log("Phase 9: Testing Lookup functionality")
 
 	// Test 1: Lookup Config from System node (single level)
-	lookupResult, err := tree.IAsk(imsg.IMsg{
-		Type:     imsg.Lookup,
-		TargetID: 2, // System node
-		UserID:   1,
-		Payload: map[string]any{
-			"path": "Config",
-		},
-	})
+	configTag, err := api.IAskLookup(2, 1, "Config") // System node, user 1
 	if err != nil {
 		t.Fatalf("Failed to lookup Config from System: %v", err)
 	}
-	configTag := lookupResult.(*msg.Tag)
-	t.Logf("Successfully looked up Config from System node (ID: %d)", configTag.NodeID)
+	t.Logf("Successfully looked up Config from System node (ID: %d)", configTag.ID)
 
 	// Test 2: Lookup with multi-level path from Root (System/SystemLogs)
-	lookupResult, err = tree.IAsk(imsg.IMsg{
-		Type:     imsg.Lookup,
-		TargetID: 1, // Root
-		UserID:   1,
-		Payload: map[string]any{
-			"path": "System/SystemLogs",
-		},
-	})
+	systemLogsTag, err := api.IAskLookup(1, 1, "System/SystemLogs") // Root, user 1
 	if err != nil {
 		t.Fatalf("Failed to lookup System/SystemLogs from Root: %v", err)
 	}
-	systemLogsTag := lookupResult.(*msg.Tag)
-	t.Logf("Successfully looked up SystemLogs via path System/SystemLogs from Root (ID: %d)", systemLogsTag.NodeID)
+	t.Logf("Successfully looked up SystemLogs via path System/SystemLogs from Root (ID: %d)", systemLogsTag.ID)
 
 	// Test 3: Lookup non-existent path (System/Logs - was renamed to SystemLogs)
-	_, err = tree.IAsk(imsg.IMsg{
-		Type:     imsg.Lookup,
-		TargetID: 1, // Root
-		UserID:   1,
-		Payload: map[string]any{
-			"path": "System/Logs",
-		},
-	})
+	_, err = api.IAskLookup(1, 1, "System/Logs") // Root, user 1
 	if err == nil {
 		t.Fatal("Expected error for non-existent path System/Logs, got nil")
 	}
@@ -347,15 +250,9 @@ func TestIntegration(t *testing.T) {
 	// Phase 10: Performance measurement for cache effectiveness
 	t.Log("Phase 10: Measuring GetTree performance - first call vs cached call")
 
-	getTreeMsg := imsg.IMsg{
-		Type:     imsg.GetTree,
-		TargetID: 1, // Root
-		UserID:   1,
-	}
-
 	// First call - should compute and cache
 	start1 := time.Now()
-	_, err = tree.IAsk(getTreeMsg)
+	_, err = api.IAskGetTree(1, 1) // Root, user 1
 	duration1 := time.Since(start1)
 	if err != nil {
 		t.Fatalf("Failed first GetTree call: %v", err)
@@ -363,7 +260,7 @@ func TestIntegration(t *testing.T) {
 
 	// Second call - should return from cache
 	start2 := time.Now()
-	_, err = tree.IAsk(getTreeMsg)
+	_, err = api.IAskGetTree(1, 1) // Root, user 1
 	duration2 := time.Since(start2)
 	if err != nil {
 		t.Fatalf("Failed second GetTree call: %v", err)
