@@ -1,7 +1,7 @@
 package builtin
 
 import (
-	"github.com/gadfly16/nerd/api/msg"
+	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/api/node"
 )

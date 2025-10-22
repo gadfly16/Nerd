@@ -4,7 +4,7 @@ import (
 	"strings"
 
 	"github.com/gadfly16/nerd/api/imsg"
-	"github.com/gadfly16/nerd/api/msg"
+	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/gadfly16/nerd/api/nerd"
 )
 
