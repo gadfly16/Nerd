@@ -3,8 +3,8 @@ package builtin
 import (
 	"fmt"
 
-	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/gadfly16/nerd/api/nerd"
+	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/gadfly16/nerd/sdk/node"
 )
 
@@ -216,28 +216,24 @@ func handleLookup(m *msg.Msg, n node.Node) (any, error) {
 		return nil, nerd.ErrInvalidPayload
 	}
 
-	// Empty path returns this node
+	// Empty path is a programming error - adapter should never send this
 	if len(path) == 0 {
-		return n.GetTag(), nil
+		panic("handleLookup called with empty path")
 	}
 
 	e := n.GetEntity()
 
-	// Get first segment
-	childName := path[0]
-
 	// Find child by name
-	childTag, exists := e.Children[childName]
+	childTag, exists := e.Children[path[0]]
 	if !exists {
 		return nil, nerd.ErrNodeNotFound
 	}
 
-	// If this is the last segment, return the child
+	// Single segment - return the child directly
 	if len(path) == 1 {
 		return childTag, nil
 	}
 
-	// Recursively lookup in child with remaining path
-	remainingPath := path[1:]
-	return childTag.AskLookup(remainingPath)
+	// Multi-segment path - recursively lookup in child with remaining path
+	return childTag.AskLookup(path[1:])
 }
