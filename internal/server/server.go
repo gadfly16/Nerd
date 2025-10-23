@@ -268,8 +268,17 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// TODO: Create GUI node and send init message
 
-	// Keep connection alive
-	<-r.Context().Done()
+	// Read loop to detect client disconnect
+	// We expect no messages from client (server-to-client only)
+	ctx := r.Context()
+	for {
+		_, _, err := conn.Read(ctx)
+		if err != nil {
+			// Client disconnected or connection error
+			log.Printf("WebSocket connection closed for user %d: %v", userID, err)
+			break
+		}
+	}
 	conn.Close(websocket.StatusNormalClosure, "")
 }
 
