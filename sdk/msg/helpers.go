@@ -7,12 +7,14 @@ import "github.com/gadfly16/nerd/api/nerd"
 
 // AskCreateChild sends a CreateChild message to the target node
 // If name is empty, the node will auto-generate its name
-func (t *Tag) AskCreateChild(nodeType nerd.NodeType, name string) (*Tag, error) {
+// spec is optional node-specific initialization data
+func (t *Tag) AskCreateChild(nodeType nerd.NodeType, name string, spec any) (*Tag, error) {
 	result, err := t.Ask(&Msg{
 		Type: CreateChild,
 		Payload: CreateChildPayload{
 			NodeType: nodeType,
 			Name:     name,
+			Spec:     spec,
 		},
 	})
 	if err != nil {

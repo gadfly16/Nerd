@@ -274,7 +274,6 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	for {
 		_, _, err := conn.Read(ctx)
 		if err != nil {
-			// Client disconnected or connection error
 			log.Printf("WebSocket connection closed for user %d: %v", userID, err)
 			break
 		}

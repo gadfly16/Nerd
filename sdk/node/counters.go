@@ -7,7 +7,8 @@ import (
 )
 
 var (
-	newIDCounter *int64 = new(int64)
+	newIDCounter       *int64 = new(int64)
+	ephemeralIDCounter *int64 = new(int64)
 )
 
 func NewID() nerd.NodeID {
@@ -16,6 +17,12 @@ func NewID() nerd.NodeID {
 		panic("ID counter exceeded allowed limit.")
 	}
 	return nerd.NodeID(atomic.AddInt64(newIDCounter, 1))
+}
+
+// NewEphemeralID generates negative IDs for ephemeral nodes (GUI nodes, etc.)
+// These IDs reset on instance restart and nodes are not persisted to database
+func NewEphemeralID() nerd.NodeID {
+	return nerd.NodeID(atomic.AddInt64(ephemeralIDCounter, -1))
 }
 
 // InitIDCounter initializes the ID counter to the highest existing ID in database

@@ -20,15 +20,15 @@ func IAsk(im imsg.IMsg) (any, error) {
 
 	switch im.Type {
 	case imsg.GetTree:
-		return HandleIGetTree(tag)
+		return handleIGetTree(tag)
 	case imsg.Lookup:
-		return HandleILookup(tag, im)
+		return handleILookup(tag, im)
 	case imsg.RenameChild:
-		return HandleIRenameChild(tag, im)
+		return handleIRenameChild(tag, im)
 	case imsg.CreateChild:
-		return HandleICreateChild(tag, im)
+		return handleICreateChild(tag, im)
 	case imsg.Shutdown:
-		return HandleIShutdown(tag)
+		return handleIShutdown(tag)
 	default:
 		return nil, nerd.ErrMalformedIMsg
 	}
@@ -38,23 +38,23 @@ func IAsk(im imsg.IMsg) (any, error) {
 func IAskAuth(im imsg.IMsg) (ia any, err error) {
 	switch im.Type {
 	case imsg.AuthenticateUser:
-		return HandleIAuthenticateUser(im)
+		return handleIAuthenticateUser(im)
 	case imsg.CreateUser:
-		return HandleICreateUser(im)
+		return handleICreateUser(im)
 	default:
 		return nil, nerd.ErrMalformedIMsg
 	}
 }
 
-// HandleIGetTree converts HttpGetTree message to native GetTree message
-func HandleIGetTree(t *msg.Tag) (any, error) {
+// handleIGetTree converts HttpGetTree message to native GetTree message
+func handleIGetTree(t *msg.Tag) (any, error) {
 	return t.Ask(&msg.Msg{
 		Type: msg.GetTree,
 	})
 }
 
-// HandleILookup converts HttpLookup message to native Lookup message
-func HandleILookup(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
+// handleILookup converts HttpLookup message to native Lookup message
+func handleILookup(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
 	pathStr, ok := im.Payload["path"].(string)
 	if !ok {
 		return nil, nerd.ErrMalformedIMsg
@@ -76,8 +76,8 @@ func HandleILookup(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
 	return a.(*msg.Tag).ToITag(), nil
 }
 
-// HandleIRenameChild converts HttpRenameChild message to native RenameChild message
-func HandleIRenameChild(t *msg.Tag, im imsg.IMsg) (any, error) {
+// handleIRenameChild converts HttpRenameChild message to native RenameChild message
+func handleIRenameChild(t *msg.Tag, im imsg.IMsg) (any, error) {
 	// Validate payload contains oldName field
 	oldName, ok := im.Payload["oldName"]
 	if !ok {
@@ -109,8 +109,8 @@ func HandleIRenameChild(t *msg.Tag, im imsg.IMsg) (any, error) {
 	})
 }
 
-// HandleICreateChild converts HttpCreateChild message to native CreateChild message
-func HandleICreateChild(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
+// handleICreateChild converts HttpCreateChild message to native CreateChild message
+func handleICreateChild(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
 	nodeType, ok := im.Payload["nodeType"]
 	if !ok {
 		return nil, nerd.ErrMalformedIMsg
@@ -136,16 +136,20 @@ func HandleICreateChild(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
 		Payload: msg.CreateChildPayload{
 			NodeType: nerd.NodeType(nodeTypeFloat),
 			Name:     name,
+			Spec:     im.Payload["spec"], // nil if not provided
 		},
 	})
 	if err != nil {
 		return nil, err
 	}
-	return a.(*msg.Tag).ToITag(), nil
+
+	t = a.(*msg.Tag)
+	addTag(t)
+	return t.ToITag(), nil
 }
 
-// HandleIShutdown converts HttpShutdown message to native Shutdown message
-func HandleIShutdown(t *msg.Tag) (ia any, err error) {
+// handleIShutdown converts HttpShutdown message to native Shutdown message
+func handleIShutdown(t *msg.Tag) (ia any, err error) {
 	a, err := t.Ask(&msg.Msg{Type: msg.Shutdown})
 	shutdownTags := a.([]*msg.Tag)
 	var rootHalted bool
@@ -163,8 +167,8 @@ func HandleIShutdown(t *msg.Tag) (ia any, err error) {
 	return nil, nil
 }
 
-// HandleIAuthenticateUser converts HttpAuthenticateUser to native AuthenticateUser message
-func HandleIAuthenticateUser(im imsg.IMsg) (ia any, err error) {
+// handleIAuthenticateUser converts HttpAuthenticateUser to native AuthenticateUser message
+func handleIAuthenticateUser(im imsg.IMsg) (ia any, err error) {
 	// Extract username and password from payload
 	username, ok := im.Payload["username"].(string)
 	if !ok {
@@ -189,8 +193,8 @@ func HandleIAuthenticateUser(im imsg.IMsg) (ia any, err error) {
 	return a.(*msg.Tag).ToITag(), nil
 }
 
-// HandleICreateUser converts HttpCreateUser to native CreateUser message
-func HandleICreateUser(im imsg.IMsg) (ia any, err error) {
+// handleICreateUser converts HttpCreateUser to native CreateUser message
+func handleICreateUser(im imsg.IMsg) (ia any, err error) {
 	username, ok := im.Payload["username"].(string)
 	if !ok {
 		return nil, nerd.ErrMalformedIMsg

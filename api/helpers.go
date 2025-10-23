@@ -37,7 +37,8 @@ func IAskLookup(targetID, userID nerd.NodeID, path string) (*imsg.ITag, error) {
 }
 
 // IAskCreateChild creates a new child node under the target node
-func IAskCreateChild(targetID, userID nerd.NodeID, nodeType nerd.NodeType, name string) (*imsg.ITag, error) {
+// spec is optional node-specific initialization data
+func IAskCreateChild(targetID, userID nerd.NodeID, nodeType nerd.NodeType, name string, spec any) (*imsg.ITag, error) {
 	result, err := tree.IAsk(imsg.IMsg{
 		Type:     imsg.CreateChild,
 		TargetID: targetID,
@@ -45,6 +46,7 @@ func IAskCreateChild(targetID, userID nerd.NodeID, nodeType nerd.NodeType, name 
 		Payload: map[string]any{
 			"nodeType": float64(nodeType),
 			"name":     name,
+			"spec":     spec, // nil if not provided
 		},
 	})
 	if err != nil {

@@ -29,14 +29,14 @@ func InitInstance(dbPath string) error {
 	addTag(root)
 
 	// Create System group directly with name
-	t, err := root.AskCreateChild(nerd.GroupNode, "System")
+	t, err := root.AskCreateChild(nerd.GroupNode, "System", nil)
 	if err != nil {
 		return err
 	}
 	addTag(t)
 
 	// Create Authenticator singleton
-	t, err = root.AskCreateChild(nerd.AuthenticatorNode, "")
+	t, err = root.AskCreateChild(nerd.AuthenticatorNode, "", nil)
 	if err != nil {
 		return err
 	}

@@ -8,9 +8,9 @@ import (
 
 	"github.com/gadfly16/nerd/api"
 	"github.com/gadfly16/nerd/api/nerd"
-	"github.com/gadfly16/nerd/sdk/node"
 	"github.com/gadfly16/nerd/internal/tree"
 	"github.com/gadfly16/nerd/sdk/msg"
+	"github.com/gadfly16/nerd/sdk/node"
 )
 
 func TestIntegration(t *testing.T) {
@@ -38,19 +38,19 @@ func TestIntegration(t *testing.T) {
 
 	// Phase 1: Add "Projects" group under Root
 	t.Log("Phase 1: Creating Projects group under Root")
-	_, err = api.IAskCreateChild(1, 1, nerd.GroupNode, "Projects") // Root node, user 1
+	_, err = api.IAskCreateChild(1, 1, nerd.GroupNode, "Projects", nil) // Root node, user 1
 	if err != nil {
 		t.Fatalf("Failed to create Projects group: %v", err)
 	}
 
 	// Phase 2: Add children under System
 	t.Log("Phase 2: Creating Config and Logs under System")
-	_, err = api.IAskCreateChild(2, 1, nerd.GroupNode, "Config") // System node, user 1
+	_, err = api.IAskCreateChild(2, 1, nerd.GroupNode, "Config", nil) // System node, user 1
 	if err != nil {
 		t.Fatalf("Failed to create Config group: %v", err)
 	}
 
-	_, err = api.IAskCreateChild(2, 1, nerd.GroupNode, "Logs") // System node, user 1
+	_, err = api.IAskCreateChild(2, 1, nerd.GroupNode, "Logs", nil) // System node, user 1
 	if err != nil {
 		t.Fatalf("Failed to create Logs group: %v", err)
 	}
@@ -81,19 +81,19 @@ func TestIntegration(t *testing.T) {
 	}
 
 	t.Log("Phase 3: Creating ProjectA and ProjectB under Projects")
-	_, err = api.IAskCreateChild(projectsNodeID, 1, nerd.GroupNode, "ProjectA")
+	_, err = api.IAskCreateChild(projectsNodeID, 1, nerd.GroupNode, "ProjectA", nil)
 	if err != nil {
 		t.Fatalf("Failed to create ProjectA: %v", err)
 	}
 
-	_, err = api.IAskCreateChild(projectsNodeID, 1, nerd.GroupNode, "ProjectB")
+	_, err = api.IAskCreateChild(projectsNodeID, 1, nerd.GroupNode, "ProjectB", nil)
 	if err != nil {
 		t.Fatalf("Failed to create ProjectB: %v", err)
 	}
 
 	// Phase 4: Test name collision
 	t.Log("Phase 4: Testing name collision")
-	_, err = api.IAskCreateChild(2, 1, nerd.GroupNode, "Config") // System node, user 1 - should collide
+	_, err = api.IAskCreateChild(2, 1, nerd.GroupNode, "Config", nil) // System node, user 1 - should collide
 	if err == nil {
 		t.Errorf("Expected name collision error, but creation succeeded")
 	} else {

@@ -91,7 +91,7 @@ var generateCmd = &cobra.Command{
 			parentID := nodes[rand.Intn(len(nodes))]
 
 			// Create child node with default name
-			it, err := api.IAskCreateChild(parentID, 1, nerd.GroupNode, "")
+			it, err := api.IAskCreateChild(parentID, 1, nerd.GroupNode, "", nil)
 			if err != nil {
 				return fmt.Errorf("failed to create node %d: %w", i+1, err)
 			}
