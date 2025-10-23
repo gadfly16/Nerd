@@ -5,9 +5,9 @@ import (
 
 	"github.com/gadfly16/nerd/api/imsg"
 	"github.com/gadfly16/nerd/api/nerd"
-	"github.com/gadfly16/nerd/sdk/node"
 	"github.com/gadfly16/nerd/internal/builtin"
 	"github.com/gadfly16/nerd/sdk/msg"
+	"github.com/gadfly16/nerd/sdk/node"
 )
 
 // IAsk translates interface message to native message and waits for answer
@@ -73,10 +73,7 @@ func HandleILookup(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if t, ok := a.(*msg.Tag); ok {
-		ia = t.ToITag()
-	}
-	return ia, nil
+	return a.(*msg.Tag).ToITag(), nil
 }
 
 // HandleIRenameChild converts HttpRenameChild message to native RenameChild message
@@ -141,11 +138,10 @@ func HandleICreateChild(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
 			Name:     name,
 		},
 	})
-	if t, ok := a.(*msg.Tag); ok {
-		ia = t.ToITag()
-		addTag(t)
+	if err != nil {
+		return nil, err
 	}
-	return ia, err
+	return a.(*msg.Tag).ToITag(), nil
 }
 
 // HandleIShutdown converts HttpShutdown message to native Shutdown message
@@ -187,10 +183,10 @@ func HandleIAuthenticateUser(im imsg.IMsg) (ia any, err error) {
 			Password: password,
 		},
 	})
-	if t, ok := a.(*msg.Tag); ok {
-		ia = t.ToITag()
+	if err != nil {
+		return nil, err
 	}
-	return ia, err
+	return a.(*msg.Tag).ToITag(), nil
 }
 
 // HandleICreateUser converts HttpCreateUser to native CreateUser message
@@ -212,9 +208,8 @@ func HandleICreateUser(im imsg.IMsg) (ia any, err error) {
 			Password: password,
 		},
 	})
-	if t, ok := a.(*msg.Tag); ok {
-		ia = t.ToITag()
-		addTag(t)
+	if err != nil {
+		return nil, err
 	}
-	return ia, err
+	return a.(*msg.Tag).ToITag(), nil
 }
