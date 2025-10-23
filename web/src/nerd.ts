@@ -125,6 +125,16 @@ export class Component extends HTMLElement {
   bbox(): DOMRect {
     return this.getBoundingClientRect()
   }
+
+  // Show removes the "hidden" class to make the component visible
+  Show(): void {
+    this.classList.remove("hidden")
+  }
+
+  // Hide adds the "hidden" class to hide the component
+  Hide(): void {
+    this.classList.add("hidden")
+  }
 }
 
 // Ask sends an API message to the server and returns the response payload

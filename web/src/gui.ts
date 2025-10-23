@@ -69,6 +69,10 @@ class GUI extends nerd.Component {
     nerd.Ctx.userID = parseInt(this.getAttribute("userid")!, 10)
     nerd.Ctx.admin = this.getAttribute("admin") === "true"
 
+    // Append both auth and workbench to DOM (one will be hidden)
+    this.appendChild(this.auth)
+    this.appendChild(this.workbench)
+
     // Listen for unauthorized events
     window.addEventListener("nerd:unauthorized", () => this.SwitchToAuth())
 
@@ -83,22 +87,22 @@ class GUI extends nerd.Component {
   // SwitchToAuth clears all sensitive data and shows authentication UI
   // Called on logout, session expiry, or authentication failure
   SwitchToAuth() {
-    // Clear all sensitive information
-    nerd.Ctx.userID = 0
-    nerd.Ctx.dispRoot = null
-    nerd.Nodes.clear()
+    // Cleanup workbench when switching away
+    this.workbench.Cleanup()
 
-    // Clear board contents
-    this.workbench.Clear()
-
-    this.workbench.remove()
-    this.appendChild(this.auth)
+    // Hide workbench, show auth
+    this.workbench.Hide()
+    this.auth.Show()
   }
 
   // SwitchToWorkbench hides auth and loads workbench
   SwitchToWorkbench() {
-    this.auth.remove()
-    this.appendChild(this.workbench)
+    // Cleanup auth when switching away
+    this.auth.Cleanup()
+
+    // Hide auth, show workbench
+    this.auth.Hide()
+    this.workbench.Show()
     this.workbench.Populate()
   }
 }
@@ -159,11 +163,6 @@ class Workbench extends nerd.Component {
       this.Query("nerd-board.board_1") as Board,
     ]
     this.footer = this.Query("nerd-footer") as Footer
-  }
-
-  disconnectedCallback() {
-    this.closeWebSocket()
-    this.stopAutoSave()
   }
 
   // Populate loads the tree and populates the board displays
@@ -230,8 +229,20 @@ class Workbench extends nerd.Component {
     }
   }
 
-  // Clear removes all content from all boards
-  Clear() {
+  // Cleanup stops all workbench operations and clears all data
+  Cleanup() {
+    // Stop WebSocket connection
+    this.closeWebSocket()
+
+    // Stop auto-save timer
+    this.stopAutoSave()
+
+    // Clear all sensitive information
+    nerd.Ctx.userID = 0
+    nerd.Ctx.dispRoot = null
+    nerd.Nodes.clear()
+
+    // Clear all boards
     for (const board of this.boardElements) {
       board.Clear()
     }
@@ -268,6 +279,7 @@ class Workbench extends nerd.Component {
     if (this.ws) {
       this.ws.close()
       this.ws = null
+      nerd.Log(nerd.Status.OK, "Closed WebSocket")
     }
   }
 
@@ -617,7 +629,7 @@ class Auth extends nerd.Component {
         regmode ? imsg.CreateUser : imsg.AuthenticateUser,
         pl,
       )
-      nerd.Ctx.userID = a.nodeId
+      nerd.Ctx.userID = a.id
       nerd.Ctx.admin = a.admin
       gui.SwitchToWorkbench()
     } catch (err) {
@@ -629,6 +641,21 @@ class Auth extends nerd.Component {
 
   private showError(error: string) {
     this.error.textContent = error
+  }
+
+  // Cleanup clears all form fields and errors
+  Cleanup() {
+    // Reset both forms
+    this.login.reset()
+    this.register.reset()
+
+    // Clear error message
+    this.error.textContent = ""
+
+    // Reset to login mode if in register mode
+    if (this.regmode) {
+      this.toggleMode()
+    }
   }
 }
 

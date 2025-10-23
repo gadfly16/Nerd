@@ -6,8 +6,8 @@ import "github.com/gadfly16/nerd/api/nerd"
 type Type int
 
 type ITag struct {
-	ID    nerd.NodeID
-	Admin bool
+	ID    nerd.NodeID `json:"id"`
+	Admin bool        `json:"admin"`
 }
 
 const (

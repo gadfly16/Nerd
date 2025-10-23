@@ -229,10 +229,10 @@ func (s *Server) handleAuthenticateUser(w http.ResponseWriter, m *imsg.IMsg) {
 		return
 	}
 
-	// Result is map[string]any with nodeId and admin fields
-	resultMap := result.(map[string]any)
-	userID := nerd.NodeID(resultMap["nodeId"].(float64))
-	admin := resultMap["admin"].(bool)
+	// Result is *imsg.ITag
+	itag := result.(*imsg.ITag)
+	userID := itag.ID
+	admin := itag.Admin
 
 	// Set JWT cookie
 	if err := s.setJWTCookie(w, userID, admin); err != nil {
@@ -244,7 +244,7 @@ func (s *Server) handleAuthenticateUser(w http.ResponseWriter, m *imsg.IMsg) {
 	// Return success with user info
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(resultMap)
+	json.NewEncoder(w).Encode(itag)
 }
 
 // handleWebSocket upgrades HTTP connection to WebSocket and creates GUI node
@@ -332,10 +332,10 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, m *imsg.IMsg) {
 		return
 	}
 
-	// Result is map[string]any with nodeId and admin fields
-	resultMap := result.(map[string]any)
-	userID := nerd.NodeID(resultMap["nodeId"].(float64))
-	admin := resultMap["admin"].(bool)
+	// Result is *imsg.ITag
+	itag := result.(*imsg.ITag)
+	userID := itag.ID
+	admin := itag.Admin
 
 	// Set JWT cookie (auto-login after registration)
 	if err := s.setJWTCookie(w, userID, admin); err != nil {
@@ -347,5 +347,5 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, m *imsg.IMsg) {
 	// Return success with user info
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(resultMap)
+	json.NewEncoder(w).Encode(itag)
 }
