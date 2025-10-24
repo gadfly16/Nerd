@@ -63,7 +63,7 @@ func (t *Tag) AskDeleteSelf() error {
 // AskRename sends a Rename message to the target node (for parent-child coordination)
 func (t *Tag) AskRename(newName string) error {
 	_, err := t.Ask(&Msg{
-		Type:    Rename,
+		Type:    RenameSelf,
 		Payload: newName,
 	})
 	return err

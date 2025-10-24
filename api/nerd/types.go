@@ -12,7 +12,8 @@ const (
 	RootNode
 	AuthenticatorNode
 	UserNode
-	BuiltinNodeSeparator
+
+	BUILTIN_NODE_SEPARATOR
 )
 
 // NodeTypeName returns the string representation of a NodeType

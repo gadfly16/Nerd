@@ -18,7 +18,7 @@ func handleCommonMessage(m *msg.Msg, node node.Node) (any, error) {
 		return handleShutdown(m, node)
 	case msg.RenameChild:
 		return handleRenameChild(m, node)
-	case msg.Rename:
+	case msg.RenameSelf:
 		return handleRename(m, node)
 	case msg.DeleteChild:
 		return handleDeleteChild(m, node)

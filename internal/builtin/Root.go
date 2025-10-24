@@ -3,8 +3,8 @@ package builtin
 import (
 	"fmt"
 
-	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/gadfly16/nerd/api/nerd"
+	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/gadfly16/nerd/sdk/node"
 	"gorm.io/gorm"
 )
@@ -91,7 +91,7 @@ func (n *Root) messageLoop() {
 		// TODO: Pre-process: authorization check
 
 		// Route based on message type
-		if m.Type < msg.CommonMsgSeparator {
+		if m.Type < msg.COMMON_MSG_SEPARATOR {
 			// Common message - handle via Entity
 			a, err = handleCommonMessage(&m, n)
 		} else {

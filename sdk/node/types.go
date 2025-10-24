@@ -18,7 +18,7 @@ const Authenticator = nerd.AuthenticatorNode
 const User = nerd.UserNode
 
 // Deprecated: Use nerd.BuiltinNodeSeparator instead
-const BuiltinSeparator = nerd.BuiltinNodeSeparator
+const BuiltinSeparator = nerd.BUILTIN_NODE_SEPARATOR
 
 // Deprecated: Use nerd.NodeTypeName instead
 func NodeTypeName(nt nerd.NodeType) string {

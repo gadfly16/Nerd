@@ -47,14 +47,16 @@ const (
 	CreateChild MsgType = iota
 	Shutdown
 	RenameChild
-	Rename      // internal operation only
 	DeleteChild // delete child by ID
-	DeleteSelf  // internal operation only
 	GetTree     // get tree structure for GUI
 	Lookup      // lookup node by path
 
+	// Internal messages
+	RenameSelf // Sent by RenameChild handler
+	DeleteSelf // Sent by DeleteChild handler
+
 	// Separator - messages >= this value are node-specific
-	CommonMsgSeparator
+	COMMON_MSG_SEPARATOR
 
 	// Node-specific messages start here
 	// Each node type can define their own starting from this point

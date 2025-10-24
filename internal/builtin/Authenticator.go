@@ -67,7 +67,7 @@ func (n *Authenticator) messageLoop() {
 		// TODO: Pre-process: authorization check
 
 		// Route based on message type
-		if m.Type < msg.CommonMsgSeparator {
+		if m.Type < msg.COMMON_MSG_SEPARATOR {
 			// Common message - handle via Entity
 			a, err = handleCommonMessage(&m, n)
 		} else {
