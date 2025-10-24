@@ -15,6 +15,7 @@ const (
 	Lookup
 	CreateChild
 	RenameChild
+	DeleteChild
 	Shutdown
 	AuthenticateUser
 	CreateUser

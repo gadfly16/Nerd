@@ -69,6 +69,19 @@ func IAskRenameChild(targetID, userID nerd.NodeID, oldName, newName string) erro
 	return err
 }
 
+// IAskDeleteChild deletes a child node by ID
+func IAskDeleteChild(targetID, userID nerd.NodeID, childID nerd.NodeID) error {
+	_, err := tree.IAsk(imsg.IMsg{
+		Type:     imsg.DeleteChild,
+		TargetID: targetID,
+		UserID:   userID,
+		Payload: map[string]any{
+			"childId": float64(childID),
+		},
+	})
+	return err
+}
+
 // IAskShutdown requests a node to shut down gracefully
 func IAskShutdown(targetID, userID nerd.NodeID) error {
 	_, err := tree.IAsk(imsg.IMsg{

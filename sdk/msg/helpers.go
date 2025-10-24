@@ -43,6 +43,23 @@ func (t *Tag) AskShutdown() error {
 	return err
 }
 
+// AskDeleteChild sends a DeleteChild message to delete a child by ID
+func (t *Tag) AskDeleteChild(childID nerd.NodeID) error {
+	_, err := t.Ask(&Msg{
+		Type:    DeleteChild,
+		Payload: childID,
+	})
+	return err
+}
+
+// AskDeleteSelf sends a DeleteSelf message to the target node (for parent-child coordination)
+func (t *Tag) AskDeleteSelf() error {
+	_, err := t.Ask(&Msg{
+		Type: DeleteSelf,
+	})
+	return err
+}
+
 // AskRename sends a Rename message to the target node (for parent-child coordination)
 func (t *Tag) AskRename(newName string) error {
 	_, err := t.Ask(&Msg{

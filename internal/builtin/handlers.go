@@ -20,6 +20,10 @@ func handleCommonMessage(m *msg.Msg, node node.Node) (any, error) {
 		return handleRenameChild(m, node)
 	case msg.Rename:
 		return handleRename(m, node)
+	case msg.DeleteChild:
+		return handleDeleteChild(m, node)
+	case msg.DeleteSelf:
+		return handleDeleteSelf(m, node)
 	case msg.GetTree:
 		return handleGetTree(m, node)
 	case msg.Lookup:
@@ -236,4 +240,67 @@ func handleLookup(m *msg.Msg, n node.Node) (any, error) {
 
 	// Multi-segment path - recursively lookup in child with remaining path
 	return childTag.AskLookup(path[1:])
+}
+
+// handleDeleteChild processes requests to delete child nodes by ID (shared logic)
+func handleDeleteChild(m *msg.Msg, n node.Node) (any, error) {
+	e := n.GetEntity()
+
+	// Parse message payload
+	childID, ok := m.Payload.(nerd.NodeID)
+	if !ok {
+		return nil, nerd.ErrInvalidPayload
+	}
+
+	// Find child by ID in children map
+	var childName string
+	var childTag *msg.Tag
+	for name, tag := range e.Children {
+		if tag.NodeID == childID {
+			childName = name
+			childTag = tag
+			break
+		}
+	}
+
+	if childTag == nil {
+		return nil, nerd.ErrNodeNotFound
+	}
+
+	// Ask child to delete itself
+	err := childTag.AskDeleteSelf()
+	if err != nil {
+		return nil, err
+	}
+
+	// Remove from parent's children map
+	delete(e.Children, childName)
+
+	// Invalidate parent's cache since tree structure changed
+	e.CacheValidity.InvalidateTreeEntry()
+
+	return childTag, nil
+}
+
+// handleDeleteSelf processes delete requests from parent (internal operation)
+func handleDeleteSelf(_ *msg.Msg, n node.Node) (any, error) {
+	e := n.GetEntity()
+
+	// Check if node has children - cannot delete if it does
+	if len(e.Children) > 0 {
+		return nil, fmt.Errorf("cannot delete node with children")
+	}
+
+	// Delete from database (only for persistent nodes with positive IDs)
+	if e.NodeID > 0 {
+		result := node.DB.Delete(&node.Entity{}, e.NodeID)
+		if result.Error != nil {
+			return nil, fmt.Errorf("failed to delete from database: %w", result.Error)
+		}
+	}
+
+	// Node-specific cleanup
+	n.Shutdown()
+
+	return nil, nil
 }

@@ -27,6 +27,8 @@ func IAsk(im imsg.IMsg) (any, error) {
 		return handleIRenameChild(tag, im)
 	case imsg.CreateChild:
 		return handleICreateChild(tag, im)
+	case imsg.DeleteChild:
+		return handleIDeleteChild(tag, im)
 	case imsg.Shutdown:
 		return handleIShutdown(tag)
 	default:
@@ -146,6 +148,33 @@ func handleICreateChild(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
 	t = a.(*msg.Tag)
 	addTag(t)
 	return t.ToITag(), nil
+}
+
+// handleIDeleteChild converts HttpDeleteChild message to native DeleteChild message
+func handleIDeleteChild(t *msg.Tag, im imsg.IMsg) (any, error) {
+	childID, ok := im.Payload["childId"]
+	if !ok {
+		return nil, nerd.ErrMalformedIMsg
+	}
+
+	childIDFloat, ok := childID.(float64)
+	if !ok {
+		return nil, nerd.ErrMalformedIMsg
+	}
+
+	a, err := t.Ask(&msg.Msg{
+		Type:    msg.DeleteChild,
+		Payload: nerd.NodeID(childIDFloat),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Remove deleted child tag from tree registry
+	deletedTag := a.(*msg.Tag)
+	tree.removeTag(deletedTag.NodeID)
+
+	return nil, nil
 }
 
 // handleIShutdown converts HttpShutdown message to native Shutdown message

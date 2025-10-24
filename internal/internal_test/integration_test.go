@@ -276,5 +276,98 @@ func TestIntegration(t *testing.T) {
 		t.Logf("Cache performance: cached call took %v vs %v", duration2, duration1)
 	}
 
+	// Phase 11: Test DeleteChild functionality
+	t.Log("Phase 11: Testing DeleteChild functionality")
+
+	// Record node count before deletion
+	nodeCountBefore := tree.GetNodeCount()
+	t.Logf("Node count before deletion: %d", nodeCountBefore)
+
+	// Test 1: Delete a leaf node (Config has no children)
+	t.Log("Test 11.1: Deleting leaf node Config")
+	err = api.IAskDeleteChild(2, 1, configTag.ID) // System node, user 1, delete Config
+	if err != nil {
+		t.Fatalf("Failed to delete Config node: %v", err)
+	}
+
+	// Verify node count decreased by 1
+	nodeCountAfter := tree.GetNodeCount()
+	t.Logf("Node count after deletion: %d", nodeCountAfter)
+	if nodeCountAfter != nodeCountBefore-1 {
+		t.Errorf("Expected node count to decrease by 1, before: %d, after: %d", nodeCountBefore, nodeCountAfter)
+	}
+
+	// Verify Config is gone from lookup
+	_, err = api.IAskLookup(2, 1, "Config") // System node, user 1
+	if err == nil {
+		t.Fatal("Expected error when looking up deleted Config node, got nil")
+	}
+	t.Logf("Correctly returned error for deleted Config node: %v", err)
+
+	// Verify sending message to deleted node returns ErrNodeNotFound
+	_, err = api.IAskGetTree(configTag.ID, 1) // Try to get tree from deleted Config node
+	if err != nerd.ErrNodeNotFound {
+		t.Fatalf("Expected ErrNodeNotFound when messaging deleted node, got: %v", err)
+	}
+	t.Logf("Correctly returned ErrNodeNotFound when messaging deleted node")
+
+	// Test 2: Try to delete node with children (Projects has ProjectA and ProjectB)
+	t.Log("Test 11.2: Attempting to delete node with children (Projects)")
+	err = api.IAskDeleteChild(1, 1, projectsNodeID) // Root, user 1, delete Projects
+	if err == nil {
+		t.Fatal("Expected error when deleting node with children, got nil")
+	}
+	t.Logf("Correctly returned error for deleting node with children: %v", err)
+
+	// Test 3: Delete children first, then parent
+	t.Log("Test 11.3: Deleting ProjectA and ProjectB, then Projects")
+
+	// Find ProjectA and ProjectB IDs
+	var projectAID, projectBID nerd.NodeID
+	for _, child := range projectsNode.Children {
+		if child.Name == "ProjectA" {
+			projectAID = child.NodeID
+		} else if child.Name == "ProjectB" {
+			projectBID = child.NodeID
+		}
+	}
+
+	if projectAID == 0 || projectBID == 0 {
+		t.Fatal("Failed to find ProjectA or ProjectB node IDs")
+	}
+
+	// Delete ProjectA
+	err = api.IAskDeleteChild(projectsNodeID, 1, projectAID)
+	if err != nil {
+		t.Fatalf("Failed to delete ProjectA: %v", err)
+	}
+
+	// Delete ProjectB
+	err = api.IAskDeleteChild(projectsNodeID, 1, projectBID)
+	if err != nil {
+		t.Fatalf("Failed to delete ProjectB: %v", err)
+	}
+
+	// Now delete Projects (should succeed since children are gone)
+	err = api.IAskDeleteChild(1, 1, projectsNodeID) // Root, user 1
+	if err != nil {
+		t.Fatalf("Failed to delete Projects after removing children: %v", err)
+	}
+
+	// Verify Projects is gone
+	_, err = api.IAskLookup(1, 1, "Projects") // Root, user 1
+	if err == nil {
+		t.Fatal("Expected error when looking up deleted Projects node, got nil")
+	}
+	t.Logf("Successfully deleted Projects after removing children")
+
+	// Test 4: Try to delete non-existent child
+	t.Log("Test 11.4: Attempting to delete non-existent child")
+	err = api.IAskDeleteChild(1, 1, 99999) // Root, user 1, invalid ID
+	if err == nil {
+		t.Fatal("Expected error when deleting non-existent child, got nil")
+	}
+	t.Logf("Correctly returned error for non-existent child: %v", err)
+
 	t.Log("Integration test completed successfully")
 }
