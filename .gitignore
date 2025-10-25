@@ -39,7 +39,6 @@ go.work.sum
 
 # AI
 .claude
-CLAUDE.md
 
 # Transpiled JavaScript files
 *.js
