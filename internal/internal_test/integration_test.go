@@ -121,7 +121,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	// Verify system is in clean state after shutdown
-	nodeCount := tree.GetNodeCount()
+	nodeCount := msg.RegCount()
 	if nodeCount != 0 {
 		t.Errorf("Expected 0 active nodes after shutdown, got %d", nodeCount)
 	}
@@ -280,7 +280,7 @@ func TestIntegration(t *testing.T) {
 	t.Log("Phase 11: Testing DeleteChild functionality")
 
 	// Record node count before deletion
-	nodeCountBefore := tree.GetNodeCount()
+	nodeCountBefore := msg.RegCount()
 	t.Logf("Node count before deletion: %d", nodeCountBefore)
 
 	// Test 1: Delete a leaf node (Config has no children)
@@ -291,7 +291,7 @@ func TestIntegration(t *testing.T) {
 	}
 
 	// Verify node count decreased by 1
-	nodeCountAfter := tree.GetNodeCount()
+	nodeCountAfter := msg.RegCount()
 	t.Logf("Node count after deletion: %d", nodeCountAfter)
 	if nodeCountAfter != nodeCountBefore-1 {
 		t.Errorf("Expected node count to decrease by 1, before: %d, after: %d", nodeCountBefore, nodeCountAfter)

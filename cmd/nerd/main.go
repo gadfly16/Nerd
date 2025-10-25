@@ -7,6 +7,7 @@ import (
 
 	"github.com/gadfly16/nerd/api"
 	"github.com/gadfly16/nerd/api/nerd"
+	"github.com/gadfly16/nerd/api/server"
 	"github.com/gadfly16/nerd/internal/tree"
 	"github.com/spf13/cobra"
 )
@@ -44,9 +45,17 @@ var runCmd = &cobra.Command{
 		dbPath, _ := cmd.Flags().GetString("database")
 
 		fmt.Println("Starting Nerd service...")
+
+		// Start the tree
 		err := api.Run(dbPath)
 		if err != nil {
-			return fmt.Errorf("failed to start service: %w", err)
+			return fmt.Errorf("failed to start tree: %w", err)
+		}
+
+		// Start the HTTP server
+		err = server.Start()
+		if err != nil {
+			return fmt.Errorf("failed to start server: %w", err)
 		}
 
 		return nil

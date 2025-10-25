@@ -13,7 +13,7 @@ import (
 // IAsk translates interface message to native message and waits for answer
 func IAsk(im imsg.IMsg) (any, error) {
 	// Validate target exists
-	tag, exists := getTag(im.TargetID)
+	tag, exists := msg.RegGet(im.TargetID)
 	if !exists {
 		return nil, nerd.ErrNodeNotFound
 	}
@@ -145,9 +145,7 @@ func handleICreateChild(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
 		return nil, err
 	}
 
-	t = a.(*msg.Tag)
-	addTag(t)
-	return t.ToITag(), nil
+	return a.(*msg.Tag).ToITag(), nil
 }
 
 // handleIDeleteChild converts HttpDeleteChild message to native DeleteChild message
@@ -162,19 +160,11 @@ func handleIDeleteChild(t *msg.Tag, im imsg.IMsg) (any, error) {
 		return nil, nerd.ErrMalformedIMsg
 	}
 
-	a, err := t.Ask(&msg.Msg{
+	_, err := t.Ask(&msg.Msg{
 		Type:    msg.DeleteChild,
 		Payload: nerd.NodeID(childIDFloat),
 	})
-	if err != nil {
-		return nil, err
-	}
-
-	// Remove deleted child tag from tree registry
-	deletedTag := a.(*msg.Tag)
-	tree.removeTag(deletedTag.NodeID)
-
-	return nil, nil
+	return nil, err
 }
 
 // handleIShutdown converts HttpShutdown message to native Shutdown message
@@ -183,14 +173,14 @@ func handleIShutdown(t *msg.Tag) (ia any, err error) {
 	shutdownTags := a.([]*msg.Tag)
 	var rootHalted bool
 	for _, tag := range shutdownTags {
-		tree.removeTag(tag.NodeID)
+		tag.Unregister()
 		if tag.NodeID == 1 {
 			rootHalted = true
 		}
 	}
 	// If Root node was shut down, clean up global state for restart
 	if rootHalted {
-		node.ResetIDCounter()
+		node.ResetPersistentIDCounter()
 		node.CloseDatabase()
 	}
 	return nil, nil

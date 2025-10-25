@@ -45,9 +45,10 @@ func NewRoot() *Root {
 			NodeID:   node.NewPersistentID(),
 			Incoming: make(msg.MsgChan),
 		},
-		Name:     "Root",
-		NodeType: nerd.RootNode,
-		Children: make(map[string]*msg.Tag),
+		Name:          "Root",
+		NodeType:      nerd.RootNode,
+		Children:      make(map[string]*msg.Tag),
+		CacheValidity: node.CacheValidity{},
 	}
 
 	return &Root{

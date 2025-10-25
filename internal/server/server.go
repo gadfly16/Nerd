@@ -12,9 +12,11 @@ import (
 
 	"github.com/coder/websocket"
 
+	"github.com/gadfly16/nerd/api"
 	"github.com/gadfly16/nerd/api/imsg"
 	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/internal/tree"
+	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -266,11 +268,32 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("WebSocket connected for user %d", userID)
 
-	// TODO: Create GUI node and send init message
+	// Lookup the Clients group node under the user
+	clientsTag, err := api.IAskLookup(userID, userID, "Clients")
+	if err != nil {
+		log.Printf("Failed to lookup Clients node: %v", err)
+		conn.Close(websocket.StatusInternalError, "server error")
+		return
+	}
+
+	// Create GUI node under Clients with WebSocket connection
+	ctx := r.Context()
+	guiSpec := msg.GUISpecPayload{
+		Conn: conn,
+		Ctx:  ctx,
+	}
+
+	guiTag, err := api.IAskCreateChild(clientsTag.ID, userID, nerd.GUINode, "", guiSpec)
+	if err != nil {
+		log.Printf("Failed to create GUI node: %v", err)
+		conn.Close(websocket.StatusInternalError, "server error")
+		return
+	}
+
+	log.Printf("Created GUI node %d for user %d", guiTag.ID, userID)
 
 	// Read loop to detect client disconnect
 	// We expect no messages from client (server-to-client only)
-	ctx := r.Context()
 	for {
 		_, _, err := conn.Read(ctx)
 		if err != nil {

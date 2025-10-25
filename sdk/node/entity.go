@@ -140,9 +140,10 @@ func (e *Entity) Load() ([]*msg.Tag, error) {
 	// 0. Initialize runtime fields first
 	e.Incoming = make(msg.MsgChan)
 	e.Children = make(map[string]*msg.Tag)
+	e.CacheValidity = CacheValidity{}
 
 	// 1. Create the appropriate node using registry
-	nodeInstance, err := LoadNodeFromIdentity(e)
+	nodeInstance, err := LoadNodeFromEntity(e)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load node: %w", err)
 	}
@@ -165,6 +166,9 @@ func (e *Entity) Load() ([]*msg.Tag, error) {
 
 		// Add child to parent's children map
 		e.Children[child.Name] = childTags[len(childTags)-1] // Last tag is the child itself
+
+		// Link cache validity
+		child.CacheValidity.Parent = &e.CacheValidity
 	}
 
 	// 4. Start the node

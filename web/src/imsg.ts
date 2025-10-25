@@ -6,6 +6,7 @@ export enum imsg {
   Lookup,
   CreateChild,
   RenameChild,
+  DeleteChild,
   Shutdown,
   AuthenticateUser,
   CreateUser,

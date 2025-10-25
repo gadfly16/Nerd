@@ -14,7 +14,7 @@ var (
 func NewPersistentID() nerd.NodeID {
 	// On the GUI side we use JS's number type to handle IDs
 	if *persistentIDCounter >= 2<<53 {
-		panic("ID counter exceeded allowed limit.")
+		panic("persistent ID counter exceeded allowed limit.")
 	}
 	return nerd.NodeID(atomic.AddInt64(persistentIDCounter, 1))
 }
@@ -22,11 +22,14 @@ func NewPersistentID() nerd.NodeID {
 // NewRuntimeID generates negative IDs for ephemeral nodes (GUI nodes, etc.)
 // These IDs reset on instance restart and nodes are not persisted to database
 func NewRuntimeID() nerd.NodeID {
+	if *persistentIDCounter <= -2<<53 {
+		panic("runtime ID counter exceeded allowed limit.")
+	}
 	return nerd.NodeID(atomic.AddInt64(runtimeIDCounter, -1))
 }
 
-// InitIDCounter initializes the ID counter to the highest existing ID in database
-func InitIDCounter() {
+// InitPersistentIDCounter initializes the ID counter to the highest existing ID in database
+func InitPersistentIDCounter() {
 	var maxID int64
 	result := DB.Raw("SELECT COALESCE(MAX(node_id), 0) FROM entities").Scan(&maxID)
 	if result.Error != nil {
@@ -36,7 +39,7 @@ func InitIDCounter() {
 	atomic.StoreInt64(persistentIDCounter, maxID)
 }
 
-// ResetIDCounter resets the ID counter to 0 (for clean restart after shutdown)
-func ResetIDCounter() {
+// ResetPersistentIDCounter resets the ID counter to 0 (for clean restart after shutdown)
+func ResetPersistentIDCounter() {
 	atomic.StoreInt64(persistentIDCounter, 0)
 }

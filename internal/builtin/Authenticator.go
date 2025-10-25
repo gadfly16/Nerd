@@ -146,17 +146,20 @@ func (n *Authenticator) handleCreateUser(m *msg.Msg) (any, error) {
 		return nil, fmt.Errorf("failed to update user parent: %w", err)
 	}
 
-	// Invalidate tree cache
-	n.InvalidateTreeEntry()
-
 	// Start user node
 	user.Run()
+
+	// Register user node
+	user.Tag.Register()
 
 	// Create Clients group under new user
 	_, err = user.Tag.AskCreateChild(nerd.GroupNode, "Clients", nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Clients group: %w", err)
 	}
+
+	// Invalidate tree cache
+	n.InvalidateTreeEntry()
 
 	return user.Tag, nil
 }

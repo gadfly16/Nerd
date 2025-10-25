@@ -8,7 +8,8 @@ export enum NodeType {
   Root = 1,
   Authenticator = 2,
   User = 3,
-  BuiltinSeparator = 4,
+  GUI = 4,
+  BuiltinSeparator = 5,
 }
 
 // nodeTypeName returns the string representation of a NodeType
@@ -22,6 +23,8 @@ export function nodeTypeName(nt: number): string {
       return "Authenticator"
     case NodeType.User:
       return "User"
+    case NodeType.GUI:
+      return "GUI"
     default:
       return "Unknown"
   }

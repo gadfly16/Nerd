@@ -13,34 +13,28 @@ func InitInstance(dbPath string) error {
 		return err
 	}
 
-	// Initialize the tree structure
-	initTree()
-
 	// Bootstrap Root node
-	rootNode := builtin.NewRoot() // Root ignores name parameter
-	err = rootNode.Save()
+	root := builtin.NewRoot() // Root ignores name parameter
+	err = root.Save()
 	if err != nil {
 		return err
 	}
 
 	// Start Root node briefly to establish the tree structure
-	rootNode.Run()
-	root := rootNode.GetTag()
-	addTag(root)
+	root.Run()
+	root.Register()
 
 	// Create System group directly with name
-	t, err := root.AskCreateChild(nerd.GroupNode, "System", nil)
+	_, err = root.AskCreateChild(nerd.GroupNode, "System", nil)
 	if err != nil {
 		return err
 	}
-	addTag(t)
 
 	// Create Authenticator singleton
-	t, err = root.AskCreateChild(nerd.AuthenticatorNode, "Authenticator", nil)
+	_, err = root.AskCreateChild(nerd.AuthenticatorNode, "Authenticator", nil)
 	if err != nil {
 		return err
 	}
-	addTag(t)
 
 	err = root.AskShutdown()
 	if err != nil {

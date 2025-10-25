@@ -36,9 +36,9 @@ func handleCommonMessage(m *msg.Msg, node node.Node) (any, error) {
 }
 
 // handleCreateChild processes requests to create child nodes (shared logic)
-func handleCreateChild(m *msg.Msg, n node.Node) (any, error) {
+func handleCreateChild(m *msg.Msg, pn node.Node) (any, error) {
 	// Parent entity
-	pe := n.GetEntity()
+	pe := pn.GetEntity()
 
 	// Parse message pl
 	pl, ok := m.Payload.(msg.CreateChildPayload)
@@ -80,7 +80,7 @@ func handleCreateChild(m *msg.Msg, n node.Node) (any, error) {
 
 	// Auto-generate name if not provided
 	if pl.Name == "" {
-		pl.Name = fmt.Sprintf("New %s #%d", pl.NodeType.Info().Name, che.NodeID)
+		che.Name = fmt.Sprintf("%s #%d", pl.NodeType.Info().Name, che.NodeID)
 	}
 
 	// Set parent-child relationship
@@ -97,16 +97,20 @@ func handleCreateChild(m *msg.Msg, n node.Node) (any, error) {
 		}
 	}
 
-	// Add child to parent's children map using name as key
-	pe.Children[chn.GetName()] = chn.GetTag()
-
-	// Invalidate parent's cache since tree structure changed
-	pe.CacheValidity.InvalidateTreeEntry()
-
 	// Start the child node
 	chn.Run()
 
-	return chn.GetTag(), nil
+	// Add child to parent's children
+	cht := chn.GetTag()
+	pe.Children[chn.GetName()] = cht
+
+	// Register tag to message registry
+	cht.Register()
+
+	// Invalidate parent's cache since tree structure changed
+	pe.InvalidateTreeEntry()
+
+	return cht, nil
 }
 
 // handleShutdown processes shutdown requests (shared logic)
@@ -274,7 +278,7 @@ func handleLookup(m *msg.Msg, n node.Node) (any, error) {
 
 // handleDeleteChild processes requests to delete child nodes by ID (shared logic)
 func handleDeleteChild(m *msg.Msg, n node.Node) (any, error) {
-	e := n.GetEntity()
+	pe := n.GetEntity()
 
 	// Parse message payload
 	childID, ok := m.Payload.(nerd.NodeID)
@@ -285,7 +289,7 @@ func handleDeleteChild(m *msg.Msg, n node.Node) (any, error) {
 	// Find child by ID in children map
 	var childName string
 	var childTag *msg.Tag
-	for name, tag := range e.Children {
+	for name, tag := range pe.Children {
 		if tag.NodeID == childID {
 			childName = name
 			childTag = tag
@@ -297,6 +301,9 @@ func handleDeleteChild(m *msg.Msg, n node.Node) (any, error) {
 		return nil, nerd.ErrNodeNotFound
 	}
 
+	// Remove from registry
+	childTag.Unregister()
+
 	// Ask child to delete itself
 	err := childTag.AskDeleteSelf()
 	if err != nil {
@@ -304,10 +311,10 @@ func handleDeleteChild(m *msg.Msg, n node.Node) (any, error) {
 	}
 
 	// Remove from parent's children map
-	delete(e.Children, childName)
+	delete(pe.Children, childName)
 
 	// Invalidate parent's cache since tree structure changed
-	e.CacheValidity.InvalidateTreeEntry()
+	pe.CacheValidity.InvalidateTreeEntry()
 
 	return childTag, nil
 }

@@ -510,6 +510,7 @@ TypeInfos.set(nerd.NodeType.Authenticator, {
   hue: 220,
 })
 TypeInfos.set(nerd.NodeType.User, { name: "User", size: 0, hue: 240 })
+TypeInfos.set(nerd.NodeType.GUI, { name: "GUI", size: 0, hue: 280 })
 
 // Register the Vertigo components
 VTree.register("vertigo-tree")
