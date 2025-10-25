@@ -44,7 +44,7 @@ func newUser(name string, password string, admin bool) (*User, error) {
 	// Create base Entity with common fields
 	entity := &node.Entity{
 		Tag: &msg.Tag{
-			NodeID:   node.NewID(),
+			NodeID:   node.NewPersistentID(),
 			Incoming: make(msg.MsgChan),
 			Admin:    admin,
 		},

@@ -19,10 +19,10 @@ var System = &SystemNodes{}
 func newNode(pl msg.CreateChildPayload) (node.Node, error) {
 	ti := pl.NodeType.Info()
 	var id nerd.NodeID
-	if ti.Ephemeral {
-		id = node.NewEphemeralID()
+	if ti.Runtime {
+		id = node.NewRuntimeID()
 	} else {
-		id = node.NewID()
+		id = node.NewPersistentID()
 	}
 
 	// Create base Entity with common fields initialized

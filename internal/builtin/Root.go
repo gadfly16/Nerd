@@ -42,7 +42,7 @@ func loadRoot(identity *node.Entity) (node.Node, error) {
 func NewRoot() *Root {
 	e := &node.Entity{
 		Tag: &msg.Tag{
-			NodeID:   node.NewID(),
+			NodeID:   node.NewPersistentID(),
 			Incoming: make(msg.MsgChan),
 		},
 		Name:     "Root",

@@ -21,7 +21,7 @@ const (
 type NodeTypeInfo struct {
 	Name            string
 	AllowedChildren []NodeType
-	Ephemeral       bool
+	Runtime         bool
 }
 
 // Info returns metadata for a NodeType
@@ -31,37 +31,37 @@ func (nt NodeType) Info() NodeTypeInfo {
 		return NodeTypeInfo{
 			Name:            "Root",
 			AllowedChildren: []NodeType{AuthenticatorNode, GroupNode},
-			Ephemeral:       false,
+			Runtime:         false,
 		}
 	case AuthenticatorNode:
 		return NodeTypeInfo{
 			Name:            "Authenticator",
 			AllowedChildren: []NodeType{UserNode},
-			Ephemeral:       false,
+			Runtime:         false,
 		}
 	case UserNode:
 		return NodeTypeInfo{
 			Name:            "User",
 			AllowedChildren: []NodeType{GroupNode},
-			Ephemeral:       false,
+			Runtime:         false,
 		}
 	case GroupNode:
 		return NodeTypeInfo{
 			Name:            "Group",
 			AllowedChildren: []NodeType{GroupNode, GUINode},
-			Ephemeral:       false,
+			Runtime:         false,
 		}
 	case GUINode:
 		return NodeTypeInfo{
 			Name:            "GUI",
 			AllowedChildren: []NodeType{},
-			Ephemeral:       true,
+			Runtime:         true,
 		}
 	default:
 		return NodeTypeInfo{
 			Name:            "Unknown",
 			AllowedChildren: []NodeType{},
-			Ephemeral:       false,
+			Runtime:         false,
 		}
 	}
 }
