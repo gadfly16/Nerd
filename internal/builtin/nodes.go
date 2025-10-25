@@ -1,11 +1,9 @@
 package builtin
 
 import (
-	"fmt"
-
 	"github.com/gadfly16/nerd/api/nerd"
-	"github.com/gadfly16/nerd/sdk/node"
 	"github.com/gadfly16/nerd/sdk/msg"
+	"github.com/gadfly16/nerd/sdk/node"
 )
 
 // System holds references to system nodes for easy access
@@ -16,34 +14,35 @@ type SystemNodes struct {
 // System provides access to system node tags
 var System = &SystemNodes{}
 
-// NewNode creates a new node instance based on the specified type and name
+// newNode creates a new node instance based on the specified type and name
 // If name is empty, auto-generation will be used
-func NewNode(nodeType nerd.NodeType, name string) node.Node {
-	id := node.NewID()
-
-	// Auto-generate name if not provided
-	if name == "" {
-		name = fmt.Sprintf("New %s #%d", nerd.NodeTypeName(nodeType), id)
+func newNode(pl msg.CreateChildPayload) (node.Node, error) {
+	ti := pl.NodeType.Info()
+	var id nerd.NodeID
+	if ti.Ephemeral {
+		id = node.NewEphemeralID()
+	} else {
+		id = node.NewID()
 	}
 
 	// Create base Entity with common fields initialized
-	entity := &node.Entity{
+	e := &node.Entity{
 		Tag: &msg.Tag{
 			NodeID:   id,
 			Incoming: make(msg.MsgChan),
 		},
-		Name:     name,
-		NodeType: nodeType,
+		Name:     pl.Name,
+		NodeType: pl.NodeType,
 		Children: make(map[string]*msg.Tag),
 	}
 
-	switch nodeType {
+	switch pl.NodeType {
 	case nerd.GroupNode:
-		return newGroup(entity)
-	case nerd.RootNode:
-		return newRoot(entity)
+		return newGroup(e), nil
+	case nerd.GUINode:
+		return newGUI(e, pl)
 	case nerd.AuthenticatorNode:
-		return newAuthenticator(entity)
+		return newAuthenticator(e), nil
 	default:
 		// At this point the createChildHandler already checked the node type
 		panic("nodes: trying to create unsupported node type")

@@ -28,6 +28,9 @@ var (
 	// ErrNameCollision is returned when trying to rename to an existing child name
 	ErrNameCollision = errors.New("name already exists")
 
+	// ErrNameCollision is returned when trying to rename to an existing child name
+	ErrIllegalHashmarkInName = errors.New("illegal # character in name")
+
 	// ErrMalformedIMsg is returned for invalid HTTP message format
 	ErrMalformedIMsg = errors.New("malformed http message")
 )

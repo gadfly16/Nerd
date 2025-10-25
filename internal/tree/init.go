@@ -17,7 +17,7 @@ func InitInstance(dbPath string) error {
 	initTree()
 
 	// Bootstrap Root node
-	rootNode := builtin.NewNode(nerd.RootNode, "") // Root ignores name parameter
+	rootNode := builtin.NewRoot() // Root ignores name parameter
 	err = rootNode.Save()
 	if err != nil {
 		return err
@@ -36,7 +36,7 @@ func InitInstance(dbPath string) error {
 	addTag(t)
 
 	// Create Authenticator singleton
-	t, err = root.AskCreateChild(nerd.AuthenticatorNode, "", nil)
+	t, err = root.AskCreateChild(nerd.AuthenticatorNode, "Authenticator", nil)
 	if err != nil {
 		return err
 	}

@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/sdk/msg"
@@ -36,42 +37,71 @@ func handleCommonMessage(m *msg.Msg, node node.Node) (any, error) {
 
 // handleCreateChild processes requests to create child nodes (shared logic)
 func handleCreateChild(m *msg.Msg, n node.Node) (any, error) {
-	e := n.GetEntity()
+	// Parent entity
+	pe := n.GetEntity()
+
 	// Parse message pl
 	pl, ok := m.Payload.(msg.CreateChildPayload)
 	if !ok {
 		return nil, nerd.ErrInvalidPayload
 	}
 
-	// Check for name collision
+	// Auto-generate name if not provided
 	if pl.Name != "" {
-		if _, exists := e.Children[pl.Name]; exists {
+		// Check for illegal '#' in name
+		if strings.Contains(pl.Name, "#") {
+			return nil, nerd.ErrIllegalHashmarkInName
+		}
+		// Check for name collision
+		if _, exists := pe.Children[pl.Name]; exists {
 			return nil, fmt.Errorf("child with name '%s' already exists", pl.Name)
 		}
 	}
 
-	// TODO: check if node type is supported as a child of this node
+	// Check if node type is supported as a child of this node
+	pti := pe.NodeType.Info()
+	var allowed bool
+	for _, acht := range pti.AllowedChildren {
+		if acht == pl.NodeType {
+			allowed = true
+		}
+	}
+	if !allowed {
+		return nil, nerd.ErrUnsupportedNodeType
+	}
 
 	// Create appropriate node instance based on type and name
-	chn := NewNode(pl.NodeType, pl.Name)
-
-	// Set parent-child relationship
-	chn.SetParentID(e.Tag.NodeID)
-
-	// Link child's cache validity to parent's
-	chn.GetEntity().CacheValidity.Parent = &e.CacheValidity
-
-	// Save the child (name is already set in constructor)
-	err := chn.Save()
+	chn, err := newNode(pl)
 	if err != nil {
 		return nil, err
 	}
+	// Children entity
+	che := chn.GetEntity()
+
+	// Auto-generate name if not provided
+	if pl.Name == "" {
+		pl.Name = fmt.Sprintf("New %s #%d", pl.NodeType.Info().Name, che.NodeID)
+	}
+
+	// Set parent-child relationship
+	che.ParentID = (pe.Tag.NodeID)
+
+	// Link child's cache validity to parent's
+	che.CacheValidity.Parent = &pe.CacheValidity
+
+	// Save the child if not a runtime node
+	if che.NodeID > 0 {
+		err := chn.Save()
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	// Add child to parent's children map using name as key
-	e.Children[chn.GetName()] = chn.GetTag()
+	pe.Children[chn.GetName()] = chn.GetTag()
 
 	// Invalidate parent's cache since tree structure changed
-	e.CacheValidity.InvalidateTreeEntry()
+	pe.CacheValidity.InvalidateTreeEntry()
 
 	// Start the child node
 	chn.Run()

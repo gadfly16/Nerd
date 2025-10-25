@@ -38,15 +38,20 @@ func loadRoot(identity *node.Entity) (node.Node, error) {
 	return root, nil
 }
 
-// newRoot creates a new Root node instance
-func newRoot(entity *node.Entity) *Root {
-	if entity.Tag.NodeID != 1 {
-		panic("A Root node seems to already exist")
+// NewRoot creates a new Root node instance
+func NewRoot() *Root {
+	e := &node.Entity{
+		Tag: &msg.Tag{
+			NodeID:   node.NewID(),
+			Incoming: make(msg.MsgChan),
+		},
+		Name:     "Root",
+		NodeType: nerd.RootNode,
+		Children: make(map[string]*msg.Tag),
 	}
-	entity.Name = "Root" // Override auto-generated name
 
 	return &Root{
-		Entity: entity,
+		Entity: e,
 		config: &RootConfig{},
 	}
 }

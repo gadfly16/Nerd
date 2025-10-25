@@ -24,9 +24,9 @@ func loadGroup(identity *node.Entity) (node.Node, error) {
 }
 
 // newGroup creates a new Group node instance
-func newGroup(entity *node.Entity) *Group {
+func newGroup(e *node.Entity) *Group {
 	return &Group{
-		Entity: entity,
+		Entity: e,
 	}
 }
 

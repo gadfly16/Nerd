@@ -12,22 +12,56 @@ const (
 	RootNode
 	AuthenticatorNode
 	UserNode
+	GUINode
 
 	BUILTIN_NODE_SEPARATOR
 )
 
-// NodeTypeName returns the string representation of a NodeType
-func NodeTypeName(nt NodeType) string {
+// NodeTypeInfo contains metadata about a node type
+type NodeTypeInfo struct {
+	Name            string
+	AllowedChildren []NodeType
+	Ephemeral       bool
+}
+
+// Info returns metadata for a NodeType
+func (nt NodeType) Info() NodeTypeInfo {
 	switch nt {
-	case GroupNode:
-		return "Group"
 	case RootNode:
-		return "Root"
+		return NodeTypeInfo{
+			Name:            "Root",
+			AllowedChildren: []NodeType{AuthenticatorNode, GroupNode},
+			Ephemeral:       false,
+		}
 	case AuthenticatorNode:
-		return "Authenticator"
+		return NodeTypeInfo{
+			Name:            "Authenticator",
+			AllowedChildren: []NodeType{UserNode},
+			Ephemeral:       false,
+		}
 	case UserNode:
-		return "User"
+		return NodeTypeInfo{
+			Name:            "User",
+			AllowedChildren: []NodeType{GroupNode},
+			Ephemeral:       false,
+		}
+	case GroupNode:
+		return NodeTypeInfo{
+			Name:            "Group",
+			AllowedChildren: []NodeType{GroupNode, GUINode},
+			Ephemeral:       false,
+		}
+	case GUINode:
+		return NodeTypeInfo{
+			Name:            "GUI",
+			AllowedChildren: []NodeType{},
+			Ephemeral:       true,
+		}
 	default:
-		return "Unknown"
+		return NodeTypeInfo{
+			Name:            "Unknown",
+			AllowedChildren: []NodeType{},
+			Ephemeral:       false,
+		}
 	}
 }

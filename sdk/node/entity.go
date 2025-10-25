@@ -5,8 +5,8 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/gadfly16/nerd/api/nerd"
+	"github.com/gadfly16/nerd/sdk/msg"
 	"gorm.io/gorm"
 )
 
@@ -66,7 +66,7 @@ func (e *Entity) GetName() string {
 
 // GetNodeTypeName returns the string representation of the node's type
 func (e *Entity) GetNodeTypeName() string {
-	return NodeTypeName(e.NodeType)
+	return e.NodeType.Info().Name
 }
 
 // SetName sets the node's name
@@ -142,7 +142,6 @@ func (e *Entity) Load() ([]*msg.Tag, error) {
 	e.Children = make(map[string]*msg.Tag)
 
 	// 1. Create the appropriate node using registry
-	// 1. Create the appropriate node using switch-based loader
 	nodeInstance, err := LoadNodeFromIdentity(e)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load node: %w", err)

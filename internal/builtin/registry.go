@@ -19,7 +19,7 @@ func loadNodeFromIdentity(identity *node.Entity) (node.Node, error) {
 	case nerd.UserNode:
 		return loadUser(identity)
 	default:
-		panic(fmt.Sprintf("unsupported node type: %d", identity.NodeType))
+		panic(fmt.Sprintf("loading unsupported node type: %d", identity.NodeType))
 	}
 }
 

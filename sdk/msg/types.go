@@ -1,6 +1,9 @@
 package msg
 
 import (
+	"context"
+
+	"github.com/coder/websocket"
 	"github.com/gadfly16/nerd/api/imsg"
 	"github.com/gadfly16/nerd/api/nerd"
 )
@@ -70,6 +73,11 @@ type CreateChildPayload struct {
 	NodeType nerd.NodeType // Will be nerd.NodeType, but avoiding circular import
 	Name     string        // Empty string means auto-generate name
 	Spec     any           // Node-specific initialization data
+}
+
+type GUISpecPayload struct {
+	Conn *websocket.Conn
+	Ctx  context.Context
 }
 
 // RenameChildPayload contains old and new names for renaming a child node

@@ -30,8 +30,6 @@ func loadAuthenticator(identity *node.Entity) (node.Node, error) {
 
 // newAuthenticator creates a new Authenticator node instance
 func newAuthenticator(entity *node.Entity) *Authenticator {
-	entity.Name = "Authenticator" // Override auto-generated name
-
 	auth := &Authenticator{
 		Entity: entity,
 	}

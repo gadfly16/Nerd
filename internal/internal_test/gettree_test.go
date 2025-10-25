@@ -11,7 +11,7 @@ import (
 func TestGetTree(t *testing.T) {
 	// Step 1: Initialize database with test data
 	testDB := "./test_gettree.db"
-	defer os.Remove(testDB) // Cleanup
+	os.Remove(testDB) // Cleanup
 
 	err := tree.InitInstance(testDB)
 	if err != nil {
