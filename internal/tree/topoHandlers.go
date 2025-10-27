@@ -26,6 +26,8 @@ func HandleTopoMessage(m *msg.Msg, n node.Node) (any, error) {
 		return handleDeleteChild(m, n)
 	case msg.RenameChild:
 		return handleRenameChild(m, n)
+	case msg.Shutdown:
+		return handleShutdown(m, n)
 	default:
 		return nil, fmt.Errorf("handleTopoMessage called with non-topology message type: %d", m.Type)
 	}
@@ -192,4 +194,29 @@ func handleRenameChild(m *msg.Msg, n node.Node) (any, error) {
 	e.CacheValidity.InvalidateTreeEntry()
 
 	return nil, nil
+}
+
+// handleShutdown processes shutdown requests (shared logic)
+func handleShutdown(_ *msg.Msg, n node.Node) (any, error) {
+	e := n.GetEntity()
+
+	// 2. Ask all children to shutdown and accumulate their shutdown tags
+	if len(e.Children) > 0 {
+		err := e.AskChildren(&msg.Msg{
+			Type:    msg.Shutdown,
+			Payload: nil,
+		}).Reduce(func(pl any) {})
+		if err != nil {
+			fmt.Printf("Error during children shutdown: %v\n", err)
+		}
+	}
+
+	// 3. Run cleanup operations (node-specific)
+	n.Shutdown()
+
+	// 4. Unregister node
+	registry.remove(e.Tag)
+
+	// 4. Return all shutdown tags
+	return e.Tag, nil
 }

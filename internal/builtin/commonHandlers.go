@@ -22,8 +22,6 @@ func RegisterTopoDispatcher(fn func(*msg.Msg, node.Node) (any, error)) {
 // Returns true if message was handled, false if node-specific handling needed
 func handleCommonMessage(m *msg.Msg, node node.Node) (any, error) {
 	switch m.Type {
-	case msg.Shutdown:
-		return handleShutdown(m, node)
 	case msg.RenameSelf:
 		return handleRename(m, node)
 	case msg.DeleteSelf:
@@ -36,37 +34,6 @@ func handleCommonMessage(m *msg.Msg, node node.Node) (any, error) {
 		// Topology operations (CreateChild, DeleteChild, RenameChild) handled by tree layer
 		return topoDispatcher(m, node)
 	}
-}
-
-// handleShutdown processes shutdown requests (shared logic)
-func handleShutdown(_ *msg.Msg, n node.Node) (any, error) {
-	e := n.GetEntity()
-
-	// 1. Collect tags of all shutdown nodes (start with this node)
-	var shutdownTags []*msg.Tag
-	shutdownTags = append(shutdownTags, e.Tag)
-
-	// 2. Ask all children to shutdown and accumulate their shutdown tags
-	if len(e.Children) > 0 {
-		err := e.AskChildren(&msg.Msg{
-			Type:    msg.Shutdown,
-			Payload: nil,
-		}).Reduce(func(payload any) {
-			// Each child returns its own list of shutdown tags
-			if childTags, ok := payload.([]*msg.Tag); ok {
-				shutdownTags = append(shutdownTags, childTags...)
-			}
-		})
-		if err != nil {
-			fmt.Printf("Error during children shutdown: %v\n", err)
-		}
-	}
-
-	// 3. Run cleanup operations (node-specific)
-	n.Shutdown()
-
-	// 4. Return all shutdown tags
-	return shutdownTags, nil
 }
 
 // handleGetTree processes requests for tree structure (shared logic)

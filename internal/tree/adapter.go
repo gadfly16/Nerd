@@ -172,16 +172,10 @@ func handleIDeleteChild(t *msg.Tag, im imsg.IMsg) (any, error) {
 // handleIShutdown converts HttpShutdown message to native Shutdown message
 func handleIShutdown(t *msg.Tag) (ia any, err error) {
 	a, err := t.Ask(&msg.Msg{Type: msg.Shutdown})
-	shutdownTags := a.([]*msg.Tag)
-	var rootHalted bool
-	for _, tag := range shutdownTags {
-		registry.remove(tag)
-		if tag.NodeID == 1 {
-			rootHalted = true
-		}
-	}
+	shutdownTag := a.(*msg.Tag)
+
 	// If Root node was shut down, clean up global state for restart
-	if rootHalted {
+	if shutdownTag.NodeID == 1 {
 		node.ResetPersistentIDCounter()
 		node.CloseDatabase()
 	}
