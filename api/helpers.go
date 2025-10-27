@@ -106,18 +106,3 @@ func IAskAuthenticateUser(username, password string) (*imsg.ITag, error) {
 	}
 	return result.(*imsg.ITag), nil
 }
-
-// IAskCreateUser creates a new user with the given username and password
-func IAskCreateUser(username, password string) (*imsg.ITag, error) {
-	result, err := tree.IAskAuth(imsg.IMsg{
-		Type: imsg.CreateUser,
-		Payload: map[string]any{
-			"username": username,
-			"password": password,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	return result.(*imsg.ITag), nil
-}

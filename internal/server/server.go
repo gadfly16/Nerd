@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/coder/websocket"
 
@@ -17,7 +16,6 @@ import (
 	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/internal/tree"
 	"github.com/gadfly16/nerd/sdk/msg"
-	"github.com/golang-jwt/jwt/v5"
 )
 
 // Server represents the HTTP server for the Nerd GUI and API
@@ -148,49 +146,6 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(result)
 }
 
-// getUserFromJWT extracts and validates the user ID and admin flag from the JWT cookie
-// Returns 0, false and an error if authentication fails
-func (s *Server) getUserFromJWT(r *http.Request) (nerd.NodeID, bool, error) {
-	// Get JWT from httpOnly cookie
-	cookie, err := r.Cookie("nerd_token")
-	if err != nil {
-		return 0, false, fmt.Errorf("no auth cookie found")
-	}
-
-	// Parse and validate JWT
-	token, err := jwt.Parse(cookie.Value, func(token *jwt.Token) (interface{}, error) {
-		// Verify signing method
-		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-		}
-		return []byte(s.jwtSecret), nil
-	})
-
-	if err != nil {
-		return 0, false, fmt.Errorf("invalid token: %w", err)
-	}
-
-	// Extract claims
-	claims, ok := token.Claims.(jwt.MapClaims)
-	if !ok || !token.Valid {
-		return 0, false, fmt.Errorf("invalid token claims")
-	}
-
-	// Get user_id from claims
-	userIDFloat, ok := claims["user_id"].(float64)
-	if !ok {
-		return 0, false, fmt.Errorf("missing or invalid user_id in token")
-	}
-
-	// Get admin flag from claims
-	admin, ok := claims["admin"].(bool)
-	if !ok {
-		return 0, false, fmt.Errorf("missing or invalid admin in token")
-	}
-
-	return nerd.NodeID(userIDFloat), admin, nil
-}
-
 // handleAuth processes unauthenticated operations (login, user creation)
 func (s *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 	// Only allow POST requests
@@ -199,19 +154,19 @@ func (s *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse HTTP message
-	var httpMsg imsg.IMsg
-	if err := json.NewDecoder(r.Body).Decode(&httpMsg); err != nil {
+	// Parse IMsg
+	var im imsg.IMsg
+	if err := json.NewDecoder(r.Body).Decode(&im); err != nil {
 		http.Error(w, "Invalid JSON", http.StatusBadRequest)
 		return
 	}
 
 	// Route based on message type
-	switch httpMsg.Type {
+	switch im.Type {
 	case imsg.AuthenticateUser:
-		s.handleAuthenticateUser(w, &httpMsg)
-	case imsg.CreateUser:
-		s.handleCreateUser(w, &httpMsg)
+		s.handleAuthenticateUser(w, &im)
+	case imsg.CreateChild:
+		s.handleCreateUser(w, &im)
 	case imsg.Logout:
 		s.handleLogout(w)
 	default:
@@ -220,9 +175,9 @@ func (s *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleAuthenticateUser processes user authentication
-func (s *Server) handleAuthenticateUser(w http.ResponseWriter, m *imsg.IMsg) {
+func (s *Server) handleAuthenticateUser(w http.ResponseWriter, im *imsg.IMsg) {
 	// Send authentication request to Authenticator
-	result, err := tree.IAskAuth(*m)
+	result, err := tree.IAskAuth(*im)
 	if err != nil {
 		log.Printf("Authentication failed: %v", err)
 		w.Header().Set("Content-Type", "application/json")
@@ -247,6 +202,60 @@ func (s *Server) handleAuthenticateUser(w http.ResponseWriter, m *imsg.IMsg) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(itag)
+}
+
+// handleCreateUser processes user creation
+func (s *Server) handleCreateUser(w http.ResponseWriter, m *imsg.IMsg) {
+	// Send user creation request to Authenticator
+	result, err := tree.IAskAuth(*m)
+	if err != nil {
+		log.Printf("User creation failed: %v", err)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
+		return
+	}
+
+	// Result is *imsg.ITag
+	uit := result.(*imsg.ITag)
+
+	// Create Clients group under new user
+	_, err = api.IAskCreateChild(uit.ID, uit.ID, nerd.GroupNode, "Clients", nil)
+	if err != nil {
+		panic("Couldn't create Clients group under new user.")
+	}
+
+	userID := uit.ID
+	admin := uit.Admin
+
+	// Set JWT cookie (auto-login after registration)
+	if err := s.setJWTCookie(w, userID, admin); err != nil {
+		log.Printf("Failed to set JWT cookie: %v", err)
+		http.Error(w, "Internal server error", http.StatusInternalServerError)
+		return
+	}
+
+	// Return success with user info
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(uit)
+}
+
+// handleLogout clears the authentication cookie
+func (s *Server) handleLogout(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     "nerd_token",
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   false,
+		SameSite: http.SameSiteStrictMode,
+		MaxAge:   -1,
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "logged out"})
 }
 
 // handleWebSocket upgrades HTTP connection to WebSocket and creates GUI node
@@ -278,7 +287,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Create GUI node under Clients with WebSocket connection
 	ctx := r.Context()
-	guiSpec := msg.GUISpecPayload{
+	guiSpec := msg.CreateGUIPayload{
 		Conn: conn,
 		Ctx:  ctx,
 	}
@@ -302,81 +311,4 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	conn.Close(websocket.StatusNormalClosure, "")
-}
-
-// handleLogout clears the authentication cookie
-func (s *Server) handleLogout(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     "nerd_token",
-		Value:    "",
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   false,
-		SameSite: http.SameSiteStrictMode,
-		MaxAge:   -1,
-	})
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "logged out"})
-}
-
-// setJWTCookie generates a JWT token and sets it as an HTTP-only cookie
-func (s *Server) setJWTCookie(w http.ResponseWriter, userID nerd.NodeID, admin bool) error {
-	// Create JWT claims
-	claims := jwt.MapClaims{
-		"user_id": float64(userID),
-		"admin":   admin,
-		"exp":     time.Now().Add(24 * time.Hour).Unix(),
-	}
-
-	// Create token
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString([]byte(s.jwtSecret))
-	if err != nil {
-		return fmt.Errorf("failed to sign token: %w", err)
-	}
-
-	// Set HTTP-only cookie
-	http.SetCookie(w, &http.Cookie{
-		Name:     "nerd_token",
-		Value:    tokenString,
-		Path:     "/",
-		HttpOnly: true,
-		Secure:   false, // Set to true in production with HTTPS
-		SameSite: http.SameSiteStrictMode,
-		MaxAge:   86400, // 24 hours
-	})
-
-	return nil
-}
-
-// handleCreateUser processes user creation
-func (s *Server) handleCreateUser(w http.ResponseWriter, m *imsg.IMsg) {
-	// Send user creation request to Authenticator
-	result, err := tree.IAskAuth(*m)
-	if err != nil {
-		log.Printf("User creation failed: %v", err)
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusBadRequest)
-		json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
-		return
-	}
-
-	// Result is *imsg.ITag
-	itag := result.(*imsg.ITag)
-	userID := itag.ID
-	admin := itag.Admin
-
-	// Set JWT cookie (auto-login after registration)
-	if err := s.setJWTCookie(w, userID, admin); err != nil {
-		log.Printf("Failed to set JWT cookie: %v", err)
-		http.Error(w, "Internal server error", http.StatusInternalServerError)
-		return
-	}
-
-	// Return success with user info
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(itag)
 }

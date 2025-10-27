@@ -18,7 +18,6 @@ const (
 	DeleteChild
 	Shutdown
 	AuthenticateUser
-	CreateUser
 	Logout
 	Subscribe
 	Unsubscribe

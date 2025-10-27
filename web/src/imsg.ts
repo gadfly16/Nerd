@@ -9,7 +9,6 @@ export enum imsg {
   DeleteChild,
   Shutdown,
   AuthenticateUser,
-  CreateUser,
   Logout,
   Subscribe,
   Unsubscribe,

@@ -75,7 +75,8 @@ type CreateChildPayload struct {
 	Spec     any           // Node-specific initialization data
 }
 
-type GUISpecPayload struct {
+// CreateGUIPayload contains websocket connection and context for GUI
+type CreateGUIPayload struct {
 	Conn *websocket.Conn
 	Ctx  context.Context
 }

@@ -18,7 +18,7 @@ type GUI struct {
 
 // newGUI creates a new GUI node instance (ephemeral, not persisted)
 func newGUI(e *node.Entity, pl msg.CreateChildPayload) (*GUI, error) {
-	guipl, ok := pl.Spec.(msg.GUISpecPayload)
+	guipl, ok := pl.Spec.(msg.CreateGUIPayload)
 	if !ok {
 		return nil, nerd.ErrInvalidPayload
 	}

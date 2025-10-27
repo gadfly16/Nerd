@@ -73,8 +73,6 @@ func (n *Authenticator) messageLoop() {
 			switch m.Type {
 			case msg.AuthenticateUser:
 				a, err = n.handleAuthenticateUser(&m)
-			case msg.CreateUser:
-				a, err = n.handleCreateUser(&m)
 			default:
 				err = nerd.ErrUnknownMessageType
 			}
@@ -112,54 +110,54 @@ func (n *Authenticator) handleAuthenticateUser(m *msg.Msg) (any, error) {
 }
 
 // handleCreateUser creates a new user node
-func (n *Authenticator) handleCreateUser(m *msg.Msg) (any, error) {
-	pl, ok := m.Payload.(msg.CredentialsPayload)
-	if !ok {
-		return nil, fmt.Errorf("invalid pl type for CreateUser")
-	}
+// func (n *Authenticator) handleCreateUser(m *msg.Msg) (any, error) {
+// 	pl, ok := m.Payload.(msg.CredentialsPayload)
+// 	if !ok {
+// 		return nil, fmt.Errorf("invalid pl type for CreateUser")
+// 	}
 
-	// Check if user already exists
-	if _, exists := n.Children[pl.Username]; exists {
-		return nil, fmt.Errorf("user already exists")
-	}
+// 	// Check if user already exists
+// 	if _, exists := n.Children[pl.Username]; exists {
+// 		return nil, fmt.Errorf("user already exists")
+// 	}
 
-	// First user is automatically admin
-	isAdmin := len(n.Children) == 0
+// 	// First user is automatically admin
+// 	isAdmin := len(n.Children) == 0
 
-	// Create new user node
-	user, err := newUser(pl.Username, pl.Password, isAdmin)
-	if err != nil {
-		return nil, err
-	}
+// 	// Create new user node
+// 	user, err := newUser(pl.Username, pl.Password, isAdmin)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	// Save user to database
-	if err := user.Save(); err != nil {
-		return nil, fmt.Errorf("failed to save user: %w", err)
-	}
+// 	// Save user to database
+// 	if err := user.Save(); err != nil {
+// 		return nil, fmt.Errorf("failed to save user: %w", err)
+// 	}
 
-	// Add to children map
-	n.Children[pl.Username] = user.Tag
+// 	// Add to children map
+// 	n.Children[pl.Username] = user.Tag
 
-	// Update parent-child relationship in database
-	user.SetParentID(n.GetID())
-	if err := user.Save(); err != nil {
-		return nil, fmt.Errorf("failed to update user parent: %w", err)
-	}
+// 	// Update parent-child relationship in database
+// 	user.SetParentID(n.GetID())
+// 	if err := user.Save(); err != nil {
+// 		return nil, fmt.Errorf("failed to update user parent: %w", err)
+// 	}
 
-	// Start user node
-	user.Run()
+// 	// Start user node
+// 	user.Run()
 
-	// Register user node
-	user.Tag.Register()
+// 	// Register user node
+// 	user.Tag.Register()
 
-	// Create Clients group under new user
-	_, err = user.Tag.AskCreateChild(nerd.GroupNode, "Clients", nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Clients group: %w", err)
-	}
+// 	// Create Clients group under new user
+// 	_, err = user.Tag.AskCreateChild(nerd.GroupNode, "Clients", nil)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("failed to create Clients group: %w", err)
+// 	}
 
-	// Invalidate tree cache
-	n.InvalidateTreeEntry()
+// 	// Invalidate tree cache
+// 	n.InvalidateTreeEntry()
 
-	return user.Tag, nil
-}
+// 	return user.Tag, nil
+// }

@@ -22,7 +22,7 @@ func InitInstance(dbPath string) error {
 
 	// Start Root node briefly to establish the tree structure
 	root.Run()
-	root.Register()
+	registry.add(root.Tag)
 
 	// Create System group directly with name
 	_, err = root.AskCreateChild(nerd.GroupNode, "System", nil)

@@ -39,28 +39,25 @@ func loadUser(identity *node.Entity) (node.Node, error) {
 	return user, nil
 }
 
-// newUser creates a new User node instance with specified name and password
-func newUser(name string, password string, admin bool) (*User, error) {
-	// Create base Entity with common fields
-	entity := &node.Entity{
-		Tag: &msg.Tag{
-			NodeID:   node.NewPersistentID(),
-			Incoming: make(msg.MsgChan),
-			Admin:    admin,
-		},
-		Name:     name,
-		NodeType: nerd.UserNode,
-		Children: make(map[string]*msg.Tag),
+func newUser(e *node.Entity, pl msg.CreateChildPayload) (*User, error) {
+	guipl, ok := pl.Spec.(map[string]any)
+	if !ok {
+		return nil, nerd.ErrInvalidPayload
+	}
+
+	pw, ok := guipl["password"].(string)
+	if !ok {
+		return nil, nerd.ErrInvalidPayload
 	}
 
 	// Hash the password
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(pw), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("failed to hash password: %w", err)
 	}
 
 	return &User{
-		Entity: entity,
+		Entity: e,
 		config: &UserConfig{
 			Password: string(hashedPassword),
 		},

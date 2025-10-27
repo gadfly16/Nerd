@@ -13,7 +13,7 @@ import (
 // IAsk translates interface message to native message and waits for answer
 func IAsk(im imsg.IMsg) (any, error) {
 	// Validate target exists
-	tag, exists := msg.RegGet(im.TargetID)
+	tag, exists := registry.get(im.TargetID)
 	if !exists {
 		return nil, nerd.ErrNodeNotFound
 	}
@@ -38,11 +38,13 @@ func IAsk(im imsg.IMsg) (any, error) {
 
 // IAskAuth routes authentication messages to the Authenticator node
 func IAskAuth(im imsg.IMsg) (ia any, err error) {
+	tag := builtin.System.Authenticator
+
 	switch im.Type {
 	case imsg.AuthenticateUser:
 		return handleIAuthenticateUser(im)
-	case imsg.CreateUser:
-		return handleICreateUser(im)
+	case imsg.CreateChild:
+		return handleICreateChild(tag, im)
 	default:
 		return nil, nerd.ErrMalformedIMsg
 	}
@@ -173,7 +175,7 @@ func handleIShutdown(t *msg.Tag) (ia any, err error) {
 	shutdownTags := a.([]*msg.Tag)
 	var rootHalted bool
 	for _, tag := range shutdownTags {
-		tag.Unregister()
+		registry.remove(tag)
 		if tag.NodeID == 1 {
 			rootHalted = true
 		}
@@ -224,11 +226,16 @@ func handleICreateUser(im imsg.IMsg) (ia any, err error) {
 		return nil, nerd.ErrMalformedIMsg
 	}
 
+	// Create user via CreateChild message (goes through topology handler)
 	a, err := builtin.System.Authenticator.Ask(&msg.Msg{
-		Type: msg.CreateUser,
-		Payload: msg.CredentialsPayload{
-			Username: username,
-			Password: password,
+		Type: msg.CreateChild,
+		Payload: msg.CreateChildPayload{
+			NodeType: nerd.UserNode,
+			Name:     username,
+			Spec: msg.CredentialsPayload{
+				Username: username,
+				Password: password,
+			},
 		},
 	})
 	if err != nil {

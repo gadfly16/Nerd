@@ -621,14 +621,13 @@ class Auth extends nerd.Component {
   // handleSubmit sends credentials to server and updates app state on success
   private async handleSubmit(e: Event, regmode: boolean) {
     e.preventDefault()
+
     const formData = new FormData(e.target as HTMLFormElement)
+    const imt = regmode ? imsg.CreateChild : imsg.AuthenticateUser
     const pl = Object.fromEntries(formData)
 
     try {
-      const a = await nerd.AskAuth(
-        regmode ? imsg.CreateUser : imsg.AuthenticateUser,
-        pl,
-      )
+      const a = await nerd.AskAuth(imt, pl)
       nerd.Ctx.userID = a.id
       nerd.Ctx.admin = a.admin
       gui.SwitchToWorkbench()

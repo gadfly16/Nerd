@@ -164,6 +164,9 @@ export async function Ask(
 
 // AskAuth sends an authentication message to the server
 export async function AskAuth(type: imsg, pl: any): Promise<any> {
+  if (type === imsg.CreateChild) {
+    pl = { nodeType: NodeType.User, name: pl.username, spec: pl }
+  }
   const response = await fetch("/auth", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

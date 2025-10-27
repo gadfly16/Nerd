@@ -32,7 +32,7 @@ func Run(dbPath string) error {
 
 	// Register all tags with the tree
 	for _, tag := range allTags {
-		tag.Register()
+		registry.add(tag)
 	}
 
 	return nil
