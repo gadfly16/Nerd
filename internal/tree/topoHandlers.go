@@ -133,14 +133,14 @@ func handleDeleteChild(m *msg.Msg, n node.Node) (any, error) {
 		return nil, nerd.ErrNodeNotFound
 	}
 
-	// Remove from registry
-	registry.remove(childTag)
-
 	// Ask child to delete itself
 	err := childTag.AskDeleteSelf()
 	if err != nil {
 		return nil, err
 	}
+
+	// Remove from registry
+	registry.remove(childTag)
 
 	// Remove from parent's children map
 	delete(pe.Children, childName)
