@@ -16,7 +16,8 @@ func init() {
 }
 
 // HandleTopoMessage dispatches topology-related messages to appropriate handlers
-// This function is called from builtin.handleCommonMessage for topology operations
+// This function is called from builtin.handleCommonMessage to isolate topology
+// related operations to the tree layer
 func HandleTopoMessage(m *msg.Msg, n node.Node) (any, error) {
 	switch m.Type {
 	case msg.CreateChild:
