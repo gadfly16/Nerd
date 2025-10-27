@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -286,10 +287,13 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create GUI node under Clients with WebSocket connection
-	ctx := r.Context()
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel() // Cleanup when handler exits
+
 	guiSpec := msg.CreateGUIPayload{
-		Conn: conn,
-		Ctx:  ctx,
+		Conn:       conn,
+		Ctx:        ctx,
+		CancelFunc: cancel,
 	}
 
 	guiTag, err := api.IAskCreateChild(clientsTag.ID, userID, nerd.GUINode, "", guiSpec)
@@ -301,14 +305,15 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Created GUI node %d for user %d", guiTag.ID, userID)
 
-	// Read loop to detect client disconnect
-	// We expect no messages from client (server-to-client only)
-	for {
-		_, _, err := conn.Read(ctx)
-		if err != nil {
-			log.Printf("WebSocket connection closed for user %d: %v", userID, err)
-			break
-		}
+	// Wait for context to be done (connection closed)
+	<-ctx.Done()
+
+	err = api.IAskDeleteChild(clientsTag.ID, userID, guiTag.ID)
+	if err != nil {
+		log.Printf("Failed to create GUI node: %v", err)
+		conn.Close(websocket.StatusInternalError, "server error")
+		return
 	}
-	conn.Close(websocket.StatusNormalClosure, "")
+
+	log.Printf("WebSocket handler exiting for user %d", userID)
 }

@@ -17,10 +17,14 @@ const (
 	RenameChild
 	DeleteChild
 	Shutdown
+
 	AuthenticateUser
 	Logout
-	Subscribe
-	Unsubscribe
+
+	TopoSubscribe
+	NodeSubscribe
+	TopoUpdate
+	NodeUpdate
 	// Future interface message types can be added here
 )
 

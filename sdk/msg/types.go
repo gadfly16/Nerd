@@ -64,8 +64,11 @@ const (
 	// Node-specific messages start here
 	// Each node type can define their own starting from this point
 	AuthenticateUser // Authenticator: authenticate user by username/password
-	Authenticate     // User: password verification
-	CreateUser       // Authenticator: create new user
+	AuthenticateSelf // User: password verification
+
+	// GUI-specific messages
+	TopoSubscribe // GUI: subscribe to topology changes on the tree
+	NodeSubscribe // GUI: subscribe to node-specific updates
 )
 
 // CreateChildPayload contains node type and optional name for creating a child node
@@ -77,8 +80,9 @@ type CreateChildPayload struct {
 
 // CreateGUIPayload contains websocket connection and context for GUI
 type CreateGUIPayload struct {
-	Conn *websocket.Conn
-	Ctx  context.Context
+	Conn       *websocket.Conn
+	Ctx        context.Context
+	CancelFunc context.CancelFunc
 }
 
 // RenameChildPayload contains old and new names for renaming a child node

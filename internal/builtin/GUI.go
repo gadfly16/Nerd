@@ -2,6 +2,7 @@ package builtin
 
 import (
 	"context"
+	"log"
 
 	"github.com/coder/websocket"
 	"github.com/gadfly16/nerd/api/nerd"
@@ -12,8 +13,9 @@ import (
 // GUI represents an ephemeral GUI node for WebSocket communication
 type GUI struct {
 	*node.Entity
-	conn *websocket.Conn
-	ctx  context.Context
+	conn   *websocket.Conn
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // newGUI creates a new GUI node instance (ephemeral, not persisted)
@@ -26,6 +28,7 @@ func newGUI(e *node.Entity, pl msg.CreateChildPayload) (*GUI, error) {
 		Entity: e,
 		conn:   guipl.Conn,
 		ctx:    guipl.Ctx,
+		cancel: guipl.CancelFunc,
 	}, nil
 }
 
@@ -37,6 +40,7 @@ func (n *GUI) Save() error {
 // Run starts the GUI node goroutine and message loop
 func (n *GUI) Run() {
 	go n.messageLoop()
+	go n.wsReadLoop()
 }
 
 // Shutdown gracefully shuts down the GUI node
@@ -79,4 +83,17 @@ func (n *GUI) messageLoop() {
 			break
 		}
 	}
+}
+
+// wsReadLoop reads from WebSocket to detect client disconnect
+func (n *GUI) wsReadLoop() {
+	for {
+		_, _, err := n.conn.Read(n.ctx)
+		if err != nil {
+			log.Printf("WebSocket connection closed for GUI node %d: %v", n.NodeID, err)
+			break
+		}
+	}
+	n.conn.Close(websocket.StatusNormalClosure, "")
+	n.cancel() // Signal server that WebSocket is closed
 }

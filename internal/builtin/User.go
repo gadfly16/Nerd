@@ -114,7 +114,7 @@ func (n *User) messageLoop() {
 		} else {
 			// Node-specific message handling
 			switch m.Type {
-			case msg.Authenticate:
+			case msg.AuthenticateSelf:
 				a, err = n.handleAuthenticate(&m)
 			default:
 				err = nerd.ErrUnknownMessageType

@@ -96,24 +96,11 @@ func (t *Tag) AskAuthenticateUser(username, password string) (*Tag, error) {
 }
 
 // AskCreateUser sends a CreateUser message to the Authenticator node
-func (t *Tag) AskCreateUser(username, password string) (*Tag, error) {
-	result, err := t.Ask(&Msg{
-		Type: CreateUser,
-		Payload: CredentialsPayload{
-			Username: username,
-			Password: password,
-		},
-	})
-	if err != nil {
-		return nil, err
-	}
-	return result.(*Tag), nil
-}
 
 // AskAuthenticate sends an Authenticate message to a User node
 func (t *Tag) AskAuthenticate(password string) (*Tag, error) {
 	result, err := t.Ask(&Msg{
-		Type:    Authenticate,
+		Type:    AuthenticateSelf,
 		Payload: password,
 	})
 	if err != nil {
