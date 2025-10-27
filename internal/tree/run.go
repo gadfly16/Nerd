@@ -24,15 +24,10 @@ func Run(dbPath string) error {
 		return fmt.Errorf("failed to load root identity: %w", result.Error)
 	}
 
-	// Load the entire tree recursively
-	allTags, err := rootEntity.Load()
+	// Load the entire tree recursively (registers all nodes)
+	_, err = load(&rootEntity)
 	if err != nil {
 		return fmt.Errorf("failed to load tree: %w", err)
-	}
-
-	// Register all tags with the tree
-	for _, tag := range allTags {
-		registry.add(tag)
 	}
 
 	return nil

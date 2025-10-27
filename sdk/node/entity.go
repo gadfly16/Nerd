@@ -1,7 +1,6 @@
 package node
 
 import (
-	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -134,48 +133,4 @@ func (cq *ChildrenQuery) Reduce(reduce func(payload any)) error {
 	}
 
 	return nil
-}
-
-func (e *Entity) Load() ([]*msg.Tag, error) {
-	// 0. Initialize runtime fields first
-	e.Incoming = make(msg.MsgChan)
-	e.Children = make(map[string]*msg.Tag)
-	e.CacheValidity = CacheValidity{}
-
-	// 1. Create the appropriate node using registry
-	nodeInstance, err := LoadNodeFromEntity(e)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load node: %w", err)
-	}
-
-	// 2. Load children identities from database
-	var children []*Entity
-	result := DB.Where("parent_id = ?", e.NodeID).Find(&children)
-	if result.Error != nil {
-		return nil, fmt.Errorf("failed to load children: %w", result.Error)
-	}
-
-	// 3. Recursively load each child and collect tags
-	var allTags []*msg.Tag
-	for _, child := range children {
-		childTags, err := child.Load()
-		if err != nil {
-			return nil, fmt.Errorf("failed to load child %s: %w", child.Name, err)
-		}
-		allTags = append(allTags, childTags...)
-
-		// Add child to parent's children map
-		e.Children[child.Name] = childTags[len(childTags)-1] // Last tag is the child itself
-
-		// Link cache validity
-		child.CacheValidity.Parent = &e.CacheValidity
-	}
-
-	// 4. Start the node
-	nodeInstance.Run()
-
-	// 5. Return all child tags + self tag
-	selfTag := nodeInstance.GetTag()
-	allTags = append(allTags, selfTag)
-	return allTags, nil
 }

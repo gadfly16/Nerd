@@ -16,6 +16,6 @@ type Node interface {
 	SetParentID(parentID nerd.NodeID)
 	Run()
 	Save() error
-	Load() ([]*msg.Tag, error)
+	// Load() ([]*msg.Tag, error)
 	Shutdown()
 }
