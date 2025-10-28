@@ -147,8 +147,5 @@ func handleDeleteSelf(_ *msg.Msg, n node.Node) (any, error) {
 		}
 	}
 
-	// Node-specific cleanup
-	n.Shutdown()
-
 	return nil, nil
 }

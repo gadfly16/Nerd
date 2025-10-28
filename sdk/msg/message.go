@@ -1,7 +1,11 @@
 package msg
 
 // Reply sends a response back on this message's answer channel
+// For messages from Notify(), this is a no-op since there's no answer channel
 func (m *Msg) Reply(payload any, err error) {
+	if m.APipe == nil {
+		return // No-op for notifications
+	}
 	m.APipe <- Answer{
 		Payload: payload,
 		Error:   err,
