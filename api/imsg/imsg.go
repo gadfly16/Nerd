@@ -21,8 +21,8 @@ const (
 	AuthenticateUser
 	Logout
 
-	TopoSubscribe
 	NodeSubscribe
+	NodeUnsubscribe
 	TopoUpdate
 	NodeUpdate
 	// Future interface message types can be added here

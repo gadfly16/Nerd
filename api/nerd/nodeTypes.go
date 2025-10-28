@@ -13,6 +13,7 @@ const (
 	AuthenticatorNode
 	UserNode
 	GUINode
+	TopoUpdaterNode
 
 	BUILTIN_NODE_SEPARATOR
 )
@@ -48,12 +49,18 @@ func (nt NodeType) Info() NodeTypeInfo {
 	case GroupNode:
 		return NodeTypeInfo{
 			Name:            "Group",
-			AllowedChildren: []NodeType{GroupNode, GUINode},
+			AllowedChildren: []NodeType{GroupNode, GUINode, TopoUpdaterNode},
 			Runtime:         false,
 		}
 	case GUINode:
 		return NodeTypeInfo{
 			Name:            "GUI",
+			AllowedChildren: []NodeType{},
+			Runtime:         true,
+		}
+	case TopoUpdaterNode:
+		return NodeTypeInfo{
+			Name:            "TopoUpdater",
 			AllowedChildren: []NodeType{},
 			Runtime:         true,
 		}

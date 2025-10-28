@@ -3,6 +3,7 @@ package tree
 import (
 	"fmt"
 
+	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/sdk/node"
 )
 
@@ -25,9 +26,20 @@ func Run(dbPath string) error {
 	}
 
 	// Load the entire tree recursively (registers all nodes)
-	_, err = load(&rootEntity)
+	rootTag, err := load(&rootEntity)
 	if err != nil {
 		return fmt.Errorf("failed to load tree: %w", err)
+	}
+
+	// Create runtime TopoUpdater node under System group
+	systemTag, err := rootTag.AskLookup([]string{"System"})
+	if err != nil {
+		return fmt.Errorf("failed to lookup System group: %w", err)
+	}
+
+	_, err = systemTag.AskCreateChild(nerd.TopoUpdaterNode, "TopoUpdater", nil)
+	if err != nil {
+		return fmt.Errorf("failed to create TopoUpdater: %w", err)
 	}
 
 	return nil

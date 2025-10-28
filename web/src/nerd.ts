@@ -2,14 +2,15 @@
 
 import { imsg } from "./imsg.js"
 
-// NodeType enum - must match api/node/types.go
+// NodeType enum - must match api/nerd/nodeTypes.go
 export enum NodeType {
   Group = 0,
   Root = 1,
   Authenticator = 2,
   User = 3,
   GUI = 4,
-  BuiltinSeparator = 5,
+  TopoUpdater = 5,
+  BuiltinSeparator = 6,
 }
 
 // nodeTypeName returns the string representation of a NodeType
@@ -25,6 +26,8 @@ export function nodeTypeName(nt: number): string {
       return "User"
     case NodeType.GUI:
       return "GUI"
+    case NodeType.TopoUpdater:
+      return "TopoUpdater"
     default:
       return "Unknown"
   }

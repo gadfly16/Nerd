@@ -22,7 +22,7 @@ func loadAuthenticator(identity *node.Entity) (node.Node, error) {
 	}
 
 	// Register as system singleton
-	System.Authenticator = identity.Tag
+	node.System.Authenticator = identity.Tag
 
 	// Authenticator nodes have no configuration to load
 	return auth, nil
@@ -35,7 +35,7 @@ func newAuthenticator(entity *node.Entity) *Authenticator {
 	}
 
 	// Register as system node for easy access
-	System.Authenticator = entity.Tag
+	node.System.Authenticator = entity.Tag
 
 	return auth
 }
@@ -53,7 +53,8 @@ func (n *Authenticator) Run() {
 
 // Shutdown gracefully shuts down the Authenticator node and all children
 func (n *Authenticator) Shutdown() {
-	// Node-specific cleanup can be added here
+	// Clear system reference
+	node.System.Authenticator = nil
 }
 
 // messageLoop handles incoming messages
@@ -85,7 +86,7 @@ func (n *Authenticator) messageLoop() {
 		m.Reply(a, err)
 
 		// Exit the message loop in case of shutdown or delete self.
-		if m.Type == msg.Shutdown || m.Type == msg.DeleteSelf {
+		if m.Type == msg.Shutdown {
 			break
 		}
 	}

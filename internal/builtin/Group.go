@@ -73,7 +73,7 @@ func (n *Group) messageLoop() {
 		m.Reply(a, err)
 
 		// Exit the message loop in case of shutdown or delete self.
-		if m.Type == msg.Shutdown || m.Type == msg.DeleteSelf {
+		if m.Type == msg.Shutdown {
 			break
 		}
 	}

@@ -6,14 +6,6 @@ import (
 	"github.com/gadfly16/nerd/sdk/node"
 )
 
-// System holds references to system nodes for easy access
-type SystemNodes struct {
-	Authenticator *msg.Tag
-}
-
-// System provides access to system node tags
-var System = &SystemNodes{}
-
 // NewNode creates a new node instance based on the specified type and name
 // If name is empty, auto-generation will be used
 func NewNode(pe *node.Entity, pl msg.CreateChildPayload) (node.Node, error) {
@@ -47,6 +39,8 @@ func NewNode(pe *node.Entity, pl msg.CreateChildPayload) (node.Node, error) {
 		return newUser(e, pl)
 	case nerd.AuthenticatorNode:
 		return newAuthenticator(e), nil
+	case nerd.TopoUpdaterNode:
+		return newTopoUpdater(e)
 	default:
 		// At this point the createChildHandler already checked the node type
 		panic("nodes: trying to create unsupported node type")

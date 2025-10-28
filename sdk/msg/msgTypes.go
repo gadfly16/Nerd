@@ -67,8 +67,12 @@ const (
 	AuthenticateSelf // User: password verification
 
 	// GUI-specific messages
-	TopoSubscribe // GUI: subscribe to topology changes on the tree
-	NodeSubscribe // GUI: subscribe to node-specific updates
+	TopoSubscribe   // GUI: subscribe for topo updates on TopoUpdater
+	TopoUnsubscribe // GUI: unsubscribe from TopoUpdater
+	NodeSubscribe   // GUI: subscribe to node-specific updates
+	NodeUnsubscribe // GUI: unsubscribe from node detail updates
+	TopoUpdate      // GUI: topology changes reported
+	NodeUpdate      // GUI: node details changes reported
 )
 
 // CreateChildPayload contains node type and optional name for creating a child node

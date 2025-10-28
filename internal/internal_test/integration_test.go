@@ -16,7 +16,7 @@ import (
 func TestIntegration(t *testing.T) {
 	// Setup: Initialize and run tree
 	testDB := "./test_integration.db"
-	defer os.Remove(testDB)
+	os.Remove(testDB)
 
 	err := tree.InitInstance(testDB)
 	if err != nil {
@@ -36,41 +36,37 @@ func TestIntegration(t *testing.T) {
 		}
 	}()
 
-	// Phase 1: Add "Projects" group under Root
-	t.Log("Phase 1: Creating Projects group under Root")
-	_, err = api.IAskCreateChild(1, 1, nerd.GroupNode, "Projects", nil) // Root node, user 1
+	// Phase 1: Create TestIntegration group under Root for test isolation
+	t.Log("Phase 1: Creating TestIntegration group under Root")
+	testGroupTag, err := api.IAskCreateChild(1, 1, nerd.GroupNode, "TestIntegration", nil) // Root node, user 1
+	if err != nil {
+		t.Fatalf("Failed to create TestIntegration group: %v", err)
+	}
+	testGroupID := testGroupTag.ID
+
+	// Phase 2: Add "Projects" group under TestIntegration
+	t.Log("Phase 2: Creating Projects group under TestIntegration")
+	_, err = api.IAskCreateChild(testGroupID, 1, nerd.GroupNode, "Projects", nil)
 	if err != nil {
 		t.Fatalf("Failed to create Projects group: %v", err)
 	}
 
-	// Phase 2: Add children under System
-	t.Log("Phase 2: Creating Config and Logs under System")
-	_, err = api.IAskCreateChild(2, 1, nerd.GroupNode, "Config", nil) // System node, user 1
-	if err != nil {
-		t.Fatalf("Failed to create Config group: %v", err)
-	}
-
-	_, err = api.IAskCreateChild(2, 1, nerd.GroupNode, "Logs", nil) // System node, user 1
-	if err != nil {
-		t.Fatalf("Failed to create Logs group: %v", err)
-	}
-
-	// Phase 3: Add children under Projects (need to find Projects node ID)
+	// Phase 3: Add children under TestIntegration/Projects
 	// First get the tree to find Projects node ID
-	treeEntry, err := api.IAskGetTree(1, 1) // Root, user 1
+	testTree, err := api.IAskGetTree(testGroupID, 1) // TestIntegration, user 1
 	if err != nil {
-		t.Fatalf("Failed to get tree: %v", err)
+		t.Fatalf("Failed to get TestIntegration tree: %v", err)
 	}
 
 	// Find Projects node ID from tree structure
-	t.Logf("Current tree structure after phase 2:")
-	t.Logf("  Root (%d) has %d children", treeEntry.NodeID, len(treeEntry.Children))
-	for i, child := range treeEntry.Children {
+	t.Logf("Current TestIntegration tree structure:")
+	t.Logf("  TestIntegration (%d) has %d children", testTree.NodeID, len(testTree.Children))
+	for i, child := range testTree.Children {
 		t.Logf("    Child %d: %s (%d)", i, child.Name, child.NodeID)
 	}
 
 	var projectsNodeID nerd.NodeID
-	for _, child := range treeEntry.Children {
+	for _, child := range testTree.Children {
 		if child.Name == "Projects" {
 			projectsNodeID = child.NodeID
 			break
@@ -93,7 +89,7 @@ func TestIntegration(t *testing.T) {
 
 	// Phase 4: Test name collision
 	t.Log("Phase 4: Testing name collision")
-	_, err = api.IAskCreateChild(2, 1, nerd.GroupNode, "Config", nil) // System node, user 1 - should collide
+	_, err = api.IAskCreateChild(projectsNodeID, 1, nerd.GroupNode, "ProjectA", nil) // Should collide with existing ProjectA
 	if err == nil {
 		t.Errorf("Expected name collision error, but creation succeeded")
 	} else {
@@ -102,9 +98,9 @@ func TestIntegration(t *testing.T) {
 
 	// Phase 5: Test rename operation
 	t.Log("Phase 5: Testing rename operation")
-	err = api.IAskRenameChild(2, 1, "Logs", "SystemLogs") // System node, user 1
+	err = api.IAskRenameChild(projectsNodeID, 1, "ProjectB", "ProjectBeta") // Projects node, user 1
 	if err != nil {
-		t.Fatalf("Failed to rename Logs to SystemLogs: %v", err)
+		t.Fatalf("Failed to rename ProjectB to ProjectBeta: %v", err)
 	}
 
 	// Phase 6: Mid-test shutdown and state verification
@@ -148,104 +144,100 @@ func TestIntegration(t *testing.T) {
 
 	// Phase 8: Final tree verification
 	t.Log("Phase 8: Verifying final tree structure after restart")
-	finalTree, err := api.IAskGetTree(1, 1) // Root, user 1
+
+	// Verify System node has TopoUpdater (runtime node)
+	systemTree, err := api.IAskGetTree(2, 1) // System node, user 1
 	if err != nil {
-		t.Fatalf("Failed to get final tree: %v", err)
+		t.Fatalf("Failed to get System tree: %v", err)
 	}
 
-	// Verify the final tree structure
-
-	// Root should have 3 children: System, Projects, and Authenticator
-	if len(finalTree.Children) != 3 {
-		t.Errorf("Expected Root to have 3 children, got %d", len(finalTree.Children))
+	// System should have 1 child: TopoUpdater (runtime node, created on startup)
+	if len(systemTree.Children) != 1 {
+		t.Errorf("Expected System to have 1 child (TopoUpdater), got %d", len(systemTree.Children))
 	}
 
-	// Find System and Projects nodes
-	var systemNode, projectsNode *msg.TreeEntry
-	for _, child := range finalTree.Children {
-		switch child.Name {
-		case "System":
-			systemNode = child
-		case "Projects":
+	hasTopoUpdater := false
+	for _, child := range systemTree.Children {
+		if child.Name == "TopoUpdater" {
+			hasTopoUpdater = true
+			if child.NodeType != nerd.TopoUpdaterNode {
+				t.Errorf("Expected TopoUpdater to be TopoUpdaterNode type, got %d", child.NodeType)
+			}
+		}
+	}
+
+	if !hasTopoUpdater {
+		t.Error("TopoUpdater node not found under System")
+	}
+
+	// Verify TestIntegration structure
+	testTreeFinal, err := api.IAskGetTree(testGroupID, 1) // TestIntegration, user 1
+	if err != nil {
+		t.Fatalf("Failed to get TestIntegration tree: %v", err)
+	}
+
+	// TestIntegration should have 1 child: Projects
+	if len(testTreeFinal.Children) != 1 {
+		t.Errorf("Expected TestIntegration to have 1 child, got %d", len(testTreeFinal.Children))
+	}
+
+	// Find Projects node
+	var projectsNode *msg.TreeEntry
+	for _, child := range testTreeFinal.Children {
+		if child.Name == "Projects" {
 			projectsNode = child
 		}
 	}
 
-	if systemNode == nil {
-		t.Error("System node not found in final tree")
-	} else {
-		// System should have 2 children: Config and SystemLogs (renamed from Logs)
-		if len(systemNode.Children) != 2 {
-			t.Errorf("Expected System to have 2 children, got %d", len(systemNode.Children))
-		}
+	if projectsNode == nil {
+		t.Fatal("Projects node not found under TestIntegration")
+	}
 
-		hasConfig, hasSystemLogs := false, false
-		for _, child := range systemNode.Children {
-			switch child.Name {
-			case "Config":
-				hasConfig = true
-			case "SystemLogs":
-				hasSystemLogs = true
-			}
-		}
+	// Projects should have 2 children: ProjectA and ProjectBeta (renamed from ProjectB)
+	if len(projectsNode.Children) != 2 {
+		t.Errorf("Expected Projects to have 2 children, got %d", len(projectsNode.Children))
+	}
 
-		if !hasConfig {
-			t.Error("Config node not found under System")
-		}
-		if !hasSystemLogs {
-			t.Error("SystemLogs node not found under System (rename may have failed)")
+	hasProjectA, hasProjectBeta := false, false
+	for _, child := range projectsNode.Children {
+		switch child.Name {
+		case "ProjectA":
+			hasProjectA = true
+		case "ProjectBeta":
+			hasProjectBeta = true
 		}
 	}
 
-	if projectsNode == nil {
-		t.Error("Projects node not found in final tree")
-	} else {
-		// Projects should have 2 children: ProjectA and ProjectB
-		if len(projectsNode.Children) != 2 {
-			t.Errorf("Expected Projects to have 2 children, got %d", len(projectsNode.Children))
-		}
-
-		hasProjectA, hasProjectB := false, false
-		for _, child := range projectsNode.Children {
-			switch child.Name {
-			case "ProjectA":
-				hasProjectA = true
-			case "ProjectB":
-				hasProjectB = true
-			}
-		}
-
-		if !hasProjectA {
-			t.Error("ProjectA node not found under Projects")
-		}
-		if !hasProjectB {
-			t.Error("ProjectB node not found under Projects")
-		}
+	if !hasProjectA {
+		t.Error("ProjectA node not found under Projects")
+	}
+	if !hasProjectBeta {
+		t.Error("ProjectBeta node not found under Projects (rename may have failed)")
 	}
 
 	// Phase 9: Testing Lookup functionality
 	t.Log("Phase 9: Testing Lookup functionality")
 
-	// Test 1: Lookup Config from System node (single level)
-	configTag, err := api.IAskLookup(2, 1, "Config") // System node, user 1
+	// Test 1: Lookup ProjectA from Projects node (single level)
+	projectATag, err := api.IAskLookup(projectsNodeID, 1, "ProjectA") // Projects node, user 1
 	if err != nil {
-		t.Fatalf("Failed to lookup Config from System: %v", err)
+		t.Fatalf("Failed to lookup ProjectA from Projects: %v", err)
 	}
-	t.Logf("Successfully looked up Config from System node (ID: %d)", configTag.ID)
+	t.Logf("Successfully looked up ProjectA from Projects node (ID: %d)", projectATag.ID)
 
-	// Test 2: Lookup with multi-level path from Root (System/SystemLogs)
-	systemLogsTag, err := api.IAskLookup(1, 1, "System/SystemLogs") // Root, user 1
+	// Test 2: Lookup with multi-level path from Root (TestIntegration/Projects/ProjectBeta)
+	projectBetaTag, err := api.IAskLookup(1, 1, "TestIntegration/Projects/ProjectBeta") // Root, user 1
 	if err != nil {
-		t.Fatalf("Failed to lookup System/SystemLogs from Root: %v", err)
+		t.Fatalf("Failed to lookup TestIntegration/Projects/ProjectBeta from Root: %v", err)
 	}
-	t.Logf("Successfully looked up SystemLogs via path System/SystemLogs from Root (ID: %d)", systemLogsTag.ID)
+	t.Logf("Successfully looked up ProjectBeta via path TestIntegration/Projects/ProjectBeta from Root (ID: %d)", projectBetaTag.ID)
 
-	// Test 3: Lookup non-existent path (System/Logs - was renamed to SystemLogs)
-	_, err = api.IAskLookup(1, 1, "System/Logs") // Root, user 1
+	// Test 3: Lookup non-existent path (TestIntegration/Projects/ProjectB - was renamed to ProjectBeta)
+	_, err = api.IAskLookup(1, 1, "TestIntegration/Projects/ProjectB") // Root, user 1
 	if err == nil {
-		t.Fatal("Expected error for non-existent path System/Logs, got nil")
+		t.Fatal("Expected error for non-existent path TestIntegration/Projects/ProjectB, got nil")
 	}
-	t.Logf("Correctly returned error for non-existent path System/Logs: %v", err)
+	t.Logf("Correctly returned error for non-existent path TestIntegration/Projects/ProjectB: %v", err)
 
 	// Phase 10: Performance measurement for cache effectiveness
 	t.Log("Phase 10: Measuring GetTree performance - first call vs cached call")
@@ -283,11 +275,11 @@ func TestIntegration(t *testing.T) {
 	nodeCountBefore := tree.RegCount()
 	t.Logf("Node count before deletion: %d", nodeCountBefore)
 
-	// Test 1: Delete a leaf node (Config has no children)
-	t.Log("Test 11.1: Deleting leaf node Config")
-	err = api.IAskDeleteChild(2, 1, configTag.ID) // System node, user 1, delete Config
+	// Test 1: Delete a leaf node (ProjectA has no children)
+	t.Log("Test 11.1: Deleting leaf node ProjectA")
+	err = api.IAskDeleteChild(projectsNodeID, 1, projectATag.ID) // Projects node, user 1, delete ProjectA
 	if err != nil {
-		t.Fatalf("Failed to delete Config node: %v", err)
+		t.Fatalf("Failed to delete ProjectA node: %v", err)
 	}
 
 	// Verify node count decreased by 1
@@ -297,69 +289,62 @@ func TestIntegration(t *testing.T) {
 		t.Errorf("Expected node count to decrease by 1, before: %d, after: %d", nodeCountBefore, nodeCountAfter)
 	}
 
-	// Verify Config is gone from lookup
-	_, err = api.IAskLookup(2, 1, "Config") // System node, user 1
+	// Verify ProjectA is gone from lookup
+	_, err = api.IAskLookup(projectsNodeID, 1, "ProjectA") // Projects node, user 1
 	if err == nil {
-		t.Fatal("Expected error when looking up deleted Config node, got nil")
+		t.Fatal("Expected error when looking up deleted ProjectA node, got nil")
 	}
-	t.Logf("Correctly returned error for deleted Config node: %v", err)
+	t.Logf("Correctly returned error for deleted ProjectA node: %v", err)
 
 	// Verify sending message to deleted node returns ErrNodeNotFound
-	_, err = api.IAskGetTree(configTag.ID, 1) // Try to get tree from deleted Config node
+	_, err = api.IAskGetTree(projectATag.ID, 1) // Try to get tree from deleted ProjectA node
 	if err != nerd.ErrNodeNotFound {
 		t.Fatalf("Expected ErrNodeNotFound when messaging deleted node, got: %v", err)
 	}
 	t.Logf("Correctly returned ErrNodeNotFound when messaging deleted node")
 
-	// Test 2: Try to delete node with children (Projects has ProjectA and ProjectB)
+	// Test 2: Try to delete node with children (Projects still has ProjectBeta)
 	t.Log("Test 11.2: Attempting to delete node with children (Projects)")
-	err = api.IAskDeleteChild(1, 1, projectsNodeID) // Root, user 1, delete Projects
+	err = api.IAskDeleteChild(testGroupID, 1, projectsNodeID) // TestIntegration, user 1, delete Projects
 	if err == nil {
 		t.Fatal("Expected error when deleting node with children, got nil")
 	}
 	t.Logf("Correctly returned error for deleting node with children: %v", err)
 
-	// Test 3: Delete children first, then parent
-	t.Log("Test 11.3: Deleting ProjectA and ProjectB, then Projects")
+	// Test 3: Delete remaining child, then parent
+	t.Log("Test 11.3: Deleting ProjectBeta, then Projects, then TestIntegration")
 
-	// Find ProjectA and ProjectB IDs
-	var projectAID, projectBID nerd.NodeID
-	for _, child := range projectsNode.Children {
-		if child.Name == "ProjectA" {
-			projectAID = child.NodeID
-		} else if child.Name == "ProjectB" {
-			projectBID = child.NodeID
-		}
-	}
-
-	if projectAID == 0 || projectBID == 0 {
-		t.Fatal("Failed to find ProjectA or ProjectB node IDs")
-	}
-
-	// Delete ProjectA
-	err = api.IAskDeleteChild(projectsNodeID, 1, projectAID)
+	// Delete ProjectBeta (we already deleted ProjectA in Test 1)
+	err = api.IAskDeleteChild(projectsNodeID, 1, projectBetaTag.ID)
 	if err != nil {
-		t.Fatalf("Failed to delete ProjectA: %v", err)
-	}
-
-	// Delete ProjectB
-	err = api.IAskDeleteChild(projectsNodeID, 1, projectBID)
-	if err != nil {
-		t.Fatalf("Failed to delete ProjectB: %v", err)
+		t.Fatalf("Failed to delete ProjectBeta: %v", err)
 	}
 
 	// Now delete Projects (should succeed since children are gone)
-	err = api.IAskDeleteChild(1, 1, projectsNodeID) // Root, user 1
+	err = api.IAskDeleteChild(testGroupID, 1, projectsNodeID) // TestIntegration, user 1
 	if err != nil {
 		t.Fatalf("Failed to delete Projects after removing children: %v", err)
 	}
 
 	// Verify Projects is gone
-	_, err = api.IAskLookup(1, 1, "Projects") // Root, user 1
+	_, err = api.IAskLookup(testGroupID, 1, "Projects") // TestIntegration, user 1
 	if err == nil {
 		t.Fatal("Expected error when looking up deleted Projects node, got nil")
 	}
 	t.Logf("Successfully deleted Projects after removing children")
+
+	// Now delete TestIntegration (should succeed since children are gone)
+	err = api.IAskDeleteChild(1, 1, testGroupID) // Root, user 1
+	if err != nil {
+		t.Fatalf("Failed to delete TestIntegration after removing children: %v", err)
+	}
+
+	// Verify TestIntegration is gone
+	_, err = api.IAskLookup(1, 1, "TestIntegration") // Root, user 1
+	if err == nil {
+		t.Fatal("Expected error when looking up deleted TestIntegration node, got nil")
+	}
+	t.Logf("Successfully deleted TestIntegration after removing children")
 
 	// Test 4: Try to delete non-existent child
 	t.Log("Test 11.4: Attempting to delete non-existent child")

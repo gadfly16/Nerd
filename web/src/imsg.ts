@@ -8,8 +8,12 @@ export enum imsg {
   RenameChild,
   DeleteChild,
   Shutdown,
+
   AuthenticateUser,
   Logout,
-  Subscribe,
-  Unsubscribe,
+
+  NodeSubscribe,
+  NodeUnsubscribe,
+  TopoUpdate,
+  NodeUpdate,
 }

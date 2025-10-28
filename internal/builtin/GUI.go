@@ -5,6 +5,8 @@ import (
 	"log"
 
 	"github.com/coder/websocket"
+	"github.com/coder/websocket/wsjson"
+	"github.com/gadfly16/nerd/api/imsg"
 	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/gadfly16/nerd/sdk/node"
@@ -45,6 +47,10 @@ func (n *GUI) Run() {
 
 // Shutdown gracefully shuts down the GUI node
 func (n *GUI) Shutdown() {
+	// Unsubscribe from TopoUpdater
+	node.System.TopoUpdater.NotifyTopoUnsubscribe(n.Tag)
+	log.Printf("GUI node %d unsubscribed from TopoUpdater", n.NodeID)
+
 	// Close WebSocket connection
 	if n.conn != nil {
 		n.conn.Close(websocket.StatusNormalClosure, "")
@@ -53,6 +59,10 @@ func (n *GUI) Shutdown() {
 
 // messageLoop handles incoming messages
 func (n *GUI) messageLoop() {
+	// Subscribe to TopoUpdater at the start of message loop
+	node.System.TopoUpdater.NotifyTopoSubscribe(n.Tag)
+	log.Printf("GUI node %d subscribed to TopoUpdater", n.NodeID)
+
 	for m := range n.Incoming {
 		var a any
 		var err error
@@ -61,7 +71,6 @@ func (n *GUI) messageLoop() {
 
 		// Route based on message type
 		if m.Type < msg.COMMON_MSG_SEPARATOR {
-			// Common message - handle via Entity
 			a, err = handleCommonMessage(&m, n)
 		} else {
 			// Node-specific message handling
@@ -78,19 +87,29 @@ func (n *GUI) messageLoop() {
 		m.Reply(a, err)
 
 		// Exit the message loop in case of shutdown or delete self.
-		if m.Type == msg.Shutdown || m.Type == msg.DeleteSelf {
+		if m.Type == msg.Shutdown {
 			break
 		}
 	}
 }
 
-// wsReadLoop reads from WebSocket to detect client disconnect
+// wsReadLoop reads and deserializes IMsg messages from WebSocket
 func (n *GUI) wsReadLoop() {
 	for {
-		_, _, err := n.conn.Read(n.ctx)
+		var im imsg.IMsg
+		err := wsjson.Read(n.ctx, n.conn, &im)
 		if err != nil {
 			log.Printf("WebSocket connection closed for GUI node %d: %v", n.NodeID, err)
 			break
+		}
+
+		// Route based on message type
+		switch im.Type {
+		case imsg.NodeSubscribe:
+			// TODO: Handle NodeSubscribe message
+			log.Printf("GUI node %d received NodeSubscribe for target %d", n.NodeID, im.TargetID)
+		default:
+			log.Printf("GUI node %d received unhandled IMsg type %v for target %d", n.NodeID, im.Type, im.TargetID)
 		}
 	}
 	n.conn.Close(websocket.StatusNormalClosure, "")

@@ -120,3 +120,19 @@ func (t *Tag) AskLookup(path []string) (*Tag, error) {
 	}
 	return result.(*Tag), nil
 }
+
+// NotifyTopoSubscribe sends a TopoSubscribe message to register for topology updates
+func (t *Tag) NotifyTopoSubscribe(guiTag *Tag) {
+	t.Notify(&Msg{
+		Type:    TopoSubscribe,
+		Payload: guiTag,
+	})
+}
+
+// NotifyTopoUnsubscribe sends a TopoUnsubscribe message to unregister from topology updates
+func (t *Tag) NotifyTopoUnsubscribe(guiTag *Tag) {
+	t.Notify(&Msg{
+		Type:    TopoUnsubscribe,
+		Payload: guiTag,
+	})
+}

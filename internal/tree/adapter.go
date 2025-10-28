@@ -5,7 +5,6 @@ import (
 
 	"github.com/gadfly16/nerd/api/imsg"
 	"github.com/gadfly16/nerd/api/nerd"
-	"github.com/gadfly16/nerd/internal/builtin"
 	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/gadfly16/nerd/sdk/node"
 )
@@ -38,7 +37,7 @@ func IAsk(im imsg.IMsg) (any, error) {
 
 // IAskAuth routes authentication messages to the Authenticator node
 func IAskAuth(im imsg.IMsg) (ia any, err error) {
-	tag := builtin.System.Authenticator
+	tag := node.System.Authenticator
 
 	switch im.Type {
 	case imsg.AuthenticateUser:
@@ -195,7 +194,7 @@ func handleIAuthenticateUser(im imsg.IMsg) (ia any, err error) {
 		return nil, nerd.ErrMalformedIMsg
 	}
 
-	a, err := builtin.System.Authenticator.Ask(&msg.Msg{
+	a, err := node.System.Authenticator.Ask(&msg.Msg{
 		Type: msg.AuthenticateUser,
 		Payload: msg.CredentialsPayload{
 			Username: username,
@@ -221,7 +220,7 @@ func handleICreateUser(im imsg.IMsg) (ia any, err error) {
 	}
 
 	// Create user via CreateChild message (goes through topology handler)
-	a, err := builtin.System.Authenticator.Ask(&msg.Msg{
+	a, err := node.System.Authenticator.Ask(&msg.Msg{
 		Type: msg.CreateChild,
 		Payload: msg.CreateChildPayload{
 			NodeType: nerd.UserNode,

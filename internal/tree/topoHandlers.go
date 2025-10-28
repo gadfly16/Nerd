@@ -142,6 +142,12 @@ func handleDeleteChild(m *msg.Msg, n node.Node) (any, error) {
 		return nil, err
 	}
 
+	// Ask child to shut down
+	err = childTag.AskShutdown()
+	if err != nil {
+		return nil, err
+	}
+
 	// Remove from registry
 	registry.remove(childTag)
 
