@@ -75,6 +75,8 @@ func (n *GUI) messageLoop() {
 		} else {
 			// Node-specific message handling
 			switch m.Type {
+			case msg.TopoUpdate:
+				a, err = n.handleTopoUpdate(&m)
 			default:
 				err = nerd.ErrUnknownMessageType
 			}
@@ -91,6 +93,23 @@ func (n *GUI) messageLoop() {
 			break
 		}
 	}
+}
+
+// handleTopoUpdate sends topology update notification to GUI client via WebSocket
+func (n *GUI) handleTopoUpdate(m *msg.Msg) (any, error) {
+	// Send TopoUpdate IMsg to WebSocket client
+	im := imsg.IMsg{
+		Type: imsg.TopoUpdate,
+	}
+
+	err := wsjson.Write(n.ctx, n.conn, im)
+	if err != nil {
+		log.Printf("Failed to send TopoUpdate to GUI node %d: %v", n.NodeID, err)
+		return nil, err
+	}
+
+	log.Printf("Sent TopoUpdate to GUI node %d", n.NodeID)
+	return nil, nil
 }
 
 // wsReadLoop reads and deserializes IMsg messages from WebSocket

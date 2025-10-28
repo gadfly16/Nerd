@@ -136,3 +136,14 @@ func (t *Tag) NotifyTopoUnsubscribe(guiTag *Tag) {
 		Payload: guiTag,
 	})
 }
+
+// NotifyTopoUpdate sends a TopoUpdate message to notify of topology changes
+// No-op if tag is nil (TopoUpdater not running)
+func (t *Tag) NotifyTopoUpdate() {
+	if t == nil {
+		return
+	}
+	t.Notify(&Msg{
+		Type: TopoUpdate,
+	})
+}

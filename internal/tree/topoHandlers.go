@@ -108,6 +108,9 @@ func handleCreateChild(m *msg.Msg, pn node.Node) (any, error) {
 	// Invalidate parent's cache since tree structure changed
 	pe.InvalidateTreeEntry()
 
+	// Notify TopoUpdater of topology change
+	node.System.TopoUpdater.NotifyTopoUpdate()
+
 	return msg.NewNodePayload{
 		NodeID: cht.NodeID,
 		Name:   che.Name,
@@ -152,6 +155,9 @@ func handleDeleteChild(m *msg.Msg, n node.Node) (any, error) {
 	// Invalidate parent's cache since tree structure changed
 	pe.CacheValidity.InvalidateTreeEntry()
 
+	// Notify TopoUpdater of topology change
+	node.System.TopoUpdater.NotifyTopoUpdate()
+
 	return childTag, nil
 }
 
@@ -193,6 +199,9 @@ func handleRenameChild(m *msg.Msg, n node.Node) (any, error) {
 
 	// Invalidate parent's cache since tree structure changed
 	e.CacheValidity.InvalidateTreeEntry()
+
+	// Notify TopoUpdater of topology change
+	node.System.TopoUpdater.NotifyTopoUpdate()
 
 	return nil, nil
 }
