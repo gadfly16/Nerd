@@ -114,8 +114,7 @@ func (n *Root) messageLoop() {
 		// Send response
 		m.Reply(a, err)
 
-		// Exit the message loop in case of shutdown. The message is already
-		// handled as a common message
+		// Exit the message loop in case of shutdown.
 		if m.Type == msg.Shutdown {
 			break
 		}

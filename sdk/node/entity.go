@@ -27,7 +27,7 @@ func (cv *CacheValidity) InvalidateTreeEntry() {
 // own table in the database
 type Entity struct {
 	*msg.Tag `gorm:"embedded"`
-	ParentID nerd.NodeID   `gorm:"index"`
+	ParentID nerd.NodeID   `gorm:"index"` // Database-only: used to query children during loading, not for runtime routing
 	Name     string        `gorm:"not null"`
 	NodeType nerd.NodeType `gorm:"not null"`
 

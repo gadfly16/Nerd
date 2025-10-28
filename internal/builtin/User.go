@@ -127,9 +127,8 @@ func (n *User) messageLoop() {
 		// Send response
 		m.Reply(a, err)
 
-		// Exit the message loop in case of shutdown. The message is already
-		// handled as a common message
-		if m.Type == msg.Shutdown {
+		// Exit the message loop in case of shutdown or delete self.
+		if m.Type == msg.Shutdown || m.Type == msg.DeleteSelf {
 			break
 		}
 	}
