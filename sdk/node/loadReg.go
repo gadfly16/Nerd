@@ -1,4 +1,12 @@
 package node
 
-// LoadNodeFromEntity is set by the builtin package to provide node loading functionality
-var LoadNodeFromEntity func(*Entity) (Node, error)
+// LoadBuiltinNodeFromEntity dispatches builtin node loading by type.
+// Set by init() in internal/builtin/loadDispatch.go to builtin.loadNodeFromEntity()
+var LoadBuiltinNodeFromEntity func(*Entity) (Node, error)
+
+func RegisterLoadBuiltinNodeFromEntity(fn func(*Entity) (Node, error)) {
+	if LoadBuiltinNodeFromEntity != nil {
+		panic("LoadBuiltinNodeFromEntity already registered")
+	}
+	LoadBuiltinNodeFromEntity = fn
+}

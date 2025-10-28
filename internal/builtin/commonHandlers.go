@@ -10,11 +10,15 @@ import (
 
 // topoDispatcher is a function registered by the tree layer to handle topology operations
 // This allows topology handlers to access the registry without exposing it to node implementations
+// Set by init() in internal/tree/topoHandlers.go to tree.HandleTopoMessage()
 var topoDispatcher func(*msg.Msg, node.Node) (any, error)
 
 // RegisterTopoDispatcher registers the topology message handler from the tree layer
 // This must be called during initialization before any nodes start processing messages
 func RegisterTopoDispatcher(fn func(*msg.Msg, node.Node) (any, error)) {
+	if topoDispatcher != nil {
+		panic("trying to register topoDispatcher twice")
+	}
 	topoDispatcher = fn
 }
 

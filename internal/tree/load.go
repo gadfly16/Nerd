@@ -16,7 +16,7 @@ func load(e *node.Entity) (*msg.Tag, error) {
 	e.CacheValidity = node.CacheValidity{}
 
 	// 1. Create the appropriate node using builtin registry
-	nodeInstance, err := node.LoadNodeFromEntity(e)
+	nodeInstance, err := node.LoadBuiltinNodeFromEntity(e)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load node: %w", err)
 	}

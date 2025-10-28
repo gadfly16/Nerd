@@ -7,8 +7,13 @@ import (
 	"github.com/gadfly16/nerd/sdk/node"
 )
 
-// loadNodeFromEntity creates a node from an existing Entity using a switch statement
-func loadNodeFromEntity(e *node.Entity) (node.Node, error) {
+func init() {
+	// Register the switch-based loader
+	node.RegisterLoadBuiltinNodeFromEntity(loadBuiltinNodeFromEntity)
+}
+
+// loadBuiltinNodeFromEntity creates a node from an existing Entity using a switch statement
+func loadBuiltinNodeFromEntity(e *node.Entity) (node.Node, error) {
 	switch e.NodeType {
 	case nerd.RootNode:
 		return loadRoot(e)
@@ -21,9 +26,4 @@ func loadNodeFromEntity(e *node.Entity) (node.Node, error) {
 	default:
 		panic(fmt.Sprintf("loading unsupported node type: %d", e.NodeType))
 	}
-}
-
-func init() {
-	// Register the switch-based loader
-	node.LoadNodeFromEntity = loadNodeFromEntity
 }

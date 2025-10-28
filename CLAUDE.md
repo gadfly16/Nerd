@@ -5,9 +5,11 @@ code in this repository.
 
 ## Project Overview
 
-Nerd is a software architecture framework for building small personal agents
-with Go backends and TypeScript frontends. It implements a hierarchical
-tree-based architecture where nodes communicate through message passing.
+Nerd is an experimental personal microservice platform. It provides a framework
+for defining microservices that run as goroutines instead of OS processes. Each
+microservice is represented as a node in a hierarchical tree structure, where
+nodes communicate through message passing. The platform offers good performance,
+high reliability, and a comprehensive GUI for managing the instance.
 
 ## Build & Development Commands
 
@@ -83,7 +85,8 @@ directly.
 3. **Node Layer** (`sdk/node/`, `internal/builtin/`)
    - Implements business logic in individual node types
    - All nodes embed `sdk/node.Entity` which provides shared functionality
-   - Common message handlers in `internal/builtin/handlers.go`
+   - Common message handlers in `internal/builtin/commonHandlers.go`
+   - Topology handlers in `internal/tree/topoHandlers.go`
    - Node-specific handlers in their respective files (e.g.,
      `internal/builtin/User.go`)
 
@@ -116,13 +119,13 @@ type Node interface {
 - `Authenticator`: Manages user authentication and creation
 - `User`: Represents authenticated users with password hashing
 - `Group`: Generic organizational container
-- `GUI`: WebSocket-connected frontend instances (not yet implemented)
+- `GUI`: WebSocket-connected frontend instances
 
-**Node Registry** (`internal/builtin/registry.go`):
+**Node Registry** (`internal/builtin/nodes.go`):
 
 - Maps `NodeType` to constructor functions
-- `NewNode(nodeType, name)` creates appropriate node instance
-- `LoadNodeFromIdentity(*Entity)` reconstructs nodes from database
+- `NewNode(pe, pl)` creates appropriate node instance
+- `LoadBuiltinNodeFromEntity(*Entity)` reconstructs nodes from database
 
 ### Message Flow Example
 
@@ -134,7 +137,7 @@ User creates a child node via HTTP:
 4. `handleICreateChild()` converts to native `msg.CreateChild`
 5. `tag.Ask(&msg.Msg{})` sends message to target node's Incoming channel
 6. Node's `Run()` goroutine receives message
-7. `handleCommonMessage()` or node-specific handler processes it
+7. `handleCommonMessage()` or topology handler processes it
 8. Handler creates child, saves to DB, starts child's goroutine
 9. Response flows back through answer channel
 10. Adapter converts response to `imsg.ITag`
@@ -167,8 +170,9 @@ Tree structure caching with automatic invalidation:
 **Two-Step Delete Pattern**: Child deletion requires two messages:
 
 1. Parent sends `DeleteChild` with child ID to itself
-2. Parent's handler sends `DeleteSelf` to child This ensures parent can update
-   its `Children` map after child cleanup.
+2. Parent's handler sends `DeleteSelf` to child
+
+This ensures parent can update its `Children` map after child cleanup.
 
 **Children Query Pattern**:
 
@@ -182,7 +186,16 @@ Sends message to all children concurrently, collects responses, returns error if
 any child failed.
 
 **Ephemeral Nodes**: Nodes with negative IDs (created via counter in
-`sdk/node/counters.go`) are temporary and not persisted to database.
+`sdk/node/counters.go`) are temporary and not persisted to database. Runtime
+nodes (like GUI) use this mechanism.
+
+**Dependency Injection Pattern**: To avoid circular dependencies between layers:
+
+- `builtin.RegisterTopoDispatcher()` allows tree layer to handle topology
+  operations
+- `node.RegisterLoadBuiltinNodeFromEntity()` allows builtin layer to handle node
+  loading
+- These are set via `init()` functions at startup
 
 ## Testing Approach
 
@@ -198,19 +211,21 @@ any child failed.
 **Adding a new node type**:
 
 1. Define `NodeType` constant in `api/nerd/types.go`
-2. Add to `NodeTypeName()` switch
+2. Add to `NodeType.Info()` method with allowed children
 3. Create node struct in `internal/builtin/YourNode.go` embedding `*node.Entity`
-4. Implement `Node` interface methods (Run, Save, Load, Shutdown)
-5. Register in `internal/builtin/registry.go`
-6. Add node-specific message types in `sdk/msg/types.go` if needed
+4. Implement `Node` interface methods (Run, Save, Shutdown)
+5. Add constructor `newYourNode()` and loader `loadYourNode()` functions
+6. Register in `internal/builtin/loadDispatch.go` switch statement
+7. Register in `internal/builtin/nodes.go` NewNode() switch
+8. Add node-specific message types in `sdk/msg/types.go` if needed
 
 **Adding a new message type**:
 
 1. Define `MsgType` constant in `sdk/msg/types.go`
 2. Define payload struct if needed
-3. Add handler function in `internal/builtin/handlers.go` (common) or
+3. Add handler function in `internal/builtin/commonHandlers.go` (common) or
    node-specific file
-4. Update message routing in node's `Run()` method
+4. Update message routing in node's `messageLoop()` method
 5. Add interface message type in `api/imsg/imsg.go` if accessible via HTTP
 6. Add adapter handler in `internal/tree/adapter.go`
 
@@ -218,5 +233,5 @@ any child failed.
 
 - Add logging in `tag.Ask()` or `tag.Notify()` in `sdk/msg/message.go`
 - Log in adapter layer handlers to see message translation
-- Check node's `Run()` goroutine to see message processing
-- Verify tags exist in tree registry with `getTag(nodeID)`
+- Check node's `messageLoop()` goroutine to see message processing
+- Verify tags exist in tree registry with `registry.get(nodeID)`
