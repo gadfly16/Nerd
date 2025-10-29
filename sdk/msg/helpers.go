@@ -8,7 +8,7 @@ import "github.com/gadfly16/nerd/api/nerd"
 // AskCreateChild sends a CreateChild message to the target node
 // If name is empty, the node will auto-generate its name
 // spec is optional node-specific initialization data
-func (t *Tag) AskCreateChild(nodeType nerd.NodeType, name string, spec any) (*Tag, error) {
+func (t *Tag) AskCreateChild(nodeType nerd.NodeType, name string, spec any) (NewNodePayload, error) {
 	result, err := t.Ask(&Msg{
 		Type: CreateChild,
 		Payload: CreateChildPayload{
@@ -18,9 +18,9 @@ func (t *Tag) AskCreateChild(nodeType nerd.NodeType, name string, spec any) (*Ta
 		},
 	})
 	if err != nil {
-		return nil, err
+		return NewNodePayload{}, err
 	}
-	return result.(*Tag), nil
+	return result.(NewNodePayload), nil
 }
 
 // AskRenameChild sends a RenameChild message to the target node
@@ -43,11 +43,11 @@ func (t *Tag) AskShutdown() error {
 	return err
 }
 
-// AskDeleteChild sends a DeleteChild message to delete a child by ID
-func (t *Tag) AskDeleteChild(childID nerd.NodeID) error {
+// AskDeleteChild sends a DeleteChild message to delete a child by name
+func (t *Tag) AskDeleteChild(childName string) error {
 	_, err := t.Ask(&Msg{
 		Type:    DeleteChild,
-		Payload: childID,
+		Payload: childName,
 	})
 	return err
 }

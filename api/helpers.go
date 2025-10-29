@@ -38,7 +38,8 @@ func IAskLookup(targetID, userID nerd.NodeID, path string) (*imsg.ITag, error) {
 
 // IAskCreateChild creates a new child node under the target node
 // spec is optional node-specific initialization data
-func IAskCreateChild(targetID, userID nerd.NodeID, nodeType nerd.NodeType, name string, spec any) (*imsg.ITag, error) {
+// Returns INewNodePayload with ID, Name, and Admin fields
+func IAskCreateChild(targetID, userID nerd.NodeID, nodeType nerd.NodeType, name string, spec any) (*imsg.INewNodePayload, error) {
 	result, err := tree.IAsk(imsg.IMsg{
 		Type:     imsg.CreateChild,
 		TargetID: targetID,
@@ -52,7 +53,7 @@ func IAskCreateChild(targetID, userID nerd.NodeID, nodeType nerd.NodeType, name 
 	if err != nil {
 		return nil, err
 	}
-	return result.(*imsg.ITag), nil
+	return result.(*imsg.INewNodePayload), nil
 }
 
 // IAskRenameChild renames a child node of the target node
@@ -69,14 +70,14 @@ func IAskRenameChild(targetID, userID nerd.NodeID, oldName, newName string) erro
 	return err
 }
 
-// IAskDeleteChild deletes a child node by ID
-func IAskDeleteChild(targetID, userID nerd.NodeID, childID nerd.NodeID) error {
+// IAskDeleteChild deletes a child node by name
+func IAskDeleteChild(targetID, userID nerd.NodeID, childName string) error {
 	_, err := tree.IAsk(imsg.IMsg{
 		Type:     imsg.DeleteChild,
 		TargetID: targetID,
 		UserID:   userID,
 		Payload: map[string]any{
-			"childId": float64(childID),
+			"childName": childName,
 		},
 	})
 	return err

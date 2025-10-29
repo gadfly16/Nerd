@@ -108,31 +108,26 @@ func handleCreateChild(m *msg.Msg, pn node.Node) (any, error) {
 	// Invalidate parent's cache since tree structure changed
 	pe.InvalidateTreeEntry()
 
-	return cht, nil
+	return msg.NewNodePayload{
+		NodeID: cht.NodeID,
+		Name:   che.Name,
+		Admin:  cht.Admin,
+	}, nil
 }
 
-// handleDeleteChild processes requests to delete child nodes by ID (topology operation)
+// handleDeleteChild processes requests to delete child nodes by name (topology operation)
 func handleDeleteChild(m *msg.Msg, n node.Node) (any, error) {
 	pe := n.GetEntity()
 
 	// Parse message payload
-	childID, ok := m.Payload.(nerd.NodeID)
+	childName, ok := m.Payload.(string)
 	if !ok {
 		return nil, nerd.ErrInvalidPayload
 	}
 
-	// Find child by ID in children map
-	var childName string
-	var childTag *msg.Tag
-	for name, tag := range pe.Children {
-		if tag.NodeID == childID {
-			childName = name
-			childTag = tag
-			break
-		}
-	}
-
-	if childTag == nil {
+	// Find child by name in children map
+	childTag, exists := pe.Children[childName]
+	if !exists {
 		return nil, nerd.ErrNodeNotFound
 	}
 

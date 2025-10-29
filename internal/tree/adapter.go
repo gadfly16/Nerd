@@ -134,38 +134,31 @@ func handleICreateChild(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
 		name = nameStr
 	}
 
-	a, err := t.Ask(&msg.Msg{
-		Type: msg.CreateChild,
-		Payload: msg.CreateChildPayload{
-			NodeType: nerd.NodeType(nodeTypeFloat),
-			Name:     name,
-			Spec:     im.Payload["spec"], // nil if not provided
-		},
-	})
+	payload, err := t.AskCreateChild(nerd.NodeType(nodeTypeFloat), name, im.Payload["spec"])
 	if err != nil {
 		return nil, err
 	}
 
-	return a.(*msg.Tag).ToITag(), nil
+	return &imsg.INewNodePayload{
+		ID:    payload.NodeID,
+		Name:  payload.Name,
+		Admin: payload.Admin,
+	}, nil
 }
 
 // handleIDeleteChild converts HttpDeleteChild message to native DeleteChild message
 func handleIDeleteChild(t *msg.Tag, im imsg.IMsg) (any, error) {
-	childID, ok := im.Payload["childId"]
+	childName, ok := im.Payload["childName"]
 	if !ok {
 		return nil, nerd.ErrMalformedIMsg
 	}
 
-	childIDFloat, ok := childID.(float64)
+	childNameStr, ok := childName.(string)
 	if !ok {
 		return nil, nerd.ErrMalformedIMsg
 	}
 
-	_, err := t.Ask(&msg.Msg{
-		Type:    msg.DeleteChild,
-		Payload: nerd.NodeID(childIDFloat),
-	})
-	return nil, err
+	return nil, t.AskDeleteChild(childNameStr)
 }
 
 // handleIShutdown converts HttpShutdown message to native Shutdown message

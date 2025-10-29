@@ -10,6 +10,12 @@ type ITag struct {
 	Admin bool        `json:"admin"`
 }
 
+type INewNodePayload struct {
+	ID    nerd.NodeID `json:"id"`
+	Name  string      `json:"name"`
+	Admin bool        `json:"admin"`
+}
+
 const (
 	GetTree Type = iota
 	Lookup

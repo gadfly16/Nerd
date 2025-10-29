@@ -48,21 +48,21 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		CancelFunc: cancel,
 	}
 
-	guiTag, err := api.IAskCreateChild(clientsTag.ID, userID, nerd.GUINode, "", guiSpec)
+	newgui, err := api.IAskCreateChild(clientsTag.ID, userID, nerd.GUINode, "", guiSpec)
 	if err != nil {
 		log.Printf("Failed to create GUI node: %v", err)
 		conn.Close(websocket.StatusInternalError, "server error")
 		return
 	}
 
-	log.Printf("Created GUI node %d for user %d", guiTag.ID, userID)
+	log.Printf("Created GUI node %d (%s) for user %d", newgui.ID, newgui.Name, userID)
 
 	// Wait for context to be done (connection closed)
 	<-ctx.Done()
 
-	log.Printf("Websocket context canceled  for %d", guiTag.ID)
+	log.Printf("Websocket context canceled for %d (%s)", newgui.ID, newgui.Name)
 
-	err = api.IAskDeleteChild(clientsTag.ID, userID, guiTag.ID)
+	err = api.IAskDeleteChild(clientsTag.ID, userID, newgui.Name)
 	if err != nil {
 		log.Printf("Failed to create GUI node: %v", err)
 		conn.Close(websocket.StatusInternalError, "server error")

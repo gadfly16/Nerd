@@ -50,7 +50,7 @@ const (
 	CreateChild MsgType = iota
 	Shutdown
 	RenameChild
-	DeleteChild // delete child by ID
+	DeleteChild // delete child by name
 	GetTree     // get tree structure for GUI
 	Lookup      // lookup node by path
 
@@ -111,3 +111,10 @@ type CredentialsPayload struct {
 
 // LookupPayload contains path segments for node lookup
 type LookupPayload []string
+
+// NewNodePayload contains information about a newly created node
+type NewNodePayload struct {
+	NodeID nerd.NodeID
+	Name   string
+	Admin  bool
+}

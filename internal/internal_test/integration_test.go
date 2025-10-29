@@ -277,7 +277,7 @@ func TestIntegration(t *testing.T) {
 
 	// Test 1: Delete a leaf node (ProjectA has no children)
 	t.Log("Test 11.1: Deleting leaf node ProjectA")
-	err = api.IAskDeleteChild(projectsNodeID, 1, projectATag.ID) // Projects node, user 1, delete ProjectA
+	err = api.IAskDeleteChild(projectsNodeID, 1, "ProjectA") // Projects node, user 1, delete ProjectA
 	if err != nil {
 		t.Fatalf("Failed to delete ProjectA node: %v", err)
 	}
@@ -305,7 +305,7 @@ func TestIntegration(t *testing.T) {
 
 	// Test 2: Try to delete node with children (Projects still has ProjectBeta)
 	t.Log("Test 11.2: Attempting to delete node with children (Projects)")
-	err = api.IAskDeleteChild(testGroupID, 1, projectsNodeID) // TestIntegration, user 1, delete Projects
+	err = api.IAskDeleteChild(testGroupID, 1, "Projects") // TestIntegration, user 1, delete Projects
 	if err == nil {
 		t.Fatal("Expected error when deleting node with children, got nil")
 	}
@@ -315,13 +315,13 @@ func TestIntegration(t *testing.T) {
 	t.Log("Test 11.3: Deleting ProjectBeta, then Projects, then TestIntegration")
 
 	// Delete ProjectBeta (we already deleted ProjectA in Test 1)
-	err = api.IAskDeleteChild(projectsNodeID, 1, projectBetaTag.ID)
+	err = api.IAskDeleteChild(projectsNodeID, 1, "ProjectBeta")
 	if err != nil {
 		t.Fatalf("Failed to delete ProjectBeta: %v", err)
 	}
 
 	// Now delete Projects (should succeed since children are gone)
-	err = api.IAskDeleteChild(testGroupID, 1, projectsNodeID) // TestIntegration, user 1
+	err = api.IAskDeleteChild(testGroupID, 1, "Projects") // TestIntegration, user 1
 	if err != nil {
 		t.Fatalf("Failed to delete Projects after removing children: %v", err)
 	}
@@ -334,7 +334,7 @@ func TestIntegration(t *testing.T) {
 	t.Logf("Successfully deleted Projects after removing children")
 
 	// Now delete TestIntegration (should succeed since children are gone)
-	err = api.IAskDeleteChild(1, 1, testGroupID) // Root, user 1
+	err = api.IAskDeleteChild(1, 1, "TestIntegration") // Root, user 1
 	if err != nil {
 		t.Fatalf("Failed to delete TestIntegration after removing children: %v", err)
 	}
@@ -348,7 +348,7 @@ func TestIntegration(t *testing.T) {
 
 	// Test 4: Try to delete non-existent child
 	t.Log("Test 11.4: Attempting to delete non-existent child")
-	err = api.IAskDeleteChild(1, 1, 99999) // Root, user 1, invalid ID
+	err = api.IAskDeleteChild(1, 1, "NonExistentChild") // Root, user 1, invalid name
 	if err == nil {
 		t.Fatal("Expected error when deleting non-existent child, got nil")
 	}
