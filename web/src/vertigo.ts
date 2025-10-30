@@ -12,6 +12,14 @@ const W_MIN = 320 // Minimum width for content area (60ch ≈ 960px)
 const NAME_PADDING = "0.5ch" // Horizontal padding for node names
 const SIDEBAR_GAP = 8 // Gap above/below sidebar name text
 
+// Cause indicates why Populate was called on a VNode
+enum Cause {
+  Init, // Initial population (no animation)
+  Match, // Existing node being updated
+  Create, // New node being created
+  Delete, // Node being deleted (triggers exit animation)
+}
+
 // TypeInfo stores the display name, measured width, and base hue for a node type
 interface TypeInfo {
   name: string
@@ -48,7 +56,7 @@ export class VTree extends nerd.Component {
     }
 
     // Look up the tree root from registry
-    const te = nerd.Nodes.get(cfg.rootID)
+    const te = nerd.Registry.get(cfg.rootID)
     if (!te) {
       throw new Error(`TreeEntry with id ${cfg.rootID} not found in registry`)
     }
@@ -56,7 +64,7 @@ export class VTree extends nerd.Component {
     // Create root vertigo-node, add to DOM, then populate
     this.root = nerd.Create("vertigo-node") as VNode
     this.appendChild(this.root)
-    this.root.Populate(this, te, 0, 0)
+    this.root.Populate(this, te, 0, 0, Cause.Init)
 
     // Set initial width
     this.updateWidth()
@@ -97,6 +105,7 @@ class VNode extends nerd.Component {
 			grid-template-columns: ${W_SIDEBAR}px 1fr;
 			grid-template-rows: auto 1fr;
 			margin: ${G}px 0 0 ${G}px;
+			overflow: hidden;
 		}
 
 		vertigo-node > vertigo-open {
@@ -117,6 +126,52 @@ class VNode extends nerd.Component {
 			flex-direction: column;
 			background-color: hsl(var(--base-hue), 20%, 42%);
 		}
+
+		/* Create animation - roll down */
+		@keyframes create {
+			from {
+				max-height: 0;
+				opacity: 0;
+			}
+			to {
+				max-height: 500px;
+				opacity: 1;
+			}
+		}
+
+		vertigo-node.anim-create {
+			animation: create 0.75s ease-out;
+		}
+
+		/* Delete animation - roll up */
+		@keyframes delete {
+			from {
+				max-height: 500px;
+				opacity: 1;
+			}
+			to {
+				max-height: 0;
+				opacity: 0;
+			}
+		}
+
+		vertigo-node.anim-delete {
+			animation: delete 0.75s ease-in;
+		}
+
+		/* Rename animation - bright green flash */
+		@keyframes rename {
+			from {
+				color: #00ff00;
+			}
+			to {
+				color: inherit;
+			}
+		}
+
+		vertigo-header .name.anim-rename {
+			animation: rename 0.75s ease-out;
+		}
 	`
 
   static html = `
@@ -129,10 +184,10 @@ class VNode extends nerd.Component {
 	`
 
   vtree!: VTree
-  te!: nerd.TreeEntry
+  te: nerd.TreeEntry = new nerd.TreeEntry(0, "", 0, [])
   depth!: number
   inheritedDispDepth!: number // Display depth inherited from parent
-  childVNodes: VNode[] = []
+  childVNodes = new Map<number, VNode>()
   sidebarNameWidth: number = 0 // Cached width of sidebar name text
   typeInfo!: TypeInfo // Reference to TypeInfo entry for this node's type
 
@@ -155,20 +210,22 @@ class VNode extends nerd.Component {
     this.open.onclick = (e) => this.openClickHandler(e)
   }
 
-  // Populate updates node state and content (works for both initial and subsequent populates)
+  // Populate updates node state using diff algorithm
+  // Compares old tree state (this.te) with new tree state (newTE)
+  // and applies minimal DOM updates proportional to changes
   Populate(
     vtree: VTree,
-    te: nerd.TreeEntry,
+    newTE: nerd.TreeEntry,
     depth: number,
     dispDepth: number,
+    cause: Cause,
   ): void {
     this.vtree = vtree
-    this.te = te
     this.depth = depth
     this.inheritedDispDepth = dispDepth
 
-    // Get TypeName and lazy-measure width if not yet measured
-    this.typeInfo = TypeInfos.get(te.nodeType)!
+    // Update type info if needed (lazy measure)
+    this.typeInfo = TypeInfos.get(newTE.nodeType)!
     if (this.typeInfo.size === 0) {
       this.typeInfo.size = this.vtree.board.ctx.measureText(
         this.typeInfo.name,
@@ -178,8 +235,13 @@ class VNode extends nerd.Component {
     // Set base hue for color derivation
     this.style.setProperty("--base-hue", this.typeInfo.hue.toString())
 
+    // Update name if changed
+    if (this.te.name !== newTE.name) {
+      this.setName(newTE.name)
+    }
+
     // Update icon based on openMap state
-    const ome = this.vtree.cfg.openMap[this.te.id]
+    const ome = this.vtree.cfg.openMap[newTE.id]
     if (ome !== undefined && ome.open && ome.depth > 0 && ome.depth <= 9) {
       // Explicit depth 1-9
       this.open.textContent = String.fromCharCode(0x2460 + ome.depth - 1)
@@ -188,39 +250,116 @@ class VNode extends nerd.Component {
       this.open.textContent = "Ⓘ" // Circled I for infinite
     } else {
       // Neutral or explicitly closed
-      this.open.textContent = this.isOpen() ? "◯" : "●"
+      this.open.textContent = this.isOpen(newTE.id) ? "◯" : "●"
     }
 
-    this.setName(te.name)
+    // Handle animations based on cause
+    if (cause === Cause.Init) {
+      // No animation on initial population
+    } else if (cause === Cause.Create) {
+      this.classList.add("anim-create")
+      this.addEventListener(
+        "animationend",
+        () => this.classList.remove("anim-create"),
+        { once: true },
+      )
+    } else if (cause === Cause.Delete) {
+      this.classList.add("anim-delete")
+      this.addEventListener(
+        "animationend",
+        () => {
+          this.classList.remove("anim-delete")
+          this.remove()
+        },
+        { once: true },
+      )
+      // Don't process children or update state for deleted nodes
+      return
+    } else if (cause === Cause.Match && this.te.name !== newTE.name) {
+      // Rename animation
+      this.headerNameElem.classList.add("anim-rename")
+      this.headerNameElem.addEventListener(
+        "animationend",
+        () => this.headerNameElem.classList.remove("anim-rename"),
+        { once: true },
+      )
+    }
 
-    if (this.isOpen()) {
-      // Should be open
-      if (this.childVNodes.length === 0) {
-        // Children not present - create them
-        this.createChildren()
-      }
-      // Populate all children (newly created or existing)
-      const childDispDepth = this.childrenDepth()
-      for (let i = 0; i < this.childVNodes.length; i++) {
-        this.childVNodes[i].Populate(
-          this.vtree,
-          this.te.children[i],
-          this.depth + 1,
-          childDispDepth,
-        )
-      }
-    } else {
-      // Should be closed
-      if (this.childVNodes.length > 0) {
-        // Children present - delete them
+    // Sort new children by ID in place (this.te.children already sorted from previous pass)
+    newTE.children.sort((a, b) => a.id - b.id)
+
+    // Only process children if open
+    if (!this.isOpen(newTE.id)) {
+      if (this.childVNodes.size > 0) {
         this.clearChildren()
       }
+      this.te = newTE // Replace old with new
+      return
     }
+
+    const childDispDepth = this.childrenDepth(newTE.id)
+    let oldIdx = 0
+    let newIdx = 0
+
+    // Diff algorithm - process new children
+    while (newIdx < newTE.children.length) {
+      const nch = newTE.children[newIdx]
+      const och =
+        oldIdx < this.te.children.length ? this.te.children[oldIdx] : null
+
+      if (!och || nch.id < och.id) {
+        // NEW - either no more old children, or nch not in old array
+        const childNode = nerd.Create("vertigo-node") as VNode
+        this.childrenDetail.appendChild(childNode)
+        this.childVNodes.set(nch.id, childNode)
+        // Propagate Init cause, otherwise Create
+        const childCause = cause === Cause.Init ? Cause.Init : Cause.Create
+        childNode.Populate(vtree, nch, depth + 1, childDispDepth, childCause)
+        newIdx++
+      } else if (nch.id === och.id) {
+        // MATCH - check if VNode exists in DOM
+        const vnode = this.childVNodes.get(nch.id)
+        if (vnode) {
+          // VNode exists - update it
+          vnode.Populate(vtree, nch, depth + 1, childDispDepth, Cause.Match)
+        } else {
+          // VNode doesn't exist (was closed) - recreate it as Init
+          const childNode = nerd.Create("vertigo-node") as VNode
+          this.childrenDetail.appendChild(childNode)
+          this.childVNodes.set(nch.id, childNode)
+          childNode.Populate(vtree, nch, depth + 1, childDispDepth, Cause.Init)
+        }
+        newIdx++
+        oldIdx++
+      } else {
+        // DELETED - och not in new array (nch.id > och.id)
+        const vnode = this.childVNodes.get(och.id)
+        if (vnode) {
+          vnode.Populate(vtree, och, depth + 1, childDispDepth, Cause.Delete)
+          this.childVNodes.delete(och.id)
+        }
+        oldIdx++
+      }
+    }
+
+    // Handle remaining old children (all deleted)
+    while (oldIdx < this.te.children.length) {
+      const och = this.te.children[oldIdx]
+      const vnode = this.childVNodes.get(och.id)
+      if (vnode) {
+        vnode.Populate(vtree, och, depth + 1, childDispDepth, Cause.Delete)
+        this.childVNodes.delete(och.id)
+      }
+      oldIdx++
+    }
+
+    // Replace old with new after processing complete
+    this.te = newTE
   }
 
   // isOpen determines if this node should display its children
-  private isOpen(): boolean {
-    const ome = this.vtree.cfg.openMap[this.te.id]
+  private isOpen(nodeId: number): boolean {
+    const ome = this.vtree.cfg.openMap[nodeId]
 
     if (ome === undefined) {
       // Neutral node - open if inheritedDispDepth allows it
@@ -233,8 +372,8 @@ class VNode extends nerd.Component {
 
   // childrenDepth calculates the depth value to pass to children
   // Only call this when isOpen() returns true
-  private childrenDepth(): number {
-    const ome = this.vtree.cfg.openMap[this.te.id]
+  private childrenDepth(nodeId: number): number {
+    const ome = this.vtree.cfg.openMap[nodeId]
 
     let myDepth: number
     if (ome === undefined) {
@@ -338,7 +477,13 @@ class VNode extends nerd.Component {
     }
 
     // Re-populate from this node down
-    this.Populate(this.vtree, this.te, this.depth, this.inheritedDispDepth)
+    this.Populate(
+      this.vtree,
+      this.te,
+      this.depth,
+      this.inheritedDispDepth,
+      Cause.Match,
+    )
 
     // Update tree width and overlay
     this.vtree.updateWidth()
@@ -356,16 +501,16 @@ class VNode extends nerd.Component {
     for (const child of this.te.children) {
       const childNode = nerd.Create("vertigo-node") as VNode
       this.childrenDetail.appendChild(childNode)
-      this.childVNodes.push(childNode)
+      this.childVNodes.set(child.id, childNode)
     }
   }
 
   // clearChildren removes all child nodes
   private clearChildren() {
-    for (const child of this.childVNodes) {
+    for (const child of this.childVNodes.values()) {
       child.remove()
     }
-    this.childVNodes = []
+    this.childVNodes.clear()
   }
 
   // displayDepth recursively finds the maximum depth of open nodes from this node
@@ -373,8 +518,8 @@ class VNode extends nerd.Component {
     let maxDepth = this.depth
 
     // If we have rendered children, check their depths
-    if (this.childVNodes.length > 0) {
-      for (const child of this.childVNodes) {
+    if (this.childVNodes.size > 0) {
+      for (const child of this.childVNodes.values()) {
         const childMaxDepth = child.displayDepth()
         maxDepth = Math.max(maxDepth, childMaxDepth)
       }
@@ -443,7 +588,7 @@ class VNode extends nerd.Component {
     }
 
     // Recursively update children
-    for (const child of this.childVNodes) {
+    for (const child of this.childVNodes.values()) {
       if (!child.UpdateOverlay()) break
     }
 
@@ -490,6 +635,7 @@ class Header extends nerd.Component {
 			color: hsl(var(--base-hue), 15%, 25%);
 			font-size: 1.2em;
 			font-weight: 500;
+			border-right: ${1.5 * G}px solid hsl(var(--base-hue), 20%, 35%);
 		}
 
 		vertigo-header .name {

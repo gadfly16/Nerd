@@ -240,7 +240,7 @@ class Workbench extends nerd.Component {
     // Clear all sensitive information
     nerd.Ctx.userID = 0
     nerd.Ctx.dispRoot = null
-    nerd.Nodes.clear()
+    nerd.Registry.clear()
 
     // Clear all boards
     for (const board of this.boardElements) {
@@ -285,13 +285,34 @@ class Workbench extends nerd.Component {
 
   // handleWebSocketMessage processes incoming WebSocket messages
   private handleWebSocketMessage(msg: any) {
-    if (msg.type === "init") {
-      // Store GUI node ID for future Subscribe messages
-      this.guiNodeId = msg.guiNodeId
-      console.log(`GUI node ID: ${this.guiNodeId}`)
-    } else {
-      // Handle other message types (UpdateTopo, InfoUpdate, etc.)
-      console.log("Received WebSocket message:", msg)
+    switch (msg.type) {
+      case imsg.TopoUpdate:
+        // this.handleTopoUpdate()
+        break
+      default:
+        console.log("Received WebSocket message:", msg)
+    }
+  }
+
+  // handleTopoUpdate refreshes the tree when topology changes
+  private async handleTopoUpdate() {
+    try {
+      // Fetch updated tree from server
+      const targetId = nerd.Ctx.admin ? 1 : nerd.Ctx.userID
+      const data = await nerd.AskGetTree(targetId)
+      nerd.Ctx.dispRoot = nerd.TreeEntry.init(data)
+
+      // Refresh all board trees
+      for (const board of this.boardElements) {
+        for (const tree of board["trees"] as vertigo.VTree[]) {
+          // tree.Refresh()
+        }
+      }
+
+      nerd.Log(nerd.Status.OK, "Tree updated")
+    } catch (err) {
+      console.error("Failed to refresh tree:", err)
+      nerd.Log(nerd.Status.Error, "Tree update failed")
     }
   }
 }

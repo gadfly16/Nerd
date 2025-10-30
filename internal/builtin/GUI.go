@@ -96,7 +96,7 @@ func (n *GUI) messageLoop() {
 }
 
 // handleTopoUpdate sends topology update notification to GUI client via WebSocket
-func (n *GUI) handleTopoUpdate(m *msg.Msg) (any, error) {
+func (n *GUI) handleTopoUpdate(_ *msg.Msg) (any, error) {
 	// Send TopoUpdate IMsg to WebSocket client
 	im := imsg.IMsg{
 		Type: imsg.TopoUpdate,

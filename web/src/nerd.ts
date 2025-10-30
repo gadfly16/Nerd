@@ -34,7 +34,7 @@ export function nodeTypeName(nt: number): string {
 }
 
 // TreeRegistry is a global map of node ID to TreeEntry for fast lookups
-export const Nodes = new Map<number, TreeEntry>()
+export const Registry = new Map<number, TreeEntry>()
 
 // TreeEntry represents a node and its children
 // Received as JSON from server, then initialized with parent pointers
@@ -65,7 +65,7 @@ export class TreeEntry {
     entry.parent = parent
 
     // Register in global map
-    Nodes.set(entry.id, entry)
+    Registry.set(entry.id, entry)
 
     if (obj.children) {
       entry.children = obj.children.map((child: any) =>
