@@ -17,47 +17,55 @@ func IAsk(im imsg.IMsg) (any, error) {
 		return nil, nerd.ErrNodeNotFound
 	}
 
+	// Get sender tag from registry
+	sender, exists := registry.get(im.UserID)
+	if !exists {
+		return nil, nerd.ErrNodeNotFound
+	}
+
 	switch im.Type {
 	case imsg.GetTree:
-		return handleIGetTree(tag)
+		return handleIGetTree(sender, tag)
 	case imsg.Lookup:
-		return handleILookup(tag, im)
+		return handleILookup(sender, tag, im)
 	case imsg.RenameChild:
-		return handleIRenameChild(tag, im)
+		return handleIRenameChild(sender, tag, im)
 	case imsg.CreateChild:
-		return handleICreateChild(tag, im)
+		return handleICreateChild(sender, tag, im)
 	case imsg.DeleteChild:
-		return handleIDeleteChild(tag, im)
+		return handleIDeleteChild(sender, tag, im)
 	case imsg.Shutdown:
-		return handleIShutdown(tag)
+		return handleIShutdown(sender, tag)
 	default:
 		return nil, nerd.ErrMalformedIMsg
 	}
 }
 
 // IAskAuth routes authentication messages to the Authenticator node
+// For auth messages, sender is Root (Authenticator's owner) which is admin
 func IAskAuth(im imsg.IMsg) (ia any, err error) {
 	tag := node.System.Authenticator
+	sender := node.System.Authenticator.Owner // Root is admin
 
 	switch im.Type {
 	case imsg.AuthenticateUser:
-		return handleIAuthenticateUser(im)
+		return handleIAuthenticateUser(sender, im)
 	case imsg.CreateChild:
-		return handleICreateChild(tag, im)
+		return handleICreateChild(sender, tag, im)
 	default:
 		return nil, nerd.ErrMalformedIMsg
 	}
 }
 
 // handleIGetTree converts HttpGetTree message to native GetTree message
-func handleIGetTree(t *msg.Tag) (any, error) {
-	return t.Ask(&msg.Msg{
+func handleIGetTree(sender *msg.Tag, receiver *msg.Tag) (any, error) {
+	return sender.Ask(receiver, &msg.Msg{
 		Type: msg.GetTree,
 	})
 }
 
 // handleILookup converts HttpLookup message to native Lookup message
-func handleILookup(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
+func handleILookup(sender *msg.Tag, receiver *msg.Tag, im imsg.IMsg) (ia any, err error) {
 	pathStr, ok := im.Payload["path"].(string)
 	if !ok {
 		return nil, nerd.ErrMalformedIMsg
@@ -69,7 +77,7 @@ func handleILookup(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
 		path = strings.Split(pathStr, "/")
 	}
 
-	a, err := t.Ask(&msg.Msg{
+	a, err := sender.Ask(receiver, &msg.Msg{
 		Type:    msg.Lookup,
 		Payload: path,
 	})
@@ -80,7 +88,7 @@ func handleILookup(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
 }
 
 // handleIRenameChild converts HttpRenameChild message to native RenameChild message
-func handleIRenameChild(t *msg.Tag, im imsg.IMsg) (any, error) {
+func handleIRenameChild(sender *msg.Tag, receiver *msg.Tag, im imsg.IMsg) (any, error) {
 	// Validate payload contains oldName field
 	oldName, ok := im.Payload["oldName"]
 	if !ok {
@@ -103,7 +111,7 @@ func handleIRenameChild(t *msg.Tag, im imsg.IMsg) (any, error) {
 		return nil, nerd.ErrMalformedIMsg
 	}
 
-	return t.Ask(&msg.Msg{
+	return sender.Ask(receiver, &msg.Msg{
 		Type: msg.RenameChild,
 		Payload: msg.RenameChildPayload{
 			OldName: oldNameStr,
@@ -113,7 +121,7 @@ func handleIRenameChild(t *msg.Tag, im imsg.IMsg) (any, error) {
 }
 
 // handleICreateChild converts HttpCreateChild message to native CreateChild message
-func handleICreateChild(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
+func handleICreateChild(sender *msg.Tag, receiver *msg.Tag, im imsg.IMsg) (ia any, err error) {
 	nodeType, ok := im.Payload["nodeType"]
 	if !ok {
 		return nil, nerd.ErrMalformedIMsg
@@ -134,7 +142,7 @@ func handleICreateChild(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
 		name = nameStr
 	}
 
-	payload, err := t.AskCreateChild(nerd.NodeType(nodeTypeFloat), name, im.Payload["spec"])
+	payload, err := sender.AskCreateChild(receiver, nerd.NodeType(nodeTypeFloat), name, im.Payload["spec"])
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +155,7 @@ func handleICreateChild(t *msg.Tag, im imsg.IMsg) (ia any, err error) {
 }
 
 // handleIDeleteChild converts HttpDeleteChild message to native DeleteChild message
-func handleIDeleteChild(t *msg.Tag, im imsg.IMsg) (any, error) {
+func handleIDeleteChild(sender *msg.Tag, receiver *msg.Tag, im imsg.IMsg) (any, error) {
 	childName, ok := im.Payload["childName"]
 	if !ok {
 		return nil, nerd.ErrMalformedIMsg
@@ -158,12 +166,12 @@ func handleIDeleteChild(t *msg.Tag, im imsg.IMsg) (any, error) {
 		return nil, nerd.ErrMalformedIMsg
 	}
 
-	return nil, t.AskDeleteChild(childNameStr)
+	return nil, sender.AskDeleteChild(receiver, childNameStr)
 }
 
 // handleIShutdown converts HttpShutdown message to native Shutdown message
-func handleIShutdown(t *msg.Tag) (ia any, err error) {
-	a, err := t.Ask(&msg.Msg{Type: msg.Shutdown})
+func handleIShutdown(sender *msg.Tag, receiver *msg.Tag) (ia any, err error) {
+	a, err := sender.Ask(receiver, &msg.Msg{Type: msg.Shutdown})
 	shutdownTag := a.(*msg.Tag)
 
 	// If Root node was shut down, clean up global state for restart
@@ -175,7 +183,7 @@ func handleIShutdown(t *msg.Tag) (ia any, err error) {
 }
 
 // handleIAuthenticateUser converts HttpAuthenticateUser to native AuthenticateUser message
-func handleIAuthenticateUser(im imsg.IMsg) (ia any, err error) {
+func handleIAuthenticateUser(sender *msg.Tag, im imsg.IMsg) (ia any, err error) {
 	// Extract username and password from payload
 	username, ok := im.Payload["username"].(string)
 	if !ok {
@@ -187,7 +195,7 @@ func handleIAuthenticateUser(im imsg.IMsg) (ia any, err error) {
 		return nil, nerd.ErrMalformedIMsg
 	}
 
-	a, err := node.System.Authenticator.Ask(&msg.Msg{
+	a, err := sender.Ask(node.System.Authenticator, &msg.Msg{
 		Type: msg.AuthenticateUser,
 		Payload: msg.CredentialsPayload{
 			Username: username,
@@ -201,7 +209,7 @@ func handleIAuthenticateUser(im imsg.IMsg) (ia any, err error) {
 }
 
 // handleICreateUser converts HttpCreateUser to native CreateUser message
-func handleICreateUser(im imsg.IMsg) (ia any, err error) {
+func handleICreateUser(sender *msg.Tag, im imsg.IMsg) (ia any, err error) {
 	username, ok := im.Payload["username"].(string)
 	if !ok {
 		return nil, nerd.ErrMalformedIMsg
@@ -213,7 +221,7 @@ func handleICreateUser(im imsg.IMsg) (ia any, err error) {
 	}
 
 	// Create user via CreateChild message (goes through topology handler)
-	a, err := node.System.Authenticator.Ask(&msg.Msg{
+	a, err := sender.Ask(node.System.Authenticator, &msg.Msg{
 		Type: msg.CreateChild,
 		Payload: msg.CreateChildPayload{
 			NodeType: nerd.UserNode,

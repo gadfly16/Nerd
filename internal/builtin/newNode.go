@@ -28,6 +28,13 @@ func NewNode(pe *node.Entity, pl msg.CreateChildPayload) (node.Node, error) {
 		Children: make(map[string]*msg.Tag),
 	}
 
+	// Set ownership: User nodes own themselves, others inherit parent's owner
+	if pl.NodeType == nerd.UserNode {
+		e.Tag.Owner = e.Tag
+	} else {
+		e.Tag.Owner = pe.Tag.Owner
+	}
+
 	switch pl.NodeType {
 	case nerd.GroupNode:
 		return newGroup(e), nil

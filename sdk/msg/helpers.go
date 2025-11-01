@@ -4,12 +4,13 @@ import "github.com/gadfly16/nerd/api/nerd"
 
 // Helper functions for common message operations
 // These provide cleaner APIs and future extension points for logging, validation, etc.
+// Pattern: sender.AskXxx(receiver, ...) sends a message from sender to receiver
 
-// AskCreateChild sends a CreateChild message to the target node
+// AskCreateChild sends a CreateChild message from sender to receiver
 // If name is empty, the node will auto-generate its name
 // spec is optional node-specific initialization data
-func (t *Tag) AskCreateChild(nodeType nerd.NodeType, name string, spec any) (NewNodePayload, error) {
-	result, err := t.Ask(&Msg{
+func (sender *Tag) AskCreateChild(receiver *Tag, nodeType nerd.NodeType, name string, spec any) (NewNodePayload, error) {
+	result, err := sender.Ask(receiver, &Msg{
 		Type: CreateChild,
 		Payload: CreateChildPayload{
 			NodeType: nodeType,
@@ -23,9 +24,9 @@ func (t *Tag) AskCreateChild(nodeType nerd.NodeType, name string, spec any) (New
 	return result.(NewNodePayload), nil
 }
 
-// AskRenameChild sends a RenameChild message to the target node
-func (t *Tag) AskRenameChild(oldName, newName string) error {
-	_, err := t.Ask(&Msg{
+// AskRenameChild sends a RenameChild message from sender to receiver
+func (sender *Tag) AskRenameChild(receiver *Tag, oldName, newName string) error {
+	_, err := sender.Ask(receiver, &Msg{
 		Type: RenameChild,
 		Payload: RenameChildPayload{
 			OldName: oldName,
@@ -35,43 +36,43 @@ func (t *Tag) AskRenameChild(oldName, newName string) error {
 	return err
 }
 
-// AskShutdown sends a Shutdown message to the target node
-func (t *Tag) AskShutdown() error {
-	_, err := t.Ask(&Msg{
+// AskShutdown sends a Shutdown message from sender to receiver
+func (sender *Tag) AskShutdown(receiver *Tag) error {
+	_, err := sender.Ask(receiver, &Msg{
 		Type: Shutdown,
 	})
 	return err
 }
 
-// AskDeleteChild sends a DeleteChild message to delete a child by name
-func (t *Tag) AskDeleteChild(childName string) error {
-	_, err := t.Ask(&Msg{
+// AskDeleteChild sends a DeleteChild message from sender to receiver to delete a child by name
+func (sender *Tag) AskDeleteChild(receiver *Tag, childName string) error {
+	_, err := sender.Ask(receiver, &Msg{
 		Type:    DeleteChild,
 		Payload: childName,
 	})
 	return err
 }
 
-// AskDeleteSelf sends a DeleteSelf message to the target node (for parent-child coordination)
-func (t *Tag) AskDeleteSelf() error {
-	_, err := t.Ask(&Msg{
+// AskDeleteSelf sends a DeleteSelf message from sender to receiver (for parent-child coordination)
+func (sender *Tag) AskDeleteSelf(receiver *Tag) error {
+	_, err := sender.Ask(receiver, &Msg{
 		Type: DeleteSelf,
 	})
 	return err
 }
 
-// AskRename sends a Rename message to the target node (for parent-child coordination)
-func (t *Tag) AskRename(newName string) error {
-	_, err := t.Ask(&Msg{
+// AskRename sends a RenameSelf message from sender to receiver (for parent-child coordination)
+func (sender *Tag) AskRename(receiver *Tag, newName string) error {
+	_, err := sender.Ask(receiver, &Msg{
 		Type:    RenameSelf,
 		Payload: newName,
 	})
 	return err
 }
 
-// AskGetTree sends a GetTree message to the target node (always returns full subtree)
-func (t *Tag) AskGetTree() (*TreeEntry, error) {
-	result, err := t.Ask(&Msg{
+// AskGetTree sends a GetTree message from sender to receiver (always returns full subtree)
+func (sender *Tag) AskGetTree(receiver *Tag) (*TreeEntry, error) {
+	result, err := sender.Ask(receiver, &Msg{
 		Type: GetTree,
 	})
 	if err != nil {
@@ -80,9 +81,9 @@ func (t *Tag) AskGetTree() (*TreeEntry, error) {
 	return result.(*TreeEntry), nil
 }
 
-// AskAuthenticateUser sends an AuthenticateUser message to the Authenticator node
-func (t *Tag) AskAuthenticateUser(username, password string) (*Tag, error) {
-	result, err := t.Ask(&Msg{
+// AskAuthenticateUser sends an AuthenticateUser message from sender to Authenticator node
+func (sender *Tag) AskAuthenticateUser(receiver *Tag, username, password string) (*Tag, error) {
+	result, err := sender.Ask(receiver, &Msg{
 		Type: AuthenticateUser,
 		Payload: CredentialsPayload{
 			Username: username,
@@ -95,11 +96,9 @@ func (t *Tag) AskAuthenticateUser(username, password string) (*Tag, error) {
 	return result.(*Tag), nil
 }
 
-// AskCreateUser sends a CreateUser message to the Authenticator node
-
-// AskAuthenticate sends an Authenticate message to a User node
-func (t *Tag) AskAuthenticate(password string) (*Tag, error) {
-	result, err := t.Ask(&Msg{
+// AskAuthenticate sends an AuthenticateSelf message from sender to User node
+func (sender *Tag) AskAuthenticate(receiver *Tag, password string) (*Tag, error) {
+	result, err := sender.Ask(receiver, &Msg{
 		Type:    AuthenticateSelf,
 		Payload: password,
 	})
@@ -109,9 +108,9 @@ func (t *Tag) AskAuthenticate(password string) (*Tag, error) {
 	return result.(*Tag), nil
 }
 
-// AskLookup sends a Lookup message to resolve a path to a node tag
-func (t *Tag) AskLookup(path []string) (*Tag, error) {
-	result, err := t.Ask(&Msg{
+// AskLookup sends a Lookup message from sender to receiver to resolve a path to a node tag
+func (sender *Tag) AskLookup(receiver *Tag, path []string) (*Tag, error) {
+	result, err := sender.Ask(receiver, &Msg{
 		Type:    Lookup,
 		Payload: LookupPayload(path),
 	})
@@ -121,29 +120,29 @@ func (t *Tag) AskLookup(path []string) (*Tag, error) {
 	return result.(*Tag), nil
 }
 
-// NotifyTopoSubscribe sends a TopoSubscribe message to register for topology updates
-func (t *Tag) NotifyTopoSubscribe(guiTag *Tag) {
-	t.Notify(&Msg{
+// NotifyTopoSubscribe sends a TopoSubscribe message from sender to receiver to register for topology updates
+func (sender *Tag) NotifyTopoSubscribe(receiver *Tag, guiTag *Tag) {
+	sender.Notify(receiver, &Msg{
 		Type:    TopoSubscribe,
 		Payload: guiTag,
 	})
 }
 
-// NotifyTopoUnsubscribe sends a TopoUnsubscribe message to unregister from topology updates
-func (t *Tag) NotifyTopoUnsubscribe(guiTag *Tag) {
-	t.Notify(&Msg{
+// NotifyTopoUnsubscribe sends a TopoUnsubscribe message from sender to receiver to unregister from topology updates
+func (sender *Tag) NotifyTopoUnsubscribe(receiver *Tag, guiTag *Tag) {
+	sender.Notify(receiver, &Msg{
 		Type:    TopoUnsubscribe,
 		Payload: guiTag,
 	})
 }
 
-// NotifyTopoUpdate sends a TopoUpdate message to notify of topology changes
-// No-op if tag is nil (TopoUpdater not running)
-func (t *Tag) NotifyTopoUpdate() {
-	if t == nil {
+// NotifyTopoUpdate sends a TopoUpdate notification from sender to receiver about topology changes
+// No-op if receiver is nil (TopoUpdater not running)
+func (sender *Tag) NotifyTopoUpdate(receiver *Tag) {
+	if receiver == nil {
 		return
 	}
-	t.Notify(&Msg{
+	sender.Notify(receiver, &Msg{
 		Type: TopoUpdate,
 	})
 }

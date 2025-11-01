@@ -23,6 +23,10 @@ type RootConfig struct {
 
 // loadRoot creates a Root node from an existing Entity loaded from database
 func loadRoot(identity *node.Entity) (node.Node, error) {
+	// Root owns itself and is always admin
+	identity.Tag.Owner = identity.Tag
+	identity.Tag.Admin = true
+
 	// Create Root node with the loaded identity
 	root := &Root{
 		Entity: identity,
@@ -44,12 +48,16 @@ func NewRoot() *Root {
 		Tag: &msg.Tag{
 			NodeID:   node.NewPersistentID(),
 			Incoming: make(msg.MsgChan),
+			Admin:    true, // Root is always admin
 		},
 		Name:          "Root",
 		NodeType:      nerd.RootNode,
 		Children:      make(map[string]*msg.Tag),
 		CacheValidity: node.CacheValidity{},
 	}
+
+	// Root owns itself
+	e.Tag.Owner = e.Tag
 
 	return &Root{
 		Entity: e,
@@ -94,7 +102,11 @@ func (n *Root) messageLoop() {
 		var a any
 		var err error
 
-		// TODO: Pre-process: authorization check
+		// Authorization: allow if sender is owner or admin
+		if m.Sender != n.Tag && !m.Sender.Admin {
+			m.Reply(nil, nerd.ErrUnauthorized)
+			continue
+		}
 
 		// Route based on message type
 		if m.Type < msg.COMMON_MSG_SEPARATOR {

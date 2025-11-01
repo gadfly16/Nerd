@@ -33,4 +33,7 @@ var (
 
 	// ErrMalformedIMsg is returned for invalid HTTP message format
 	ErrMalformedIMsg = errors.New("malformed http message")
+
+	// ErrUnauthorized is returned when sender is not authorized to send message to receiver
+	ErrUnauthorized = errors.New("unauthorized")
 )

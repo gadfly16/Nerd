@@ -54,6 +54,15 @@ func (n *TopoUpdater) messageLoop() {
 		var a any
 		var err error
 
+		// Authorization: TopoSubscribe/Unsubscribe/Update are open to all users
+		// All other messages require standard authorization (owner or admin)
+		if m.Type != msg.TopoSubscribe && m.Type != msg.TopoUnsubscribe && m.Type != msg.TopoUpdate {
+			if m.Sender != n.Tag.Owner && !m.Sender.Admin {
+				m.Reply(nil, nerd.ErrUnauthorized)
+				continue
+			}
+		}
+
 		// Route based on message type
 		if m.Type < msg.COMMON_MSG_SEPARATOR {
 			// Common message - handle via Entity
@@ -110,14 +119,13 @@ func (n *TopoUpdater) handleTopoUnsubscribe(m *msg.Msg) (any, error) {
 
 // handleTopoUpdate broadcasts topology updates to all registered GUI nodes
 func (n *TopoUpdater) handleTopoUpdate(m *msg.Msg) (any, error) {
-	// Broadcast the update to all GUI nodes
+	// Broadcast the update to GUI nodes (with filtering)
 	log.Printf("TopoUpdater: Broadcasting topology update to %d GUI nodes", len(n.guiNodes))
 	for guiTag := range n.guiNodes {
-		// Use Notify for fire-and-forget delivery
-		guiTag.Notify(&msg.Msg{
-			Type:    msg.TopoUpdate,
-			Payload: m.Payload,
-		})
+		// Filter: admins see all updates, regular users only see their own updates
+		if guiTag.Owner.Admin || guiTag.Owner == m.Sender {
+			n.Tag.Owner.NotifyTopoUpdate(guiTag)
+		}
 	}
 
 	return nil, nil

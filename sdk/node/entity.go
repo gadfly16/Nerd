@@ -106,6 +106,8 @@ func (cq *ChildrenQuery) Reduce(reduce func(payload any)) error {
 
 	// Create shared answer pipe for all children
 	cq.message.APipe = make(msg.AnswerChan, len(cq.identity.Children))
+	// Set sender to the parent's owner
+	cq.message.Sender = cq.identity.Tag.Owner
 
 	// First loop: send messages to all children concurrently
 	for _, childTag := range cq.identity.Children {

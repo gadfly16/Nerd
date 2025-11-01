@@ -127,7 +127,7 @@ func handleLookup(m *msg.Msg, n node.Node) (any, error) {
 	}
 
 	// Multi-segment path - recursively lookup in child with remaining path
-	return childTag.AskLookup(path[1:])
+	return m.Sender.AskLookup(childTag, path[1:])
 }
 
 // handleDeleteSelf processes delete requests from parent (internal operation)

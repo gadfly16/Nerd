@@ -47,8 +47,8 @@ func (n *GUI) Run() {
 
 // Shutdown gracefully shuts down the GUI node
 func (n *GUI) Shutdown() {
-	// Unsubscribe from TopoUpdater
-	node.System.TopoUpdater.NotifyTopoUnsubscribe(n.Tag)
+	// Unsubscribe from TopoUpdater (owner is the sender)
+	n.Tag.Owner.NotifyTopoUnsubscribe(node.System.TopoUpdater, n.Tag)
 	log.Printf("GUI node %d unsubscribed from TopoUpdater", n.NodeID)
 
 	// Close WebSocket connection
@@ -59,8 +59,8 @@ func (n *GUI) Shutdown() {
 
 // messageLoop handles incoming messages
 func (n *GUI) messageLoop() {
-	// Subscribe to TopoUpdater at the start of message loop
-	node.System.TopoUpdater.NotifyTopoSubscribe(n.Tag)
+	// Subscribe to TopoUpdater at the start of message loop (owner is the sender)
+	n.Tag.Owner.NotifyTopoSubscribe(node.System.TopoUpdater, n.Tag)
 	log.Printf("GUI node %d subscribed to TopoUpdater", n.NodeID)
 
 	// Send initial TopoUpdate since GUI was created before subscription
@@ -78,7 +78,11 @@ func (n *GUI) messageLoop() {
 		var a any
 		var err error
 
-		// TODO: Pre-process: authorization check
+		// Authorization: allow if sender is owner or admin
+		if m.Sender != n.Tag.Owner && !m.Sender.Admin {
+			m.Reply(nil, nerd.ErrUnauthorized)
+			continue
+		}
 
 		// Route based on message type
 		if m.Type < msg.COMMON_MSG_SEPARATOR {

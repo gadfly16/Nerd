@@ -32,12 +32,14 @@ func Run(dbPath string) error {
 	}
 
 	// Create runtime TopoUpdater node under System group
-	systemTag, err := rootTag.AskLookup([]string{"System"})
+	// Root is the sender (owner of itself)
+	systemTag, err := rootTag.Owner.AskLookup(rootTag, []string{"System"})
 	if err != nil {
 		return fmt.Errorf("failed to lookup System group: %w", err)
 	}
 
-	_, err = systemTag.AskCreateChild(nerd.TopoUpdaterNode, "TopoUpdater", nil)
+	// System's owner is Root, so Root is the sender
+	_, err = systemTag.Owner.AskCreateChild(systemTag, nerd.TopoUpdaterNode, "TopoUpdater", nil)
 	if err != nil {
 		return fmt.Errorf("failed to create TopoUpdater: %w", err)
 	}

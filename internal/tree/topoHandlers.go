@@ -108,8 +108,8 @@ func handleCreateChild(m *msg.Msg, pn node.Node) (any, error) {
 	// Invalidate parent's cache since tree structure changed
 	pe.InvalidateTreeEntry()
 
-	// Notify TopoUpdater of topology change
-	node.System.TopoUpdater.NotifyTopoUpdate()
+	// Notify TopoUpdater of topology change (owner is the sender)
+	pe.Tag.Owner.NotifyTopoUpdate(node.System.TopoUpdater)
 
 	return msg.NewNodePayload{
 		NodeID: cht.NodeID,
@@ -134,14 +134,14 @@ func handleDeleteChild(m *msg.Msg, n node.Node) (any, error) {
 		return nil, nerd.ErrNodeNotFound
 	}
 
-	// Ask child to delete itself
-	err := childTag.AskDeleteSelf()
+	// Ask child to delete itself (owner is the sender)
+	err := pe.Tag.Owner.AskDeleteSelf(childTag)
 	if err != nil {
 		return nil, err
 	}
 
-	// Ask child to shut down
-	err = childTag.AskShutdown()
+	// Ask child to shut down (owner is the sender)
+	err = pe.Tag.Owner.AskShutdown(childTag)
 	if err != nil {
 		return nil, err
 	}
@@ -155,8 +155,8 @@ func handleDeleteChild(m *msg.Msg, n node.Node) (any, error) {
 	// Invalidate parent's cache since tree structure changed
 	pe.CacheValidity.InvalidateTreeEntry()
 
-	// Notify TopoUpdater of topology change
-	node.System.TopoUpdater.NotifyTopoUpdate()
+	// Notify TopoUpdater of topology change (owner is the sender)
+	pe.Tag.Owner.NotifyTopoUpdate(node.System.TopoUpdater)
 
 	return childTag, nil
 }
@@ -187,8 +187,8 @@ func handleRenameChild(m *msg.Msg, n node.Node) (any, error) {
 		return nil, nerd.ErrNameCollision
 	}
 
-	// Ask child to rename itself
-	err := ch.AskRename(pl.NewName)
+	// Ask child to rename itself (owner is the sender)
+	err := e.Tag.Owner.AskRename(ch, pl.NewName)
 	if err != nil {
 		return nil, err
 	}
@@ -200,8 +200,8 @@ func handleRenameChild(m *msg.Msg, n node.Node) (any, error) {
 	// Invalidate parent's cache since tree structure changed
 	e.CacheValidity.InvalidateTreeEntry()
 
-	// Notify TopoUpdater of topology change
-	node.System.TopoUpdater.NotifyTopoUpdate()
+	// Notify TopoUpdater of topology change (owner is the sender)
+	e.Tag.Owner.NotifyTopoUpdate(node.System.TopoUpdater)
 
 	return nil, nil
 }

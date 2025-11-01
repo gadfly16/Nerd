@@ -3,6 +3,7 @@ package tree
 import (
 	"fmt"
 
+	"github.com/gadfly16/nerd/api/nerd"
 	"github.com/gadfly16/nerd/sdk/msg"
 	"github.com/gadfly16/nerd/sdk/node"
 )
@@ -30,6 +31,13 @@ func load(e *node.Entity) (*msg.Tag, error) {
 
 	// 3. Recursively load each child
 	for _, child := range children {
+		// Set ownership: User nodes own themselves, others inherit parent's owner
+		if child.NodeType == nerd.UserNode {
+			child.Tag.Owner = child.Tag
+		} else {
+			child.Tag.Owner = e.Tag.Owner
+		}
+
 		childTag, err := load(child)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load child %s: %w", child.Name, err)

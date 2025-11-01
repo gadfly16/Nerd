@@ -63,7 +63,11 @@ func (n *Authenticator) messageLoop() {
 		var a any
 		var err error
 
-		// TODO: Pre-process: authorization check
+		// Authorization: allow if sender is owner or admin
+		if m.Sender != n.Tag.Owner && !m.Sender.Admin {
+			m.Reply(nil, nerd.ErrUnauthorized)
+			continue
+		}
 
 		// Route based on message type
 		if m.Type < msg.COMMON_MSG_SEPARATOR {
@@ -105,6 +109,6 @@ func (n *Authenticator) handleAuthenticateUser(m *msg.Msg) (any, error) {
 		return nil, fmt.Errorf("user not found")
 	}
 
-	// Forward Authenticate message to user
-	return userTag.AskAuthenticate(pl.Password)
+	// Forward Authenticate message to user (owner is the sender)
+	return n.Tag.Owner.AskAuthenticate(userTag, pl.Password)
 }

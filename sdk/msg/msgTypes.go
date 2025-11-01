@@ -13,6 +13,7 @@ type Msg struct {
 	Type    MsgType
 	Payload any
 	APipe   AnswerChan // nil for Notify mode, set for Ask mode
+	Sender  *Tag       // Tag of the node sending this message
 }
 
 // MsgType defines the types of messages that can be sent
@@ -23,6 +24,7 @@ type Tag struct {
 	NodeID   nerd.NodeID `gorm:"primaryKey"`
 	Incoming MsgChan     `gorm:"-"` // Runtime field, not persisted
 	Admin    bool        // True if this node represents an admin user
+	Owner    *Tag        `gorm:"-"` // Runtime field: pointer to the owning User node's tag
 }
 
 // Converts native tag to interface tag

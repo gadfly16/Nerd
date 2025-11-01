@@ -105,7 +105,11 @@ func (n *User) messageLoop() {
 		var a any
 		var err error
 
-		// TODO: Pre-process: authorization check
+		// Authorization: allow if sender is owner (self) or admin
+		if m.Sender != n.Tag.Owner && !m.Sender.Admin {
+			m.Reply(nil, nerd.ErrUnauthorized)
+			continue
+		}
 
 		// Route based on message type
 		if m.Type < msg.COMMON_MSG_SEPARATOR {

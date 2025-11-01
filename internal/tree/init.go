@@ -24,19 +24,19 @@ func InitInstance(dbPath string) error {
 	root.Run()
 	registry.add(root.Tag)
 
-	// Create System group directly with name
-	_, err = root.AskCreateChild(nerd.GroupNode, "System", nil)
+	// Create System group directly with name (owner is the sender, which is Root itself)
+	_, err = root.Tag.Owner.AskCreateChild(root.Tag, nerd.GroupNode, "System", nil)
 	if err != nil {
 		return err
 	}
 
-	// Create Authenticator singleton
-	_, err = root.AskCreateChild(nerd.AuthenticatorNode, "Authenticator", nil)
+	// Create Authenticator singleton (owner is the sender, which is Root itself)
+	_, err = root.Tag.Owner.AskCreateChild(root.Tag, nerd.AuthenticatorNode, "Authenticator", nil)
 	if err != nil {
 		return err
 	}
 
-	err = root.AskShutdown()
+	err = root.Tag.Owner.AskShutdown(root.Tag)
 	if err != nil {
 		return err
 	}
