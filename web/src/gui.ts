@@ -111,13 +111,15 @@ class GUI extends nerd.Component {
 class Workbench extends nerd.Component {
   static style = `
 		nerd-workbench {
-			display: grid;
-			grid-template-rows: auto 1fr auto;
+			display: flex;
+			flex-direction: column;
 			width: 100%;
 			height: 100%;
 		}
 
 		nerd-workbench .arena {
+			flex: 1;
+			min-height: 0;
 			display: flex;
 			padding: 0 ${BOARDER}px ${BOARDER}px 0;
 			overflow: hidden;
@@ -334,6 +336,10 @@ class Board extends nerd.Component {
 		nerd-board::-webkit-scrollbar {
 			display: none; /* Chrome, Safari, Edge */
 		}
+
+		nerd-board .trees-container {
+			display: block; /* Container wraps all trees for ResizeObserver */
+		}
 	`
 
   static html = ``
@@ -342,6 +348,7 @@ class Board extends nerd.Component {
   cfg!: config.Board
   viewport!: DOMRect
   private trees: vertigo.VTree[] = []
+  private treesContainer!: HTMLElement
   canvas!: HTMLCanvasElement
   ctx!: CanvasRenderingContext2D
   private isDragging = false
@@ -350,6 +357,7 @@ class Board extends nerd.Component {
   private dragScrollLeft = 0
   private dragScrollTop = 0
   private resizeObs!: ResizeObserver
+  private contentResizeObs!: ResizeObserver
   private rafScheduled = false
 
   connectedCallback() {
@@ -375,12 +383,13 @@ class Board extends nerd.Component {
 
   disconnectedCallback() {
     this.resizeObs?.disconnect()
+    this.contentResizeObs?.disconnect()
   }
 
   // Clear removes all trees from the board
   Clear() {
-    for (const tree of this.trees) {
-      tree.remove()
+    if (this.treesContainer) {
+      this.treesContainer.remove()
     }
     this.trees = []
   }
@@ -462,14 +471,19 @@ class Board extends nerd.Component {
     // Size canvas to match board viewport
     this.resizeCanvas()
 
+    // Create trees container
+    this.treesContainer = document.createElement("div")
+    this.treesContainer.className = "trees-container"
+    this.appendChild(this.treesContainer)
+
     for (const treeCfg of this.cfg.trees) {
       const vertigoTree = nerd.Create("vertigo-tree") as vertigo.VTree
-      this.appendChild(vertigoTree)
+      this.treesContainer.appendChild(vertigoTree)
       vertigoTree.Populate(this, treeCfg)
       this.trees.push(vertigoTree)
     }
 
-    // Watch for size changes
+    // Watch for board size changes (viewport resize)
     this.resizeObs = new ResizeObserver(() => {
       this.resizeCanvas()
       // Recalculate tree widths (no re-render needed)
@@ -479,6 +493,12 @@ class Board extends nerd.Component {
       this.updateOverlay()
     })
     this.resizeObs.observe(this)
+
+    // Watch for content size changes (animations, open/close, etc.)
+    this.contentResizeObs = new ResizeObserver(() => {
+      this.dispatchEvent(new Event("scroll"))
+    })
+    this.contentResizeObs.observe(this.treesContainer)
 
     // Trigger initial overlay update
     this.updateOverlay()

@@ -37,6 +37,10 @@ export const defaultWorkbench: Workbench = {
       trees: [
         {
           rootID: 0, // GUI display root (user node for non-admin)
+          openMap: { 0: { open: true, depth: 2 } }, // Open 3 levels deep
+        },
+        {
+          rootID: 0, // GUI display root (user node for non-admin)
           openMap: { 0: { open: true, depth: 2 } }, // Open 2 levels deep
         },
       ],

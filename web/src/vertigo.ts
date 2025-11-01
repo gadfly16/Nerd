@@ -6,6 +6,7 @@ import "./util.js" // Side effect: extends DOMRect.prototype
 
 // Layout constants (in pixels)
 const W_SIDEBAR = 28 // Width of sidebar/icon block (2ch ≈ 32px at 16px font)
+const H_HEADER = 30 // Height of header and open button
 const G = 6 // Gap between nodes (0.5ch ≈ 8px)
 const I = W_SIDEBAR + G // Indentation per level (40px)
 const W_MIN = 320 // Minimum width for content area (60ch ≈ 960px)
@@ -93,39 +94,41 @@ export class VTree extends nerd.Component {
 class VNode extends nerd.Component {
   static style = `
 		vertigo-node {
-			display: grid;
-			grid-template-columns: ${W_SIDEBAR}px 1fr;
-			grid-template-rows: auto 1fr;
+			display: flex;
 			margin: ${G}px 0 0 ${G}px;
 			overflow: hidden;
 		}
 
-		vertigo-node > vertigo-open {
-			grid-area: 1 / 1;
+		vertigo-node > .side {
+			display: flex;
+			flex-direction: column;
+			width: ${W_SIDEBAR}px;
+			flex-shrink: 0;
 		}
 
-		vertigo-node > vertigo-header {
-			grid-area: 1 / 2;
+		vertigo-node > .main {
+			display: flex;
+			flex-direction: column;
+			flex: 1;
+			min-width: 0;
 		}
 
-		vertigo-node > vertigo-sidebar {
-			grid-area: 2 / 1;
-		}
-
-		vertigo-node > .details {
-			grid-area: 2 / 2;
+		vertigo-node .details {
 			display: flex;
 			flex-direction: column;
 			background-color: hsl(var(--base-hue), 20%, 42%);
+			overflow: hidden;
 		}
 
 		/* Create animation - roll down */
 		@keyframes create {
 			from {
-				grid-template-rows: auto 0fr;
+				max-height: 0;
+				opacity: 0;
 			}
 			to {
-				grid-template-rows: auto 1fr;
+				max-height: var(--measured-height);
+				opacity: 1;
 			}
 		}
 
@@ -136,10 +139,12 @@ class VNode extends nerd.Component {
 		/* Delete animation - roll up */
 		@keyframes delete {
 			from {
-				grid-template-rows: auto 1fr;
+				max-height: var(--measured-height);
+				opacity: 1;
 			}
 			to {
-				grid-template-rows: auto 0fr;
+				max-height: 0;
+				opacity: 0;
 			}
 		}
 
@@ -163,11 +168,15 @@ class VNode extends nerd.Component {
 	`
 
   static html = `
-		<vertigo-open></vertigo-open>
-		<vertigo-header><span class="name"></span></vertigo-header>
-		<vertigo-sidebar></vertigo-sidebar>
-		<div class="details">
-			<div class="children"></div>
+		<div class="side">
+			<vertigo-open></vertigo-open>
+			<vertigo-sidebar></vertigo-sidebar>
+		</div>
+		<div class="main">
+			<vertigo-header><span class="name"></span></vertigo-header>
+			<div class="details">
+				<div class="children"></div>
+			</div>
 		</div>
 	`
 
@@ -245,6 +254,9 @@ class VNode extends nerd.Component {
     if (cause === nerd.Cause.Init) {
       // No animation on initial population
     } else if (cause === nerd.Cause.Create) {
+      // Measure natural height and set CSS variable
+      const measuredHeight = this.scrollHeight
+      this.style.setProperty("--measured-height", `${measuredHeight}px`)
       this.classList.add("anim-create")
       this.addEventListener(
         "animationend",
@@ -252,6 +264,9 @@ class VNode extends nerd.Component {
         { once: true },
       )
     } else if (cause === nerd.Cause.Delete) {
+      // Measure current height and set CSS variable
+      const measuredHeight = this.scrollHeight
+      this.style.setProperty("--measured-height", `${measuredHeight}px`)
       this.classList.add("anim-delete")
       this.addEventListener(
         "animationend",
@@ -610,7 +625,8 @@ class Open extends nerd.Component {
 			display: flex;
 			align-items: center;
 			justify-content: center;
-			width: ${W_SIDEBAR}px;
+			flex-shrink: 0;
+			height: ${H_HEADER}px;
 			background-color: hsl(var(--base-hue), 20%, 35%);
 			cursor: pointer;
 			user-select: none;
@@ -625,7 +641,8 @@ class Sidebar extends nerd.Component {
   static style = `
 		vertigo-sidebar {
 			display: block;
-			width: ${W_SIDEBAR}px;
+			flex: 1;
+			min-height: 0;
 			background-color: hsl(var(--base-hue), 20%, 35%);
 		}
 	`
@@ -635,9 +652,10 @@ class Sidebar extends nerd.Component {
 class Header extends nerd.Component {
   static style = `
 		vertigo-header {
-			display: block;
+			display: flex;
+			align-items: center;
+			height: ${H_HEADER}px;
 			background-color: hsl(var(--base-hue), 5%, 55%);
-			padding: 0.2ch;
 			padding-left: ${NAME_PADDING};
 			color: hsl(var(--base-hue), 15%, 25%);
 			font-size: 1.2em;
