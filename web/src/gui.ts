@@ -287,7 +287,7 @@ class Workbench extends nerd.Component {
   private handleWebSocketMessage(msg: any) {
     switch (msg.type) {
       case imsg.TopoUpdate:
-        // this.handleTopoUpdate()
+        this.handleTopoUpdate()
         break
       default:
         console.log("Received WebSocket message:", msg)
@@ -300,13 +300,14 @@ class Workbench extends nerd.Component {
       // Fetch updated tree from server
       const targetId = nerd.Ctx.admin ? 1 : nerd.Ctx.userID
       const data = await nerd.AskGetTree(targetId)
+
+      // Clear registry before re-init to avoid memory leak
+      nerd.Registry.clear()
       nerd.Ctx.dispRoot = nerd.TreeEntry.init(data)
 
-      // Refresh all board trees
+      // Update all board trees
       for (const board of this.boardElements) {
-        for (const tree of board["trees"] as vertigo.VTree[]) {
-          // tree.Refresh()
-        }
+        board.UpdateTopo()
       }
 
       nerd.Log(nerd.Status.OK, "Tree updated")
@@ -382,6 +383,20 @@ class Board extends nerd.Component {
       tree.remove()
     }
     this.trees = []
+  }
+
+  // UpdateTopo updates all trees on this board after topology change
+  UpdateTopo() {
+    for (const tree of this.trees) {
+      const newTE = nerd.Registry.get(tree.cfg.rootID)!
+      tree.root.Populate(
+        tree,
+        newTE,
+        0,
+        tree.root.inheritedDispDepth,
+        nerd.Cause.Match,
+      )
+    }
   }
 
   private resizeCanvas() {

@@ -2,6 +2,14 @@
 
 import { imsg } from "./imsg.js"
 
+// Cause indicates why Populate was called on a VNode
+export enum Cause {
+  Init, // Initial population (no animation)
+  Match, // Existing node being updated
+  Create, // New node being created
+  Delete, // Node being deleted (triggers exit animation)
+}
+
 // NodeType enum - must match api/nerd/nodeTypes.go
 export enum NodeType {
   Group = 0,

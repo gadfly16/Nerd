@@ -63,6 +63,17 @@ func (n *GUI) messageLoop() {
 	node.System.TopoUpdater.NotifyTopoSubscribe(n.Tag)
 	log.Printf("GUI node %d subscribed to TopoUpdater", n.NodeID)
 
+	// Send initial TopoUpdate since GUI was created before subscription
+	im := imsg.IMsg{
+		Type: imsg.TopoUpdate,
+	}
+	err := wsjson.Write(n.ctx, n.conn, im)
+	if err != nil {
+		log.Printf("Failed to send initial TopoUpdate to GUI. (%d): %v", n.NodeID, err)
+	} else {
+		log.Printf("Sent initial TopoUpdate to GUI. (%d)", n.NodeID)
+	}
+
 	for m := range n.Incoming {
 		var a any
 		var err error
