@@ -91,10 +91,18 @@ func handleRename(m *msg.Msg, n node.Node) (any, error) {
 	// Update node name
 	n.SetName(newName)
 
-	// Save to database
-	err := n.Save()
-	if err != nil {
-		return nil, err
+	// Invalidate cache since name changed (propagates upstream)
+	n.GetEntity().CacheValidity.InvalidateTreeEntry()
+
+	// Notify TopoUpdater of topology change (owner is the sender)
+	n.GetEntity().Tag.Owner.NotifyTopoUpdate(node.System.TopoUpdater)
+
+	// Save to database (only for persistent nodes with positive IDs)
+	if n.GetEntity().NodeID > 0 {
+		err := n.Save()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return nil, nil

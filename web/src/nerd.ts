@@ -196,6 +196,15 @@ export async function AskGetTree(targetId: number): Promise<TreeEntry> {
   return (await Ask(imsg.GetTree, targetId)) as TreeEntry
 }
 
+// AskRenameChild renames a child node
+export async function AskRenameChild(
+  parentId: number,
+  oldName: string,
+  newName: string,
+): Promise<void> {
+  await Ask(imsg.RenameChild, parentId, { oldName, newName })
+}
+
 // Create is a shorthand for document.createElement
 export function Create(tagName: string): HTMLElement {
   return document.createElement(tagName)

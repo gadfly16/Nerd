@@ -63,8 +63,26 @@ func (n *Authenticator) messageLoop() {
 		var a any
 		var err error
 
-		// Authorization: allow if sender is owner or admin
-		if m.Sender != n.Tag.Owner && !m.Sender.Admin {
+		// Authorization check (message-type specific)
+		authorized := m.Sender == n.Tag.Owner || m.Sender.Admin
+
+		if !authorized {
+			// Special case: RenameChild/DeleteChild allowed if sender is operating on themselves
+			switch m.Type {
+			case msg.RenameChild:
+				pl := m.Payload.(msg.RenameChildPayload)
+				if childTag, exists := n.Children[pl.OldName]; exists && childTag == m.Sender {
+					authorized = true
+				}
+			case msg.DeleteChild:
+				childName := m.Payload.(string)
+				if childTag, exists := n.Children[childName]; exists && childTag == m.Sender {
+					authorized = true
+				}
+			}
+		}
+
+		if !authorized {
 			m.Reply(nil, nerd.ErrUnauthorized)
 			continue
 		}

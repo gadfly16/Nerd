@@ -213,17 +213,17 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, m *imsg.IMsg) {
 		return
 	}
 
-	// Result is *imsg.ITag
-	uit := result.(*imsg.ITag)
+	// Result is *imsg.INewNodePayload
+	nu := result.(*imsg.INewNodePayload)
 
 	// Create Clients group under new user
-	_, err = api.IAskCreateChild(uit.ID, uit.ID, nerd.GroupNode, "Clients", nil)
+	_, err = api.IAskCreateChild(nu.ID, nu.ID, nerd.GroupNode, "Clients", nil)
 	if err != nil {
 		panic("Couldn't create Clients group under new user.")
 	}
 
-	userID := uit.ID
-	admin := uit.Admin
+	userID := nu.ID
+	admin := nu.Admin
 
 	// Set JWT cookie (auto-login after registration)
 	if err := s.setJWTCookie(w, userID, admin); err != nil {
@@ -235,7 +235,7 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, m *imsg.IMsg) {
 	// Return success with user info
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(uit)
+	json.NewEncoder(w).Encode(nu)
 }
 
 // handleLogout clears the authentication cookie

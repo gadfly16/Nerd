@@ -173,7 +173,11 @@ class VNode extends nerd.Component {
 			<vertigo-sidebar></vertigo-sidebar>
 		</div>
 		<div class="main">
-			<vertigo-header><span class="name"></span></vertigo-header>
+			<vertigo-header>
+				<form class="rename-form">
+					<input type="text" class="name" />
+				</form>
+			</vertigo-header>
 			<div class="details">
 				<div class="children"></div>
 			</div>
@@ -191,7 +195,8 @@ class VNode extends nerd.Component {
   // Cached DOM elements
   open!: Open
   header!: Header
-  headerNameElem!: HTMLElement
+  headerNameElem!: HTMLInputElement
+  renameForm!: HTMLFormElement
   sidebar!: Sidebar
   childrenDetail!: HTMLElement
 
@@ -199,12 +204,16 @@ class VNode extends nerd.Component {
     this.innerHTML = VNode.html
     this.open = this.Query("vertigo-open")! as Open
     this.header = this.Query("vertigo-header")! as Header
-    this.headerNameElem = this.header.Query(".name")!
+    this.renameForm = this.header.Query(".rename-form")! as HTMLFormElement
+    this.headerNameElem = this.header.Query(".name")! as HTMLInputElement
     this.sidebar = this.Query("vertigo-sidebar")! as Sidebar
     this.childrenDetail = this.Query(".children")!
 
     // Attach click handler once
     this.open.onclick = (e) => this.openClickHandler(e)
+
+    // Attach rename form submit handler
+    this.renameForm.onsubmit = (e) => this.handleRenameSubmit(e)
   }
 
   // Populate updates node state using diff algorithm
@@ -514,8 +523,35 @@ class VNode extends nerd.Component {
 
   // setName updates the node name and measures its width for canvas rendering
   private setName(name: string) {
-    this.headerNameElem.textContent = name
+    this.headerNameElem.value = name
     this.sidebarNameWidth = this.vtree.board.ctx.measureText(name).width
+  }
+
+  // handleRenameSubmit processes the rename form submission
+  private async handleRenameSubmit(e: Event) {
+    e.preventDefault()
+
+    const newName = this.headerNameElem.value.trim()
+    const oldName = this.te.name
+
+    // Check if name actually changed
+    if (!newName || newName === oldName) {
+      this.headerNameElem.blur()
+      return
+    }
+
+    // Get parent ID, use 0 for root nodes (special case for user renaming their own node)
+    const parentId = this.te.parent?.id || 0
+
+    try {
+      await nerd.AskRenameChild(parentId, oldName, newName)
+      nerd.Log(nerd.Status.OK, `Renamed "${oldName}" to "${newName}"`)
+      this.headerNameElem.blur()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Rename failed"
+      nerd.Log(nerd.Status.Error, msg)
+      // Keep input focused so user can fix and retry
+    }
   }
 
   // createChildren creates child VNode elements and adds them to DOM (assumes container is empty)
@@ -663,10 +699,31 @@ class Header extends nerd.Component {
 			border-right: ${1.5 * G}px solid hsl(var(--base-hue), 20%, 35%);
 		}
 
-		vertigo-header .name {
+		vertigo-header .rename-form {
 			position: sticky;
 			left: ${NAME_PADDING};
-			display: inline-block;
+			margin: 0;
+			padding: 0;
+		}
+
+		vertigo-header .name {
+			font-family: 'Inter';
+			font-size: 1em;
+			font-weight: 500;
+			color: inherit;
+			background: transparent;
+			border: none;
+			outline: none;
+			padding: 0;
+			margin: 0;
+			cursor: pointer;
+		}
+
+		vertigo-header .name:focus {
+			cursor: text;
+			background: hsl(var(--base-hue), 20%, 95%);
+			padding: 2px 4px;
+			border: 1px solid hsl(var(--base-hue), 60%, 40%);
 		}
 	`
 }

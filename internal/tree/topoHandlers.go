@@ -50,6 +50,10 @@ func handleCreateChild(m *msg.Msg, pn node.Node) (any, error) {
 		if strings.Contains(pl.Name, "#") {
 			return nil, nerd.ErrIllegalHashmarkInName
 		}
+		// Check for reserved names under Authenticator
+		if pe.NodeType == nerd.AuthenticatorNode && pl.Name == "Root" {
+			return nil, nerd.ErrReservedName
+		}
 		// Check for name collision
 		if _, exists := pe.Children[pl.Name]; exists {
 			return nil, fmt.Errorf("child with name '%s' already exists", pl.Name)
@@ -187,7 +191,13 @@ func handleRenameChild(m *msg.Msg, n node.Node) (any, error) {
 		return nil, nerd.ErrNameCollision
 	}
 
+	// Check for reserved names under Authenticator
+	if e.NodeType == nerd.AuthenticatorNode && pl.NewName == "Root" {
+		return nil, nerd.ErrReservedName
+	}
+
 	// Ask child to rename itself (owner is the sender)
+	// Child will invalidate its cache (propagates upstream) and notify TopoUpdater
 	err := e.Tag.Owner.AskRename(ch, pl.NewName)
 	if err != nil {
 		return nil, err
@@ -196,12 +206,6 @@ func handleRenameChild(m *msg.Msg, n node.Node) (any, error) {
 	// Update parent's children map
 	delete(e.Children, pl.OldName)
 	e.Children[pl.NewName] = ch
-
-	// Invalidate parent's cache since tree structure changed
-	e.CacheValidity.InvalidateTreeEntry()
-
-	// Notify TopoUpdater of topology change (owner is the sender)
-	e.Tag.Owner.NotifyTopoUpdate(node.System.TopoUpdater)
 
 	return nil, nil
 }

@@ -11,16 +11,24 @@ import (
 
 // IAsk translates interface message to native message and waits for answer
 func IAsk(im imsg.IMsg) (any, error) {
-	// Validate target exists
-	tag, exists := registry.get(im.TargetID)
-	if !exists {
-		return nil, nerd.ErrNodeNotFound
-	}
-
 	// Get sender tag from registry
 	sender, exists := registry.get(im.UserID)
 	if !exists {
 		return nil, nerd.ErrNodeNotFound
+	}
+
+	// Special case: targetId 0 for RenameChild and DeleteChild means user operating on themselves
+	// Redirect to Authenticator (parent of user nodes)
+	var tag *msg.Tag
+	if im.TargetID == 0 && (im.Type == imsg.RenameChild || im.Type == imsg.DeleteChild) {
+		tag = node.System.Authenticator
+	} else {
+		// Validate target exists
+		var exists bool
+		tag, exists = registry.get(im.TargetID)
+		if !exists {
+			return nil, nerd.ErrNodeNotFound
+		}
 	}
 
 	switch im.Type {
