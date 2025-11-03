@@ -65,7 +65,7 @@ func (n *GUI) messageLoop() {
 
 	// Send initial TopoUpdate since GUI was created before subscription
 	im := imsg.IMsg{
-		Type: imsg.TopoUpdate,
+		Type: imsg.ITopoUpdate,
 	}
 	err := wsjson.Write(n.ctx, n.conn, im)
 	if err != nil {
@@ -114,7 +114,7 @@ func (n *GUI) messageLoop() {
 func (n *GUI) handleTopoUpdate(_ *msg.Msg) (any, error) {
 	// Send TopoUpdate IMsg to WebSocket client
 	im := imsg.IMsg{
-		Type: imsg.TopoUpdate,
+		Type: imsg.ITopoUpdate,
 	}
 
 	err := wsjson.Write(n.ctx, n.conn, im)
@@ -139,7 +139,7 @@ func (n *GUI) wsReadLoop() {
 
 		// Route based on message type
 		switch im.Type {
-		case imsg.NodeSubscribe:
+		case imsg.INodeSubscribe:
 			// TODO: Handle NodeSubscribe message
 			log.Printf("GUI node %d received NodeSubscribe for target %d", n.NodeID, im.TargetID)
 		default:

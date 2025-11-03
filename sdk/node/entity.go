@@ -136,3 +136,8 @@ func (cq *ChildrenQuery) Reduce(reduce func(payload any)) error {
 
 	return nil
 }
+
+// GetState returns the base state values (default implementation for nodes without custom state)
+func (e *Entity) GetState(values []msg.ValuePair) []msg.ValuePair {
+	return values
+}

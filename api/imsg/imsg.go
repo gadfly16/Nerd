@@ -17,20 +17,22 @@ type INewNodePayload struct {
 }
 
 const (
-	GetTree Type = iota
-	Lookup
-	CreateChild
-	RenameChild
-	DeleteChild
-	Shutdown
+	IGetTree Type = iota
+	ILookup
+	ICreateChild
+	IRenameChild
+	IDeleteChild
+	IShutdown
 
-	AuthenticateUser
-	Logout
+	IAuthenticateUser
+	ILogout
 
-	NodeSubscribe
-	NodeUnsubscribe
-	TopoUpdate
-	NodeUpdate
+	INodeSubscribe
+	INodeUnsubscribe
+	ITopoUpdate
+	INodeUpdate
+
+	IGetState
 	// Future interface message types can be added here
 )
 

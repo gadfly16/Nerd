@@ -2,6 +2,7 @@ package msg
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/coder/websocket"
 	"github.com/gadfly16/nerd/api/imsg"
@@ -55,6 +56,7 @@ const (
 	DeleteChild // delete child by name
 	GetTree     // get tree structure for GUI
 	Lookup      // lookup node by path
+	GetState    // get state values from node
 
 	// Internal messages
 	RenameSelf // Sent by RenameChild handler
@@ -103,6 +105,17 @@ type TreeEntry struct {
 	Name     string        `json:"name"`
 	NodeType nerd.NodeType `json:"nodeType"`
 	Children []*TreeEntry  `json:"children"`
+}
+
+// ValuePair represents a state value name and value
+type ValuePair struct {
+	Name  string
+	Value any
+}
+
+// MarshalJSON implements json.Marshaler to serialize as [name, value] array
+func (vp *ValuePair) MarshalJSON() ([]byte, error) {
+	return json.Marshal([2]any{vp.Name, vp.Value})
 }
 
 // CredentialsPayload contains username and password for authentication and user creation

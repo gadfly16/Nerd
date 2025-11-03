@@ -18,4 +18,5 @@ type Node interface {
 	Save() error
 	// Load() ([]*msg.Tag, error)
 	Shutdown()
+	GetState([]msg.ValuePair) []msg.ValuePair
 }

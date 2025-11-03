@@ -34,6 +34,8 @@ func handleCommonMessage(m *msg.Msg, node node.Node) (any, error) {
 		return handleGetTree(m, node)
 	case msg.Lookup:
 		return handleLookup(m, node)
+	case msg.GetState:
+		return handleGetState(m, node)
 	default:
 		// Topology operations (CreateChild, DeleteChild, RenameChild) handled by tree layer
 		return topoDispatcher(m, node)
@@ -156,4 +158,20 @@ func handleDeleteSelf(_ *msg.Msg, n node.Node) (any, error) {
 	}
 
 	return nil, nil
+}
+
+
+// handleGetState returns state values as a slice of ValuePair
+func handleGetState(_ *msg.Msg, n node.Node) (any, error) {
+	e := n.GetEntity()
+
+	// Build base state values
+	values := []msg.ValuePair{
+		{Name: "id", Value: e.NodeID},
+	}
+
+	// Let node extend with its own state values
+	values = n.GetState(values)
+
+	return values, nil
 }

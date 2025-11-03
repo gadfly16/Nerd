@@ -288,7 +288,7 @@ class Workbench extends nerd.Component {
   // handleWebSocketMessage processes incoming WebSocket messages
   private handleWebSocketMessage(msg: any) {
     switch (msg.type) {
-      case imsg.TopoUpdate:
+      case imsg.ITopoUpdate:
         this.handleTopoUpdate()
         break
       default:
@@ -347,8 +347,8 @@ class Board extends nerd.Component {
   workbench!: Workbench
   cfg!: config.Board
   viewport!: DOMRect
-  private trees: vertigo.VTree[] = []
-  private treesContainer!: HTMLElement
+  private vbranches: vertigo.VBranch[] = []
+  private vbranchesContainer!: HTMLElement
   canvas!: HTMLCanvasElement
   ctx!: CanvasRenderingContext2D
   private isDragging = false
@@ -388,15 +388,15 @@ class Board extends nerd.Component {
 
   // Clear removes all trees from the board
   Clear() {
-    if (this.treesContainer) {
-      this.treesContainer.remove()
+    if (this.vbranchesContainer) {
+      this.vbranchesContainer.remove()
     }
-    this.trees = []
+    this.vbranches = []
   }
 
   // UpdateTopo updates all trees on this board after topology change
   UpdateTopo() {
-    for (const tree of this.trees) {
+    for (const tree of this.vbranches) {
       const newTE = nerd.Registry.get(tree.cfg.rootID)!
       tree.root.Populate(
         tree,
@@ -427,7 +427,7 @@ class Board extends nerd.Component {
     // Clear canvas
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height)
 
-    for (const tree of this.trees) {
+    for (const tree of this.vbranches) {
       if (!tree.UpdateOverlay()) break
     }
   }
@@ -472,22 +472,22 @@ class Board extends nerd.Component {
     this.resizeCanvas()
 
     // Create trees container
-    this.treesContainer = document.createElement("div")
-    this.treesContainer.className = "trees-container"
-    this.appendChild(this.treesContainer)
+    this.vbranchesContainer = document.createElement("div")
+    this.vbranchesContainer.className = "trees-container"
+    this.appendChild(this.vbranchesContainer)
 
-    for (const treeCfg of this.cfg.trees) {
-      const vertigoTree = nerd.Create("vertigo-tree") as vertigo.VTree
-      this.treesContainer.appendChild(vertigoTree)
-      vertigoTree.Populate(this, treeCfg)
-      this.trees.push(vertigoTree)
+    for (const branchCfg of this.cfg.branches) {
+      const vtree = nerd.Create("v-branch") as vertigo.VBranch
+      this.vbranchesContainer.appendChild(vtree)
+      vtree.Populate(this, branchCfg)
+      this.vbranches.push(vtree)
     }
 
     // Watch for board size changes (viewport resize)
     this.resizeObs = new ResizeObserver(() => {
       this.resizeCanvas()
       // Recalculate tree widths (no re-render needed)
-      for (const tree of this.trees) {
+      for (const tree of this.vbranches) {
         tree.updateWidth()
       }
       this.updateOverlay()
@@ -498,7 +498,7 @@ class Board extends nerd.Component {
     this.contentResizeObs = new ResizeObserver(() => {
       this.dispatchEvent(new Event("scroll"))
     })
-    this.contentResizeObs.observe(this.treesContainer)
+    this.contentResizeObs.observe(this.vbranchesContainer)
 
     // Trigger initial overlay update
     this.updateOverlay()
@@ -538,7 +538,7 @@ class Header extends nerd.Component {
   // logout clears the HttpOnly cookie on the server and updates UI to show auth screen
   private async logout() {
     try {
-      await nerd.AskAuth(imsg.Logout, {})
+      await nerd.AskAuth(imsg.ILogout, {})
       gui.SwitchToAuth()
     } catch (err) {
       console.error("Logout failed:", err)
@@ -679,7 +679,7 @@ class Auth extends nerd.Component {
     e.preventDefault()
 
     const formData = new FormData(e.target as HTMLFormElement)
-    const imt = regmode ? imsg.CreateChild : imsg.AuthenticateUser
+    const imt = regmode ? imsg.ICreateChild : imsg.IAuthenticateUser
     const pl = Object.fromEntries(formData)
 
     try {

@@ -14,7 +14,7 @@ export class Vertigo {
 
 // BoardConfig holds configuration for all Vertigo trees on a board
 export class Board {
-  trees!: Vertigo[]
+  branches!: Vertigo[]
 }
 
 // WorkbenchConfig holds configuration for all boards in the workbench
@@ -26,7 +26,7 @@ export class Workbench {
 export const defaultWorkbench: Workbench = {
   boards: [
     {
-      trees: [
+      branches: [
         {
           rootID: 0, // GUI display root (user node for non-admin)
           openMap: { 0: { open: true, depth: 2 } }, // Open 2 levels deep
@@ -34,7 +34,7 @@ export const defaultWorkbench: Workbench = {
       ],
     },
     {
-      trees: [
+      branches: [
         {
           rootID: 0, // GUI display root (user node for non-admin)
           openMap: { 0: { open: true, depth: 2 } }, // Open 3 levels deep

@@ -20,7 +20,7 @@ func IAsk(im imsg.IMsg) (any, error) {
 	// Special case: targetId 0 for RenameChild and DeleteChild means user operating on themselves
 	// Redirect to Authenticator (parent of user nodes)
 	var tag *msg.Tag
-	if im.TargetID == 0 && (im.Type == imsg.RenameChild || im.Type == imsg.DeleteChild) {
+	if im.TargetID == 0 && (im.Type == imsg.IRenameChild || im.Type == imsg.IDeleteChild) {
 		tag = node.System.Authenticator
 	} else {
 		// Validate target exists
@@ -32,18 +32,20 @@ func IAsk(im imsg.IMsg) (any, error) {
 	}
 
 	switch im.Type {
-	case imsg.GetTree:
+	case imsg.IGetTree:
 		return handleIGetTree(sender, tag)
-	case imsg.Lookup:
+	case imsg.ILookup:
 		return handleILookup(sender, tag, im)
-	case imsg.RenameChild:
+	case imsg.IRenameChild:
 		return handleIRenameChild(sender, tag, im)
-	case imsg.CreateChild:
+	case imsg.ICreateChild:
 		return handleICreateChild(sender, tag, im)
-	case imsg.DeleteChild:
+	case imsg.IDeleteChild:
 		return handleIDeleteChild(sender, tag, im)
-	case imsg.Shutdown:
+	case imsg.IShutdown:
 		return handleIShutdown(sender, tag)
+	case imsg.IGetState:
+		return handleIGetState(sender, tag)
 	default:
 		return nil, nerd.ErrMalformedIMsg
 	}
@@ -56,9 +58,9 @@ func IAskAuth(im imsg.IMsg) (ia any, err error) {
 	sender := node.System.Authenticator.Owner // Root is admin
 
 	switch im.Type {
-	case imsg.AuthenticateUser:
+	case imsg.IAuthenticateUser:
 		return handleIAuthenticateUser(sender, im)
-	case imsg.CreateChild:
+	case imsg.ICreateChild:
 		return handleICreateChild(sender, tag, im)
 	default:
 		return nil, nerd.ErrMalformedIMsg
@@ -244,4 +246,15 @@ func handleICreateUser(sender *msg.Tag, im imsg.IMsg) (ia any, err error) {
 		return nil, err
 	}
 	return a.(*msg.Tag).ToITag(), nil
+}
+
+// handleIGetState requests state values from a node
+func handleIGetState(sender *msg.Tag, receiver *msg.Tag) (any, error) {
+	a, err := sender.Ask(receiver, &msg.Msg{Type: msg.GetState})
+	if err != nil {
+		return nil, err
+	}
+
+	// Return the state values as-is (should be [][]any from the node)
+	return a, nil
 }

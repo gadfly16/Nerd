@@ -10,23 +10,24 @@ const H_HEADER = 30 // Height of header and open button
 const G = 6 // Gap between nodes (0.5ch ≈ 8px)
 const I = W_SIDEBAR + G // Indentation per level (40px)
 const W_MIN = 320 // Minimum width for content area (60ch ≈ 960px)
-const NAME_PADDING = "0.5ch" // Horizontal padding for node names
+const NAME_PADDING = 8 // Horizontal padding for node names
 const SIDEBAR_GAP = 8 // Gap above/below sidebar name text
 
-// TypeInfo stores the display name, measured width, and base hue for a node type
+// TypeInfo stores the display name, measured width, base hue, and values HTML for a node type
 interface TypeInfo {
   name: string
   size: number // 0 means not yet measured
   hue: number // Base hue value (0-360) for HSL color derivation
+  values?: string // HTML for node-specific values (optional, defaults to empty)
 }
 
 // TypeInfos is a global map from node type to TypeInfo (lazy-initialized widths)
 const TypeInfos = new Map<number, TypeInfo>()
 
-// VTree represents a displayed subtree using the Vertigo design pattern
-export class VTree extends nerd.Component {
+// VBranch represents a displayed subtree using the Vertigo design pattern
+export class VBranch extends nerd.Component {
   static style = `
-		vertigo-tree {
+		v-branch {
 			display: block;
 			padding-right: ${G}px;
 			padding-bottom: ${G}px;
@@ -54,8 +55,8 @@ export class VTree extends nerd.Component {
       throw new Error(`TreeEntry with id ${cfg.rootID} not found in registry`)
     }
 
-    // Create root vertigo-node, add to DOM, then populate
-    this.root = nerd.Create("vertigo-node") as VNode
+    // Create root v-node, add to DOM, then populate
+    this.root = nerd.Create("v-node") as VNode
     this.appendChild(this.root)
     this.root.Populate(this, te, 0, 0, nerd.Cause.Init)
 
@@ -93,46 +94,42 @@ export class VTree extends nerd.Component {
 // VNode represents a single node and its children recursively
 class VNode extends nerd.Component {
   static style = `
-		vertigo-node {
+		v-node {
 			display: flex;
 			margin: ${G}px 0 0 ${G}px;
-			overflow: hidden;
 		}
 
-		vertigo-node > .side {
+		v-node > .side {
 			display: flex;
 			flex-direction: column;
 			width: ${W_SIDEBAR}px;
 			flex-shrink: 0;
 		}
 
-		vertigo-node > .main {
+		v-node > .main {
 			display: flex;
 			flex-direction: column;
 			flex: 1;
 			min-width: 0;
 		}
 
-		vertigo-node .details {
+		v-node .details {
 			display: flex;
 			flex-direction: column;
 			background-color: hsl(var(--base-hue), 20%, 42%);
-			overflow: hidden;
 		}
 
 		/* Create animation - roll down */
 		@keyframes create {
 			from {
 				max-height: 0;
-				opacity: 0;
 			}
 			to {
 				max-height: var(--measured-height);
-				opacity: 1;
 			}
 		}
 
-		vertigo-node.anim-create {
+		v-node.anim-create {
 			animation: create 0.75s ease-out;
 		}
 
@@ -140,15 +137,13 @@ class VNode extends nerd.Component {
 		@keyframes delete {
 			from {
 				max-height: var(--measured-height);
-				opacity: 1;
 			}
 			to {
 				max-height: 0;
-				opacity: 0;
 			}
 		}
 
-		vertigo-node.anim-delete {
+		v-node.anim-delete {
 			animation: delete 0.75s ease-in;
 		}
 
@@ -162,29 +157,30 @@ class VNode extends nerd.Component {
 			}
 		}
 
-		vertigo-header .name.anim-rename {
+		v-header .name.anim-rename {
 			animation: rename 0.75s ease-out;
 		}
 	`
 
   static html = `
 		<div class="side">
-			<vertigo-open></vertigo-open>
-			<vertigo-sidebar></vertigo-sidebar>
+			<v-open></v-open>
+			<v-sidebar></v-sidebar>
 		</div>
 		<div class="main">
-			<vertigo-header>
+			<v-header>
 				<form class="rename-form">
 					<input type="text" class="name" />
 				</form>
-			</vertigo-header>
+				<span class="state-icon">⬒</span>
+			</v-header>
 			<div class="details">
 				<div class="children"></div>
 			</div>
 		</div>
 	`
 
-  vtree!: VTree
+  vtree!: VBranch
   te: nerd.TreeEntry = new nerd.TreeEntry(0, "", 0, [])
   depth!: number
   inheritedDispDepth!: number // Display depth inherited from parent
@@ -193,24 +189,32 @@ class VNode extends nerd.Component {
   typeInfo!: TypeInfo // Reference to TypeInfo entry for this node's type
 
   // Cached DOM elements
-  open!: Open
-  header!: Header
+  open!: VOpen
+  header!: VHeader
   headerNameElem!: HTMLInputElement
   renameForm!: HTMLFormElement
-  sidebar!: Sidebar
+  stateIcon!: HTMLElement
+  sidebar!: VSidebar
+  detailsContainer!: HTMLElement
+  stateDetail!: VState
   childrenDetail!: HTMLElement
 
   connectedCallback() {
     this.innerHTML = VNode.html
-    this.open = this.Query("vertigo-open")! as Open
-    this.header = this.Query("vertigo-header")! as Header
+    this.open = this.Query("v-open")! as VOpen
+    this.header = this.Query("v-header")! as VHeader
     this.renameForm = this.header.Query(".rename-form")! as HTMLFormElement
     this.headerNameElem = this.header.Query(".name")! as HTMLInputElement
-    this.sidebar = this.Query("vertigo-sidebar")! as Sidebar
+    this.stateIcon = this.header.Query(".state-icon")! as HTMLElement
+    this.sidebar = this.Query("v-sidebar")! as VSidebar
+    this.detailsContainer = this.Query(".details")!
     this.childrenDetail = this.Query(".children")!
 
     // Attach click handler once
     this.open.onclick = (e) => this.openClickHandler(e)
+
+    // Attach state icon click handler
+    this.stateIcon.onclick = (e) => this.toggleStateDetail(e)
 
     // Attach rename form submit handler
     this.renameForm.onsubmit = (e) => this.handleRenameSubmit(e)
@@ -220,7 +224,7 @@ class VNode extends nerd.Component {
   // Compares old tree state (this.te) with new tree state (newTE)
   // and applies minimal DOM updates proportional to changes
   Populate(
-    vtree: VTree,
+    vtree: VBranch,
     newTE: nerd.TreeEntry,
     depth: number,
     dispDepth: number,
@@ -321,7 +325,7 @@ class VNode extends nerd.Component {
 
       if (!och || nch.id < och.id) {
         // NEW - either no more old children, or nch not in old array
-        const childNode = nerd.Create("vertigo-node") as VNode
+        const childNode = nerd.Create("v-node") as VNode
         this.childrenDetail.appendChild(childNode)
         this.childVNodes.set(nch.id, childNode)
         // Propagate Init cause, otherwise Create
@@ -343,7 +347,7 @@ class VNode extends nerd.Component {
           )
         } else {
           // VNode doesn't exist (was closed) - recreate it as Init
-          const childNode = nerd.Create("vertigo-node") as VNode
+          const childNode = nerd.Create("v-node") as VNode
           this.childrenDetail.appendChild(childNode)
           this.childVNodes.set(nch.id, childNode)
           childNode.Populate(
@@ -527,6 +531,19 @@ class VNode extends nerd.Component {
     this.sidebarNameWidth = this.vtree.board.ctx.measureText(name).width
   }
 
+  // toggleStateDetail creates or destroys the state detail element
+  private toggleStateDetail(e: Event) {
+    e.preventDefault()
+    if (this.stateDetail) {
+      this.stateDetail.remove()
+      this.stateDetail = null as any
+    } else {
+      this.stateDetail = nerd.Create("v-state") as VState
+      this.detailsContainer.insertBefore(this.stateDetail, this.childrenDetail)
+      this.stateDetail.Populate(this)
+    }
+  }
+
   // handleRenameSubmit processes the rename form submission
   private async handleRenameSubmit(e: Event) {
     e.preventDefault()
@@ -557,7 +574,7 @@ class VNode extends nerd.Component {
   // createChildren creates child VNode elements and adds them to DOM (assumes container is empty)
   private createChildren() {
     for (const child of this.te.children) {
-      const childNode = nerd.Create("vertigo-node") as VNode
+      const childNode = nerd.Create("v-node") as VNode
       this.childrenDetail.appendChild(childNode)
       this.childVNodes.set(child.id, childNode)
     }
@@ -655,9 +672,9 @@ class VNode extends nerd.Component {
 }
 
 // Open displays the clickable open/close icon at header level
-class Open extends nerd.Component {
+class VOpen extends nerd.Component {
   static style = `
-		vertigo-open {
+		v-open {
 			display: flex;
 			align-items: center;
 			justify-content: center;
@@ -673,9 +690,9 @@ class Open extends nerd.Component {
 }
 
 // Sidebar is the visual bar that extends below the open icon when node has children
-class Sidebar extends nerd.Component {
+class VSidebar extends nerd.Component {
   static style = `
-		vertigo-sidebar {
+		v-sidebar {
 			display: block;
 			flex: 1;
 			min-height: 0;
@@ -684,29 +701,140 @@ class Sidebar extends nerd.Component {
 	`
 }
 
-// Header displays the node name
-class Header extends nerd.Component {
+// VValue displays a non-editable value
+class VValue extends nerd.Component {
   static style = `
-		vertigo-header {
+		v-value {
+			display: block;
+		}
+	`
+
+  static html = `
+		<span class="value-name"></span>
+		<span class="value-value"></span>
+		<span class="value-idea"></span>
+	`
+
+  nameSpan!: HTMLSpanElement
+  valueSpan!: HTMLSpanElement
+  ideaSpan!: HTMLSpanElement
+
+  connectedCallback() {
+    this.innerHTML = VValue.html
+    this.nameSpan = this.Query(".value-name")! as HTMLSpanElement
+    this.valueSpan = this.Query(".value-value")! as HTMLSpanElement
+    this.ideaSpan = this.Query(".value-idea")! as HTMLSpanElement
+  }
+
+  Populate(value?: any) {
+    const name = this.getAttribute("name")
+    this.nameSpan.textContent = name ? `${name}:` : ""
+
+    // Update value if provided
+    if (value !== undefined) {
+      this.valueSpan.textContent = String(value)
+    }
+  }
+}
+
+// VState displays the state detail form
+class VState extends nerd.Component {
+  static style = `
+		v-state {
+			display: none;
+			padding-top: ${NAME_PADDING * 0.5}px;
+			padding-bottom: ${NAME_PADDING * 0.75}px;
+			padding-left: ${NAME_PADDING * 3}px;
+			border-right: ${1.5 * G}px solid hsl(var(--base-hue), 20%, 38%);
+		}
+
+		v-state fieldset {
+			border: none;
+			padding: 0;
+			margin: 0;
+		}
+
+		v-state legend {
+			margin-left: ${NAME_PADDING * -2}px;
+			color: hsl(var(--base-hue), 5%, 65%);
+		}
+	`
+
+  static html = `
+		<fieldset>
+			<legend>System</legend>
+			<v-value name="id" idea="#"></v-value>
+		</fieldset>
+	`
+
+  vnode!: VNode
+  valueRegistry = new Map<string, VValue>()
+  fresh = true
+
+  async Populate(vnode: VNode) {
+    this.vnode = vnode
+
+    if (this.fresh) {
+      // Build HTML: static system part + node-specific values
+      const nodeTypeHTML = vnode.typeInfo.values || ""
+      this.innerHTML = VState.html + nodeTypeHTML
+
+      // Query all v-value elements and register them by name
+      const values = this.querySelectorAll("v-value")
+      for (const value of values) {
+        const vvalue = value as VValue
+        const name = vvalue.getAttribute("name")
+        if (name) {
+          this.valueRegistry.set(name, vvalue)
+        }
+      }
+    }
+
+    // Fetch state from server (array format: [[name, value], ...])
+    const state = await nerd.AskGetState(vnode.te.id)
+
+    // Populate values by looking up names in registry
+    for (const [name, value] of state) {
+      const vvalue = this.valueRegistry.get(name)
+      if (vvalue) {
+        vvalue.Populate(value)
+      }
+    }
+
+    // Show the state panel after it's ready on first populate
+    if (this.fresh) {
+      this.style.display = "block"
+      this.fresh = false
+    }
+  }
+}
+
+// Header displays the node name
+class VHeader extends nerd.Component {
+  static style = `
+		v-header {
 			display: flex;
 			align-items: center;
 			height: ${H_HEADER}px;
 			background-color: hsl(var(--base-hue), 5%, 55%);
-			padding-left: ${NAME_PADDING};
+			padding-left: ${NAME_PADDING}px;
+			padding-right: ${NAME_PADDING}px;
 			color: hsl(var(--base-hue), 15%, 25%);
 			font-size: 1.2em;
 			font-weight: 500;
 			border-right: ${1.5 * G}px solid hsl(var(--base-hue), 20%, 35%);
 		}
 
-		vertigo-header .rename-form {
+		v-header .rename-form {
 			position: sticky;
-			left: ${NAME_PADDING};
+			left: ${NAME_PADDING}px;
+			display: flex;
 			margin: 0;
 			padding: 0;
+			min-width: 0;
 		}
 
-		vertigo-header .name {
+		v-header .name {
 			font-family: 'Inter';
 			font-size: 1em;
 			font-weight: 500;
@@ -719,13 +847,20 @@ class Header extends nerd.Component {
 			cursor: pointer;
 		}
 
-		vertigo-header .name:focus {
+		v-header .name:focus {
 			cursor: text;
-			background: hsl(var(--base-hue), 20%, 95%);
-			padding: 2px 4px;
-			border: 1px solid hsl(var(--base-hue), 60%, 40%);
+			text-decoration: underline;
+			text-decoration-color: hsl(var(--base-hue), 5%, 85%);
 		}
-	`
+
+		v-header .state-icon {
+			position: sticky;
+			right: ${NAME_PADDING}px;
+			margin-left: auto;
+			cursor: pointer;
+			color: hsl(var(--base-hue), 15%, 37%);
+		}
+		`
 }
 
 // Initialize TypeInfos map with all known node types
@@ -737,7 +872,17 @@ TypeInfos.set(nerd.NodeType.Authenticator, {
   size: 0,
   hue: 220,
 })
-TypeInfos.set(nerd.NodeType.User, { name: "User", size: 0, hue: 240 })
+TypeInfos.set(nerd.NodeType.User, {
+  name: "User",
+  size: 0,
+  hue: 240,
+  values: `
+    <fieldset>
+      <legend>User</legend>
+      <v-value name="password" idea="string"></v-value>
+    </fieldset>
+  `
+})
 TypeInfos.set(nerd.NodeType.GUI, { name: "GUI", size: 0, hue: 280 })
 TypeInfos.set(nerd.NodeType.TopoUpdater, {
   name: "TopoUpdater",
@@ -746,8 +891,10 @@ TypeInfos.set(nerd.NodeType.TopoUpdater, {
 })
 
 // Register the Vertigo components
-VTree.register("vertigo-tree")
-Open.register("vertigo-open")
-Sidebar.register("vertigo-sidebar")
-Header.register("vertigo-header")
-VNode.register("vertigo-node")
+VBranch.register("v-branch")
+VOpen.register("v-open")
+VSidebar.register("v-sidebar")
+VValue.register("v-value")
+VState.register("v-state")
+VHeader.register("v-header")
+VNode.register("v-node")

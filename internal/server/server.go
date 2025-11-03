@@ -160,11 +160,11 @@ func (s *Server) handleAuth(w http.ResponseWriter, r *http.Request) {
 
 	// Route based on message type
 	switch im.Type {
-	case imsg.AuthenticateUser:
+	case imsg.IAuthenticateUser:
 		s.handleAuthenticateUser(w, &im)
-	case imsg.CreateChild:
+	case imsg.ICreateChild:
 		s.handleCreateUser(w, &im)
-	case imsg.Logout:
+	case imsg.ILogout:
 		s.handleLogout(w)
 	default:
 		http.Error(w, "Invalid auth message type", http.StatusBadRequest)

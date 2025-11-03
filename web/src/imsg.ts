@@ -2,18 +2,20 @@
 // Must match internal/imsg/imsg.go
 
 export enum imsg {
-  GetTree = 0,
-  Lookup,
-  CreateChild,
-  RenameChild,
-  DeleteChild,
-  Shutdown,
+  IGetTree = 0,
+  ILookup,
+  ICreateChild,
+  IRenameChild,
+  IDeleteChild,
+  IShutdown,
 
-  AuthenticateUser,
-  Logout,
+  IAuthenticateUser,
+  ILogout,
 
-  NodeSubscribe,
-  NodeUnsubscribe,
-  TopoUpdate,
-  NodeUpdate,
+  INodeSubscribe,
+  INodeUnsubscribe,
+  ITopoUpdate,
+  INodeUpdate,
+
+  IGetState,
 }

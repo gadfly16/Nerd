@@ -10,7 +10,7 @@ import (
 // IAskGetTree requests the tree structure from a node
 func IAskGetTree(targetID, userID nerd.NodeID) (*msg.TreeEntry, error) {
 	result, err := tree.IAsk(imsg.IMsg{
-		Type:     imsg.GetTree,
+		Type:     imsg.IGetTree,
 		TargetID: targetID,
 		UserID:   userID,
 	})
@@ -23,7 +23,7 @@ func IAskGetTree(targetID, userID nerd.NodeID) (*msg.TreeEntry, error) {
 // IAskLookup finds a node by path relative to the target node
 func IAskLookup(targetID, userID nerd.NodeID, path string) (*imsg.ITag, error) {
 	result, err := tree.IAsk(imsg.IMsg{
-		Type:     imsg.Lookup,
+		Type:     imsg.ILookup,
 		TargetID: targetID,
 		UserID:   userID,
 		Payload: map[string]any{
@@ -41,7 +41,7 @@ func IAskLookup(targetID, userID nerd.NodeID, path string) (*imsg.ITag, error) {
 // Returns INewNodePayload with ID, Name, and Admin fields
 func IAskCreateChild(targetID, userID nerd.NodeID, nodeType nerd.NodeType, name string, spec any) (*imsg.INewNodePayload, error) {
 	result, err := tree.IAsk(imsg.IMsg{
-		Type:     imsg.CreateChild,
+		Type:     imsg.ICreateChild,
 		TargetID: targetID,
 		UserID:   userID,
 		Payload: map[string]any{
@@ -59,7 +59,7 @@ func IAskCreateChild(targetID, userID nerd.NodeID, nodeType nerd.NodeType, name 
 // IAskRenameChild renames a child node of the target node
 func IAskRenameChild(targetID, userID nerd.NodeID, oldName, newName string) error {
 	_, err := tree.IAsk(imsg.IMsg{
-		Type:     imsg.RenameChild,
+		Type:     imsg.IRenameChild,
 		TargetID: targetID,
 		UserID:   userID,
 		Payload: map[string]any{
@@ -73,7 +73,7 @@ func IAskRenameChild(targetID, userID nerd.NodeID, oldName, newName string) erro
 // IAskDeleteChild deletes a child node by name
 func IAskDeleteChild(targetID, userID nerd.NodeID, childName string) error {
 	_, err := tree.IAsk(imsg.IMsg{
-		Type:     imsg.DeleteChild,
+		Type:     imsg.IDeleteChild,
 		TargetID: targetID,
 		UserID:   userID,
 		Payload: map[string]any{
@@ -86,7 +86,7 @@ func IAskDeleteChild(targetID, userID nerd.NodeID, childName string) error {
 // IAskShutdown requests a node to shut down gracefully
 func IAskShutdown(targetID, userID nerd.NodeID) error {
 	_, err := tree.IAsk(imsg.IMsg{
-		Type:     imsg.Shutdown,
+		Type:     imsg.IShutdown,
 		TargetID: targetID,
 		UserID:   userID,
 	})
@@ -96,7 +96,7 @@ func IAskShutdown(targetID, userID nerd.NodeID) error {
 // IAskAuthenticateUser authenticates a user by username and password
 func IAskAuthenticateUser(username, password string) (*imsg.ITag, error) {
 	result, err := tree.IAskAuth(imsg.IMsg{
-		Type: imsg.AuthenticateUser,
+		Type: imsg.IAuthenticateUser,
 		Payload: map[string]any{
 			"username": username,
 			"password": password,

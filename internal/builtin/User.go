@@ -152,3 +152,9 @@ func (n *User) handleAuthenticate(m *msg.Msg) (any, error) {
 
 	return n.Tag, nil
 }
+
+// GetState extends base state with user-specific values
+func (u *User) GetState(values []msg.ValuePair) []msg.ValuePair {
+	values = append(values, msg.ValuePair{Name: "password", Value: ""})
+	return values
+}

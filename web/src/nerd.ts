@@ -175,7 +175,7 @@ export async function Ask(
 
 // AskAuth sends an authentication message to the server
 export async function AskAuth(type: imsg, pl: any): Promise<any> {
-  if (type === imsg.CreateChild) {
+  if (type === imsg.ICreateChild) {
     pl = { nodeType: NodeType.User, name: pl.username, spec: pl }
   }
   const response = await fetch("/auth", {
@@ -193,7 +193,7 @@ export async function AskAuth(type: imsg, pl: any): Promise<any> {
 
 // AskGetTree fetches the tree structure from the server
 export async function AskGetTree(targetId: number): Promise<TreeEntry> {
-  return (await Ask(imsg.GetTree, targetId)) as TreeEntry
+  return (await Ask(imsg.IGetTree, targetId)) as TreeEntry
 }
 
 // AskRenameChild renames a child node
@@ -202,7 +202,12 @@ export async function AskRenameChild(
   oldName: string,
   newName: string,
 ): Promise<void> {
-  await Ask(imsg.RenameChild, parentId, { oldName, newName })
+  await Ask(imsg.IRenameChild, parentId, { oldName, newName })
+}
+
+// AskGetState fetches the state values from a node
+export async function AskGetState(targetId: number): Promise<any> {
+  return await Ask(imsg.IGetState, targetId)
 }
 
 // Create is a shorthand for document.createElement
