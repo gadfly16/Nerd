@@ -27,12 +27,16 @@ Nodes have their own message loops. Their memory is isolated. Their access to
 the tree is isolated. Nodes can't send messages directly to their ascendants,
 but they can communicate to nodes that are not in their _paths_.
 
-### Four Classes of Information
+### Three Classes of Information
 
-Nerd is dealing with four well defined classes of information. Topology is one
-of the four and it is handled on a per-instance basis. The three other classes
-are _status_, _config_ and _log_, which are handled on a per-node basis. These
-are called _node details_ together.
+Nerd is manages and presents three well defined classes of information.
+Topology, state and log. Topology is the shape of the tree. Parent child
+relations and node names are part of the topology information class. State is a
+set of named and typed values that describes the state of a node at a given time
+point. Logs are time-series data recorded over time.
+
+On the persistency layer everything is timestamped and old records never
+overwritten.
 
 ## Features
 
