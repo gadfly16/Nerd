@@ -103,7 +103,7 @@ class GUI extends nerd.Component {
     // Hide auth, show workbench
     this.auth.Hide()
     this.workbench.Show()
-    this.workbench.Populate()
+    this.workbench.Update()
   }
 }
 
@@ -167,8 +167,8 @@ class Workbench extends nerd.Component {
     this.footer = this.Query("nerd-footer") as Footer
   }
 
-  // Populate loads the tree and populates the board displays
-  async Populate() {
+  // Update loads the tree and updates the board displays
+  async Update() {
     try {
       // Fetch tree from server and initialize with parent pointers
       const targetId = nerd.Ctx.admin ? 1 : nerd.Ctx.userID
@@ -181,7 +181,7 @@ class Workbench extends nerd.Component {
 
       // Populate all boards with their configs
       for (let i = 0; i < this.boardElements.length; i++) {
-        this.boardElements[i].Populate(this, i)
+        this.boardElements[i].Update(this, i)
       }
 
       // Start auto-save timer
@@ -398,7 +398,7 @@ class Board extends nerd.Component {
   UpdateTopo() {
     for (const tree of this.vbranches) {
       const newTE = nerd.Registry.get(tree.cfg.rootID)!
-      tree.root.Populate(
+      tree.root.Update(
         tree,
         newTE,
         0,
@@ -459,7 +459,7 @@ class Board extends nerd.Component {
 
   // Populate displays all Vertigo trees for this board
   // Assumes board is already clear
-  Populate(workbench: Workbench, index: number) {
+  Update(workbench: Workbench, index: number) {
     this.workbench = workbench
     this.cfg = workbench.cfg.boards[index]
 
@@ -479,7 +479,7 @@ class Board extends nerd.Component {
     for (const branchCfg of this.cfg.branches) {
       const vtree = nerd.Create("v-branch") as vertigo.VBranch
       this.vbranchesContainer.appendChild(vtree)
-      vtree.Populate(this, branchCfg)
+      vtree.Update(this, branchCfg)
       this.vbranches.push(vtree)
     }
 

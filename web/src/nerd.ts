@@ -44,6 +44,44 @@ export function nodeTypeName(nt: number): string {
 // TreeRegistry is a global map of node ID to TreeEntry for fast lookups
 export const Registry = new Map<number, TreeEntry>()
 
+// Idea enum defines semantic meanings for values
+export enum Idea {
+  NodeId,
+  Secret,
+  LENGTH, // Number of ideas (must be last)
+}
+
+// Seal represents an idea with its multiplier and offset for value interpretation
+export class Seal {
+  idea: Idea // The semantic meaning
+  multiplier: number // Scaling factor for the value
+  offset: number // Offset to add to the value
+
+  constructor(idea: Idea, multiplier: number = 1, offset: number = 0) {
+    this.idea = idea
+    this.multiplier = multiplier
+    this.offset = offset
+  }
+}
+
+// Seals is a global registry mapping short string identifiers to Seal instances
+export const Seals = new Map<string, Seal>()
+
+// Register built-in seals
+Seals.set("#", new Seal(Idea.NodeId))
+Seals.set("secret", new Seal(Idea.Secret))
+
+// Ideas organizes seals by their idea for fast lookup
+export const Ideas: Seal[][] = Array.from(
+  { length: Idea.LENGTH },
+  () => [],
+)
+
+// Build Ideas from Seals map
+for (const seal of Seals.values()) {
+  Ideas[seal.idea].push(seal)
+}
+
 // TreeEntry represents a node and its children
 // Received as JSON from server, then initialized with parent pointers
 // Must match api/msg/types.go for nodeId field (mapped to id here)

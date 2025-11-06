@@ -38,8 +38,8 @@ export class VBranch extends nerd.Component {
   cfg!: config.Vertigo
   root!: VNode
 
-  // Populate displays the tree using Vertigo block layout
-  Populate(board: any, cfg: config.Vertigo): HTMLElement {
+  // Update displays the tree using Vertigo block layout
+  Update(board: any, cfg: config.Vertigo): HTMLElement {
     this.board = board
     this.cfg = cfg
 
@@ -55,10 +55,10 @@ export class VBranch extends nerd.Component {
       throw new Error(`TreeEntry with id ${cfg.rootID} not found in registry`)
     }
 
-    // Create root v-node, add to DOM, then populate
+    // Create root v-node, add to DOM, then update
     this.root = nerd.Create("v-node") as VNode
     this.appendChild(this.root)
-    this.root.Populate(this, te, 0, 0, nerd.Cause.Init)
+    this.root.Update(this, te, 0, 0, nerd.Cause.Init)
 
     // Set initial width
     this.updateWidth()
@@ -184,58 +184,58 @@ class VNode extends nerd.Component {
   te: nerd.TreeEntry = new nerd.TreeEntry(0, "", 0, [])
   depth!: number
   inheritedDispDepth!: number // Display depth inherited from parent
-  childVNodes = new Map<number, VNode>()
+  childrenMap = new Map<number, VNode>()
   sidebarNameWidth: number = 0 // Cached width of sidebar name text
   typeInfo!: TypeInfo // Reference to TypeInfo entry for this node's type
 
   // Cached DOM elements
-  open!: VOpen
-  header!: VHeader
-  headerNameElem!: HTMLInputElement
+  vopen!: VOpen
+  vheader!: VHeader
+  headerNameInput!: HTMLInputElement
   renameForm!: HTMLFormElement
-  stateIcon!: HTMLElement
-  sidebar!: VSidebar
-  detailsContainer!: HTMLElement
-  stateDetail!: VState
+  stateIconSpan!: HTMLSpanElement
+  vsidebar!: VSidebar
+  detailsDiv!: HTMLDivElement
+  vstate: VState | null = null
   childrenDetail!: HTMLElement
 
   connectedCallback() {
     this.innerHTML = VNode.html
-    this.open = this.Query("v-open")! as VOpen
-    this.header = this.Query("v-header")! as VHeader
-    this.renameForm = this.header.Query(".rename-form")! as HTMLFormElement
-    this.headerNameElem = this.header.Query(".name")! as HTMLInputElement
-    this.stateIcon = this.header.Query(".state-icon")! as HTMLElement
-    this.sidebar = this.Query("v-sidebar")! as VSidebar
-    this.detailsContainer = this.Query(".details")!
+    this.vopen = this.Query("v-open")!
+    this.vheader = this.Query("v-header")!
+    this.renameForm = this.vheader.Query(".rename-form")!
+    this.headerNameInput = this.vheader.Query(".name")!
+    this.stateIconSpan = this.vheader.Query(".state-icon")!
+    this.vsidebar = this.Query("v-sidebar")!
+    this.detailsDiv = this.Query(".details")!
     this.childrenDetail = this.Query(".children")!
 
     // Attach click handler once
-    this.open.onclick = (e) => this.openClickHandler(e)
+    this.vopen.onclick = (e) => this.openClickHandler(e)
 
     // Attach state icon click handler
-    this.stateIcon.onclick = (e) => this.toggleStateDetail(e)
+    this.stateIconSpan.onclick = (e) => this.toggleState(e)
 
     // Attach rename form submit handler
     this.renameForm.onsubmit = (e) => this.handleRenameSubmit(e)
   }
 
-  // Populate updates node state using diff algorithm
-  // Compares old tree state (this.te) with new tree state (newTE)
+  // Update updates node state using diff algorithm
+  // Compares old tree state (this.te) with new tree entry (nte)
   // and applies minimal DOM updates proportional to changes
-  Populate(
-    vtree: VBranch,
-    newTE: nerd.TreeEntry,
+  Update(
+    vbranch: VBranch,
+    nte: nerd.TreeEntry,
     depth: number,
     dispDepth: number,
     cause: nerd.Cause,
   ): void {
-    this.vtree = vtree
+    this.vtree = vbranch
     this.depth = depth
     this.inheritedDispDepth = dispDepth
 
     // Update type info if needed (lazy measure)
-    this.typeInfo = TypeInfos.get(newTE.nodeType)!
+    this.typeInfo = TypeInfos.get(nte.nodeType)!
     if (this.typeInfo.size === 0) {
       this.typeInfo.size = this.vtree.board.ctx.measureText(
         this.typeInfo.name,
@@ -246,21 +246,21 @@ class VNode extends nerd.Component {
     this.style.setProperty("--base-hue", this.typeInfo.hue.toString())
 
     // Update name if changed
-    if (this.te.name !== newTE.name) {
-      this.setName(newTE.name)
+    if (this.te.name !== nte.name) {
+      this.setName(nte.name)
     }
 
     // Update icon based on openMap state
-    const ome = this.vtree.cfg.openMap[newTE.id]
+    const ome = this.vtree.cfg.openMap[nte.id]
     if (ome !== undefined && ome.open && ome.depth > 0 && ome.depth <= 9) {
       // Explicit depth 1-9
-      this.open.textContent = String.fromCharCode(0x2460 + ome.depth - 1)
+      this.vopen.textContent = String.fromCharCode(0x2460 + ome.depth - 1)
     } else if (ome !== undefined && ome.open && ome.depth === -1) {
       // Infinite depth
-      this.open.textContent = "Ⓘ" // Circled I for infinite
+      this.vopen.textContent = "Ⓘ" // Circled I for infinite
     } else {
       // Neutral or explicitly closed
-      this.open.textContent = this.isOpen(newTE.id) ? "◯" : "●"
+      this.vopen.textContent = this.isOpen(nte.id) ? "◯" : "●"
     }
 
     // Handle animations based on cause
@@ -291,35 +291,35 @@ class VNode extends nerd.Component {
       )
       // Don't process children or update state for deleted nodes
       return
-    } else if (cause === nerd.Cause.Match && this.te.name !== newTE.name) {
+    } else if (cause === nerd.Cause.Match && this.te.name !== nte.name) {
       // Rename animation
-      this.headerNameElem.classList.add("anim-rename")
-      this.headerNameElem.addEventListener(
+      this.headerNameInput.classList.add("anim-rename")
+      this.headerNameInput.addEventListener(
         "animationend",
-        () => this.headerNameElem.classList.remove("anim-rename"),
+        () => this.headerNameInput.classList.remove("anim-rename"),
         { once: true },
       )
     }
 
     // Sort new children by ID in place (this.te.children already sorted from previous pass)
-    newTE.children.sort((a, b) => a.id - b.id)
+    nte.children.sort((a, b) => a.id - b.id)
 
-    // Only process children if open
-    if (!this.isOpen(newTE.id)) {
-      if (this.childVNodes.size > 0) {
-        this.clearChildren()
+    // Only process children if open and destroy them if not
+    if (!this.isOpen(nte.id)) {
+      if (this.childrenMap.size > 0) {
+        this.destroyChildren()
       }
-      this.te = newTE // Replace old with new
+      this.te = nte // Replace old with new
       return
     }
 
-    const childDispDepth = this.childrenDepth(newTE.id)
+    const childDispDepth = this.childrenDepth(nte.id)
     let oldIdx = 0
     let newIdx = 0
 
     // Diff algorithm - process new children
-    while (newIdx < newTE.children.length) {
-      const nch = newTE.children[newIdx]
+    while (newIdx < nte.children.length) {
+      const nch = nte.children[newIdx]
       const och =
         oldIdx < this.te.children.length ? this.te.children[oldIdx] : null
 
@@ -327,19 +327,19 @@ class VNode extends nerd.Component {
         // NEW - either no more old children, or nch not in old array
         const childNode = nerd.Create("v-node") as VNode
         this.childrenDetail.appendChild(childNode)
-        this.childVNodes.set(nch.id, childNode)
+        this.childrenMap.set(nch.id, childNode)
         // Propagate Init cause, otherwise Create
         const childCause =
           cause === nerd.Cause.Init ? nerd.Cause.Init : nerd.Cause.Create
-        childNode.Populate(vtree, nch, depth + 1, childDispDepth, childCause)
+        childNode.Update(vbranch, nch, depth + 1, childDispDepth, childCause)
         newIdx++
       } else if (nch.id === och.id) {
         // MATCH - check if VNode exists in DOM
-        const vnode = this.childVNodes.get(nch.id)
+        const vnode = this.childrenMap.get(nch.id)
         if (vnode) {
           // VNode exists - update it
-          vnode.Populate(
-            vtree,
+          vnode.Update(
+            vbranch,
             nch,
             depth + 1,
             childDispDepth,
@@ -349,9 +349,9 @@ class VNode extends nerd.Component {
           // VNode doesn't exist (was closed) - recreate it as Init
           const childNode = nerd.Create("v-node") as VNode
           this.childrenDetail.appendChild(childNode)
-          this.childVNodes.set(nch.id, childNode)
-          childNode.Populate(
-            vtree,
+          this.childrenMap.set(nch.id, childNode)
+          childNode.Update(
+            vbranch,
             nch,
             depth + 1,
             childDispDepth,
@@ -362,16 +362,16 @@ class VNode extends nerd.Component {
         oldIdx++
       } else {
         // DELETED - och not in new array (nch.id > och.id)
-        const vnode = this.childVNodes.get(och.id)
+        const vnode = this.childrenMap.get(och.id)
         if (vnode) {
-          vnode.Populate(
-            vtree,
+          vnode.Update(
+            vbranch,
             och,
             depth + 1,
             childDispDepth,
             nerd.Cause.Delete,
           )
-          this.childVNodes.delete(och.id)
+          this.childrenMap.delete(och.id)
         }
         oldIdx++
       }
@@ -380,16 +380,16 @@ class VNode extends nerd.Component {
     // Handle remaining old children (all deleted)
     while (oldIdx < this.te.children.length) {
       const och = this.te.children[oldIdx]
-      const vnode = this.childVNodes.get(och.id)
+      const vnode = this.childrenMap.get(och.id)
       if (vnode) {
-        vnode.Populate(vtree, och, depth + 1, childDispDepth, nerd.Cause.Delete)
-        this.childVNodes.delete(och.id)
+        vnode.Update(vbranch, och, depth + 1, childDispDepth, nerd.Cause.Delete)
+        this.childrenMap.delete(och.id)
       }
       oldIdx++
     }
 
     // Replace old with new after processing complete
-    this.te = newTE
+    this.te = nte
   }
 
   // isOpen determines if this node should display its children
@@ -512,7 +512,7 @@ class VNode extends nerd.Component {
     }
 
     // Re-populate from this node down
-    this.Populate(
+    this.Update(
       this.vtree,
       this.te,
       this.depth,
@@ -527,20 +527,18 @@ class VNode extends nerd.Component {
 
   // setName updates the node name and measures its width for canvas rendering
   private setName(name: string) {
-    this.headerNameElem.value = name
+    this.headerNameInput.value = name
     this.sidebarNameWidth = this.vtree.board.ctx.measureText(name).width
   }
 
-  // toggleStateDetail creates or destroys the state detail element
-  private toggleStateDetail(e: Event) {
+  // toggleState creates or destroys the state detail element
+  private toggleState(e: Event) {
     e.preventDefault()
-    if (this.stateDetail) {
-      this.stateDetail.remove()
-      this.stateDetail = null as any
+    if (this.vstate) {
+      this.vstate.remove()
     } else {
-      this.stateDetail = nerd.Create("v-state") as VState
-      this.detailsContainer.insertBefore(this.stateDetail, this.childrenDetail)
-      this.stateDetail.Populate(this)
+      VState.Fresh(this.detailsDiv)
+      this.vstate!.Update()
     }
   }
 
@@ -548,12 +546,12 @@ class VNode extends nerd.Component {
   private async handleRenameSubmit(e: Event) {
     e.preventDefault()
 
-    const newName = this.headerNameElem.value.trim()
+    const newName = this.headerNameInput.value.trim()
     const oldName = this.te.name
 
     // Check if name actually changed
     if (!newName || newName === oldName) {
-      this.headerNameElem.blur()
+      this.headerNameInput.blur()
       return
     }
 
@@ -563,7 +561,7 @@ class VNode extends nerd.Component {
     try {
       await nerd.AskRenameChild(parentId, oldName, newName)
       nerd.Log(nerd.Status.OK, `Renamed "${oldName}" to "${newName}"`)
-      this.headerNameElem.blur()
+      this.headerNameInput.blur()
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Rename failed"
       nerd.Log(nerd.Status.Error, msg)
@@ -576,16 +574,16 @@ class VNode extends nerd.Component {
     for (const child of this.te.children) {
       const childNode = nerd.Create("v-node") as VNode
       this.childrenDetail.appendChild(childNode)
-      this.childVNodes.set(child.id, childNode)
+      this.childrenMap.set(child.id, childNode)
     }
   }
 
   // clearChildren removes all child nodes
-  private clearChildren() {
-    for (const child of this.childVNodes.values()) {
+  private destroyChildren() {
+    for (const child of this.childrenMap.values()) {
       child.remove()
     }
-    this.childVNodes.clear()
+    this.childrenMap.clear()
   }
 
   // displayDepth recursively finds the maximum depth of open nodes from this node
@@ -593,8 +591,8 @@ class VNode extends nerd.Component {
     let maxDepth = this.depth
 
     // If we have rendered children, check their depths
-    if (this.childVNodes.size > 0) {
-      for (const child of this.childVNodes.values()) {
+    if (this.childrenMap.size > 0) {
+      for (const child of this.childrenMap.values()) {
         const childMaxDepth = child.displayDepth()
         maxDepth = Math.max(maxDepth, childMaxDepth)
       }
@@ -615,7 +613,7 @@ class VNode extends nerd.Component {
     }
 
     // Get sidebar bounding box (viewport coordinates)
-    const sb = this.sidebar.bbox()
+    const sb = this.vsidebar.bbox()
     const typeRoom = this.typeInfo.size + 2 * SIDEBAR_GAP
     const nameRoom = this.sidebarNameWidth + 2 * SIDEBAR_GAP
     const effNameRoom = sb.height >= typeRoom + nameRoom ? nameRoom : 0
@@ -663,7 +661,7 @@ class VNode extends nerd.Component {
     }
 
     // Recursively update children
-    for (const child of this.childVNodes.values()) {
+    for (const child of this.childrenMap.values()) {
       if (!child.UpdateOverlay()) break
     }
 
@@ -689,7 +687,7 @@ class VOpen extends nerd.Component {
 	`
 }
 
-// Sidebar is the visual bar that extends below the open icon when node has children
+// Sidebar is the visual bar that extends below the open icon when node has details
 class VSidebar extends nerd.Component {
   static style = `
 		v-sidebar {
@@ -701,7 +699,7 @@ class VSidebar extends nerd.Component {
 	`
 }
 
-// VValue displays a non-editable value
+// VValue displays a value
 class VValue extends nerd.Component {
   static style = `
 		v-value {
@@ -709,29 +707,61 @@ class VValue extends nerd.Component {
 		}
 	`
 
-  static html = `
-		<span class="value-name"></span>
-		<span class="value-value"></span>
-		<span class="value-idea"></span>
-	`
+  static html = `<span class="value-name"></span> <span class="value-value"></span>`
+
+  static Fresh(p: HTMLElement): VValue {
+    const element = document.createElement("v-value") as VValue
+    p.appendChild(element)
+    return element
+  }
 
   nameSpan!: HTMLSpanElement
   valueSpan!: HTMLSpanElement
-  ideaSpan!: HTMLSpanElement
+  sealSpan: HTMLSpanElement | null = null
+  dispSeal!: nerd.Seal
+  parm!: boolean
+  fresh = true
 
   connectedCallback() {
     this.innerHTML = VValue.html
     this.nameSpan = this.Query(".value-name")! as HTMLSpanElement
     this.valueSpan = this.Query(".value-value")! as HTMLSpanElement
-    this.ideaSpan = this.Query(".value-idea")! as HTMLSpanElement
   }
 
-  Populate(value?: any) {
-    const name = this.getAttribute("name")
-    this.nameSpan.textContent = name ? `${name}:` : ""
+  Update(value: any) {
+    if (this.fresh) {
+      const name = this.getAttribute("name")!
+      this.nameSpan.textContent = `${name}:`
 
-    // Update value if provided
-    if (value !== undefined) {
+      // Get display seal from seal attribute
+      const seal = this.getAttribute("seal")!
+      this.dispSeal = nerd.Seals.get(seal)!
+
+      // Only add sealSpan if not a secret
+      if (seal !== "secret") {
+        this.sealSpan = document.createElement("span")
+        this.appendChild(this.sealSpan)
+        this.sealSpan.textContent = seal
+      }
+
+      // Check if this is an editable parameter
+      this.parm = this.hasAttribute("parm")
+
+      // Underline value and seal if it's a parameter
+      if (this.parm) {
+        this.valueSpan.style.textDecoration = "underline"
+        if (this.sealSpan) {
+          this.sealSpan.style.textDecoration = "underline"
+        }
+      }
+
+      this.fresh = false
+    }
+
+    // Update value
+    if (this.dispSeal.idea === nerd.Idea.Secret) {
+      this.valueSpan.textContent = "••••"
+    } else {
       this.valueSpan.textContent = String(value)
     }
   }
@@ -742,7 +772,7 @@ class VState extends nerd.Component {
   static style = `
 		v-state {
 			display: none;
-			padding-top: ${NAME_PADDING * 0.5}px;
+			padding-top: ${NAME_PADDING * 0.75}px;
 			padding-bottom: ${NAME_PADDING * 0.75}px;
 			padding-left: ${NAME_PADDING * 3}px;
 			border-right: ${1.5 * G}px solid hsl(var(--base-hue), 20%, 38%);
@@ -757,26 +787,42 @@ class VState extends nerd.Component {
 		v-state legend {
 			margin-left: ${NAME_PADDING * -2}px;
 			color: hsl(var(--base-hue), 5%, 65%);
+			font-size: 0.85em;
 		}
 	`
 
   static html = `
 		<fieldset>
 			<legend>System</legend>
-			<v-value name="id" idea="#"></v-value>
+			<v-value name="id" seal="#"></v-value>
 		</fieldset>
 	`
+
+  static Fresh(p: HTMLElement): VState {
+    const element = document.createElement("v-state") as VState
+    p.prepend(element)
+    return element
+  }
 
   vnode!: VNode
   valueRegistry = new Map<string, VValue>()
   fresh = true
 
-  async Populate(vnode: VNode) {
-    this.vnode = vnode
+  connectedCallback() {
+    // Query DOM for parent VNode and cache reference in parent
+    this.vnode = this.closest("v-node") as VNode
+    this.vnode.vstate = this
+  }
 
+  disconnectedCallback() {
+    // Clear parent's reference to this state detail
+    this.vnode.vstate = null as any
+  }
+
+  async Update() {
     if (this.fresh) {
       // Build HTML: static system part + node-specific values
-      const nodeTypeHTML = vnode.typeInfo.values || ""
+      const nodeTypeHTML = this.vnode.typeInfo.values || ""
       this.innerHTML = VState.html + nodeTypeHTML
 
       // Query all v-value elements and register them by name
@@ -791,13 +837,13 @@ class VState extends nerd.Component {
     }
 
     // Fetch state from server (array format: [[name, value], ...])
-    const state = await nerd.AskGetState(vnode.te.id)
+    const state = await nerd.AskGetState(this.vnode.te.id)
 
-    // Populate values by looking up names in registry
+    // Update values by looking up names in registry
     for (const [name, value] of state) {
       const vvalue = this.valueRegistry.get(name)
       if (vvalue) {
-        vvalue.Populate(value)
+        vvalue.Update(value)
       }
     }
 
@@ -879,9 +925,9 @@ TypeInfos.set(nerd.NodeType.User, {
   values: `
     <fieldset>
       <legend>User</legend>
-      <v-value name="password" idea="string"></v-value>
+      <v-value name="password" seal="secret" parm></v-value>
     </fieldset>
-  `
+  `,
 })
 TypeInfos.set(nerd.NodeType.GUI, { name: "GUI", size: 0, hue: 280 })
 TypeInfos.set(nerd.NodeType.TopoUpdater, {
