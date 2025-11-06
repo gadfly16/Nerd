@@ -399,7 +399,6 @@ class Board extends nerd.Component {
     for (const tree of this.vbranches) {
       const newTE = nerd.Registry.get(tree.cfg.rootID)!
       tree.root.Update(
-        tree,
         newTE,
         0,
         tree.root.inheritedDispDepth,

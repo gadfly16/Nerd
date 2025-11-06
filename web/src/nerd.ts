@@ -91,6 +91,7 @@ export class TreeEntry {
   nodeType: number
   children: TreeEntry[]
   parent: TreeEntry | null = null
+  depth: number = 0
 
   constructor(
     id: number,
@@ -109,6 +110,7 @@ export class TreeEntry {
   static init(obj: any, parent: TreeEntry | null = null): TreeEntry {
     const entry = new TreeEntry(obj.nodeId, obj.name, obj.nodeType, [])
     entry.parent = parent
+    entry.depth = parent ? parent.depth + 1 : 0
 
     // Register in global map
     Registry.set(entry.id, entry)

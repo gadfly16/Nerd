@@ -1,9 +1,11 @@
-# Nerd - A Personal Microservice Platform
+# Nerd - A Principled Microservice Platform
 
 Nerd is an experimental microservice architecture under development. It aims to
 provide means for its users to define microservices that run as goroutines
-instead of OS processes. By following some simple rules the user can enjoy good
-performance, high reliability and a comrehensive GUI for managing the instance.
+instead of OS processes. Nerd is designed to use computing resources
+proportional to the complexity of the task that it solves. This design principle
+is carried throughout the system and is true for processing, memory and
+networking resources.
 
 ## The Base Idea
 

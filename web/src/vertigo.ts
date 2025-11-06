@@ -58,7 +58,7 @@ export class VBranch extends nerd.Component {
     // Create root v-node, add to DOM, then update
     this.root = nerd.Create("v-node") as VNode
     this.appendChild(this.root)
-    this.root.Update(this, te, 0, 0, nerd.Cause.Init)
+    this.root.Update(te, 0, 0, nerd.Cause.Init)
 
     // Set initial width
     this.updateWidth()
@@ -174,17 +174,16 @@ class VNode extends nerd.Component {
 				</form>
 				<span class="state-icon">⬒</span>
 			</v-header>
-			<div class="details">
-				<div class="children"></div>
-			</div>
+			<div class="details"></div>
 		</div>
 	`
 
-  vtree!: VBranch
+  parent: VNode | null = null
+  vbranch!: VBranch
   te: nerd.TreeEntry = new nerd.TreeEntry(0, "", 0, [])
+  oldte: nerd.TreeEntry = new nerd.TreeEntry(0, "", 0, [])
   depth!: number
   inheritedDispDepth!: number // Display depth inherited from parent
-  childrenMap = new Map<number, VNode>()
   sidebarNameWidth: number = 0 // Cached width of sidebar name text
   typeInfo!: TypeInfo // Reference to TypeInfo entry for this node's type
 
@@ -197,7 +196,7 @@ class VNode extends nerd.Component {
   vsidebar!: VSidebar
   detailsDiv!: HTMLDivElement
   vstate: VState | null = null
-  childrenDetail!: HTMLElement
+  vchildren: VChildren | null = null
 
   connectedCallback() {
     this.innerHTML = VNode.html
@@ -208,7 +207,15 @@ class VNode extends nerd.Component {
     this.stateIconSpan = this.vheader.Query(".state-icon")!
     this.vsidebar = this.Query("v-sidebar")!
     this.detailsDiv = this.Query(".details")!
-    this.childrenDetail = this.Query(".children")!
+
+    // Query for parent VNode or VBranch
+    // closest() includes self, so use parentElement to start search from parent
+    this.parent = this.parentElement!.closest("v-node") as VNode | null
+    if (this.parent) {
+      this.vbranch = this.parent.vbranch
+    } else {
+      this.vbranch = this.closest("v-branch") as VBranch
+    }
 
     // Attach click handler once
     this.vopen.onclick = (e) => this.openClickHandler(e)
@@ -221,23 +228,25 @@ class VNode extends nerd.Component {
   }
 
   // Update updates node state using diff algorithm
-  // Compares old tree state (this.te) with new tree entry (nte)
+  // Compares old tree state (this.oldte) with new tree entry (this.te)
   // and applies minimal DOM updates proportional to changes
   Update(
-    vbranch: VBranch,
     nte: nerd.TreeEntry,
     depth: number,
     dispDepth: number,
     cause: nerd.Cause,
   ): void {
-    this.vtree = vbranch
+    // Store old state and immediately update current state
+    this.oldte = this.te
+    this.te = nte
+
     this.depth = depth
     this.inheritedDispDepth = dispDepth
 
     // Update type info if needed (lazy measure)
-    this.typeInfo = TypeInfos.get(nte.nodeType)!
+    this.typeInfo = TypeInfos.get(this.te.nodeType)!
     if (this.typeInfo.size === 0) {
-      this.typeInfo.size = this.vtree.board.ctx.measureText(
+      this.typeInfo.size = this.vbranch.board.ctx.measureText(
         this.typeInfo.name,
       ).width
     }
@@ -246,27 +255,25 @@ class VNode extends nerd.Component {
     this.style.setProperty("--base-hue", this.typeInfo.hue.toString())
 
     // Update name if changed
-    if (this.te.name !== nte.name) {
-      this.setName(nte.name)
+    if (this.oldte.name !== this.te.name) {
+      this.setName(this.te.name)
     }
 
     // Update icon based on openMap state
-    const ome = this.vtree.cfg.openMap[nte.id]
+    const ome = this.vbranch.cfg.openMap[this.te.id]
     if (ome !== undefined && ome.open && ome.depth > 0 && ome.depth <= 9) {
       // Explicit depth 1-9
       this.vopen.textContent = String.fromCharCode(0x2460 + ome.depth - 1)
     } else if (ome !== undefined && ome.open && ome.depth === -1) {
       // Infinite depth
-      this.vopen.textContent = "Ⓘ" // Circled I for infinite
+      this.vopen.textContent = "\uE139" // Private Use Area character for infinite
     } else {
       // Neutral or explicitly closed
-      this.vopen.textContent = this.isOpen(nte.id) ? "◯" : "●"
+      this.vopen.textContent = this.isOpen(this.te.id) ? "◯" : "●"
     }
 
-    // Handle animations based on cause
-    if (cause === nerd.Cause.Init) {
-      // No animation on initial population
-    } else if (cause === nerd.Cause.Create) {
+    // Handle animations based on cause, deafult is no anim (init)
+    if (cause === nerd.Cause.Create) {
       // Measure natural height and set CSS variable
       const measuredHeight = this.scrollHeight
       this.style.setProperty("--measured-height", `${measuredHeight}px`)
@@ -291,7 +298,7 @@ class VNode extends nerd.Component {
       )
       // Don't process children or update state for deleted nodes
       return
-    } else if (cause === nerd.Cause.Match && this.te.name !== nte.name) {
+    } else if (cause === nerd.Cause.Match && this.oldte.name !== this.te.name) {
       // Rename animation
       this.headerNameInput.classList.add("anim-rename")
       this.headerNameInput.addEventListener(
@@ -301,100 +308,25 @@ class VNode extends nerd.Component {
       )
     }
 
-    // Sort new children by ID in place (this.te.children already sorted from previous pass)
-    nte.children.sort((a, b) => a.id - b.id)
-
     // Only process children if open and destroy them if not
-    if (!this.isOpen(nte.id)) {
-      if (this.childrenMap.size > 0) {
-        this.destroyChildren()
+    if (!this.isOpen(this.te.id)) {
+      if (this.vchildren) {
+        this.vchildren.remove()
       }
-      this.te = nte // Replace old with new
       return
     }
 
-    const childDispDepth = this.childrenDepth(nte.id)
-    let oldIdx = 0
-    let newIdx = 0
-
-    // Diff algorithm - process new children
-    while (newIdx < nte.children.length) {
-      const nch = nte.children[newIdx]
-      const och =
-        oldIdx < this.te.children.length ? this.te.children[oldIdx] : null
-
-      if (!och || nch.id < och.id) {
-        // NEW - either no more old children, or nch not in old array
-        const childNode = nerd.Create("v-node") as VNode
-        this.childrenDetail.appendChild(childNode)
-        this.childrenMap.set(nch.id, childNode)
-        // Propagate Init cause, otherwise Create
-        const childCause =
-          cause === nerd.Cause.Init ? nerd.Cause.Init : nerd.Cause.Create
-        childNode.Update(vbranch, nch, depth + 1, childDispDepth, childCause)
-        newIdx++
-      } else if (nch.id === och.id) {
-        // MATCH - check if VNode exists in DOM
-        const vnode = this.childrenMap.get(nch.id)
-        if (vnode) {
-          // VNode exists - update it
-          vnode.Update(
-            vbranch,
-            nch,
-            depth + 1,
-            childDispDepth,
-            nerd.Cause.Match,
-          )
-        } else {
-          // VNode doesn't exist (was closed) - recreate it as Init
-          const childNode = nerd.Create("v-node") as VNode
-          this.childrenDetail.appendChild(childNode)
-          this.childrenMap.set(nch.id, childNode)
-          childNode.Update(
-            vbranch,
-            nch,
-            depth + 1,
-            childDispDepth,
-            nerd.Cause.Init,
-          )
-        }
-        newIdx++
-        oldIdx++
-      } else {
-        // DELETED - och not in new array (nch.id > och.id)
-        const vnode = this.childrenMap.get(och.id)
-        if (vnode) {
-          vnode.Update(
-            vbranch,
-            och,
-            depth + 1,
-            childDispDepth,
-            nerd.Cause.Delete,
-          )
-          this.childrenMap.delete(och.id)
-        }
-        oldIdx++
-      }
+    // Node is open - ensure VChildren exists and update it
+    const childDispDepth = this.childrenDepth(this.te.id)
+    if (!this.vchildren) {
+      VChildren.Fresh(this.detailsDiv)
     }
-
-    // Handle remaining old children (all deleted)
-    while (oldIdx < this.te.children.length) {
-      const och = this.te.children[oldIdx]
-      const vnode = this.childrenMap.get(och.id)
-      if (vnode) {
-        vnode.Update(vbranch, och, depth + 1, childDispDepth, nerd.Cause.Delete)
-        this.childrenMap.delete(och.id)
-      }
-      oldIdx++
-    }
-
-    // Replace old with new after processing complete
-    this.te = nte
+    this.vchildren!.Update(depth, childDispDepth, cause)
   }
 
   // isOpen determines if this node should display its children
   private isOpen(nodeId: number): boolean {
-    const ome = this.vtree.cfg.openMap[nodeId]
+    const ome = this.vbranch.cfg.openMap[nodeId]
 
     if (ome === undefined) {
       // Neutral node - open if inheritedDispDepth allows it
@@ -408,7 +340,7 @@ class VNode extends nerd.Component {
   // childrenDepth calculates the depth value to pass to children
   // Only call this when isOpen() returns true
   private childrenDepth(nodeId: number): number {
-    const ome = this.vtree.cfg.openMap[nodeId]
+    const ome = this.vbranch.cfg.openMap[nodeId]
 
     let myDepth: number
     if (ome === undefined) {
@@ -432,18 +364,18 @@ class VNode extends nerd.Component {
 
   // openClickHandler handles all clicks on open icon based on modifier keys
   private openClickHandler(e: MouseEvent) {
-    const ome = this.vtree.cfg.openMap[this.te.id]
+    const ome = this.vbranch.cfg.openMap[this.te.id]
 
     if (e.shiftKey && e.ctrlKey) {
       // Ctrl+Shift: Toggle infinite depth
       if (ome === undefined) {
         // Neutral node - set to infinite
-        this.vtree.cfg.openMap[this.te.id] = { open: true, depth: -1 }
+        this.vbranch.cfg.openMap[this.te.id] = { open: true, depth: -1 }
       } else if (ome.depth === -1) {
         // Currently infinite - make neutral
         if (ome.open) {
           // Open infinite -> neutral open (delete entry)
-          delete this.vtree.cfg.openMap[this.te.id]
+          delete this.vbranch.cfg.openMap[this.te.id]
         } else {
           // Closed infinite -> neutral closed
           ome.depth = 0
@@ -457,7 +389,7 @@ class VNode extends nerd.Component {
       // Shift: Increment explicit depth
       if (ome === undefined) {
         // Neutral node - add explicit depth 1
-        this.vtree.cfg.openMap[this.te.id] = { open: true, depth: 1 }
+        this.vbranch.cfg.openMap[this.te.id] = { open: true, depth: 1 }
       } else if (ome.depth >= 1 && ome.depth < 9) {
         // Has explicit depth 1-8 - increment it
         ome.depth++
@@ -480,7 +412,7 @@ class VNode extends nerd.Component {
 
       if (ome.open) {
         // Currently open - remove from openMap (becomes neutral)
-        delete this.vtree.cfg.openMap[this.te.id]
+        delete this.vbranch.cfg.openMap[this.te.id]
       } else {
         // Currently closed - set depth to 0 (neutral when closed)
         ome.depth = 0
@@ -491,10 +423,10 @@ class VNode extends nerd.Component {
         // Neutral node - check if currently open or closed
         if (this.inheritedDispDepth === 0) {
           // Currently closed - open it with explicit depth 1
-          this.vtree.cfg.openMap[this.te.id] = { open: true, depth: 1 }
+          this.vbranch.cfg.openMap[this.te.id] = { open: true, depth: 1 }
         } else {
           // Currently open - close it explicitly
-          this.vtree.cfg.openMap[this.te.id] = { open: false, depth: 0 }
+          this.vbranch.cfg.openMap[this.te.id] = { open: false, depth: 0 }
         }
       } else if (ome.open) {
         // Currently open - close it (preserve depth)
@@ -503,7 +435,7 @@ class VNode extends nerd.Component {
         // Currently closed - reopen it
         if (ome.depth === 0) {
           // Was neutral before closing - delete entry to restore neutral state
-          delete this.vtree.cfg.openMap[this.te.id]
+          delete this.vbranch.cfg.openMap[this.te.id]
         } else {
           // Has depth preference - restore to open state
           ome.open = true
@@ -513,7 +445,6 @@ class VNode extends nerd.Component {
 
     // Re-populate from this node down
     this.Update(
-      this.vtree,
       this.te,
       this.depth,
       this.inheritedDispDepth,
@@ -521,14 +452,14 @@ class VNode extends nerd.Component {
     )
 
     // Update tree width and overlay
-    this.vtree.updateWidth()
-    this.vtree.board.updateOverlay()
+    this.vbranch.updateWidth()
+    this.vbranch.board.updateOverlay()
   }
 
   // setName updates the node name and measures its width for canvas rendering
   private setName(name: string) {
     this.headerNameInput.value = name
-    this.sidebarNameWidth = this.vtree.board.ctx.measureText(name).width
+    this.sidebarNameWidth = this.vbranch.board.ctx.measureText(name).width
   }
 
   // toggleState creates or destroys the state detail element
@@ -569,42 +500,18 @@ class VNode extends nerd.Component {
     }
   }
 
-  // createChildren creates child VNode elements and adds them to DOM (assumes container is empty)
-  private createChildren() {
-    for (const child of this.te.children) {
-      const childNode = nerd.Create("v-node") as VNode
-      this.childrenDetail.appendChild(childNode)
-      this.childrenMap.set(child.id, childNode)
-    }
-  }
-
-  // clearChildren removes all child nodes
-  private destroyChildren() {
-    for (const child of this.childrenMap.values()) {
-      child.remove()
-    }
-    this.childrenMap.clear()
-  }
-
   // displayDepth recursively finds the maximum depth of open nodes from this node
   displayDepth(): number {
-    let maxDepth = this.depth
-
-    // If we have rendered children, check their depths
-    if (this.childrenMap.size > 0) {
-      for (const child of this.childrenMap.values()) {
-        const childMaxDepth = child.displayDepth()
-        maxDepth = Math.max(maxDepth, childMaxDepth)
-      }
+    if (this.vchildren) {
+      return this.vchildren.displayDepth(this.depth)
     }
-
-    return maxDepth
+    return this.depth
   }
 
   // UpdateOverlay draws this node's overlay elements (type and name) to canvas
   // Returns false if node is below viewport (signals caller to stop iterating siblings)
   UpdateOverlay(): boolean {
-    const vp = this.vtree.board.viewport
+    const vp = this.vbranch.board.viewport
     const bb = this.bbox()
 
     if (!bb.In(vp)) {
@@ -618,7 +525,7 @@ class VNode extends nerd.Component {
     const nameRoom = this.sidebarNameWidth + 2 * SIDEBAR_GAP
     const effNameRoom = sb.height >= typeRoom + nameRoom ? nameRoom : 0
 
-    const ctx = this.vtree.board.ctx
+    const ctx = this.vbranch.board.ctx
     ctx.fillStyle = "#bbbb"
     ctx.textBaseline = "middle"
 
@@ -661,8 +568,8 @@ class VNode extends nerd.Component {
     }
 
     // Recursively update children
-    for (const child of this.childrenMap.values()) {
-      if (!child.UpdateOverlay()) break
+    if (this.vchildren) {
+      return this.vchildren.UpdateOverlay()
     }
 
     return true
@@ -697,6 +604,126 @@ class VSidebar extends nerd.Component {
 			background-color: hsl(var(--base-hue), 20%, 35%);
 		}
 	`
+}
+
+// VChildren displays child VNode elements
+class VChildren extends nerd.Component {
+  static style = `
+		v-children {
+			display: block;
+		}
+	`
+
+  static Fresh(p: HTMLElement): VChildren {
+    const element = document.createElement("v-children") as VChildren
+    p.appendChild(element)
+    return element
+  }
+
+  vnode!: VNode
+  childrenMap = new Map<number, VNode>()
+
+  connectedCallback() {
+    // Query DOM for parent VNode and cache reference in parent
+    this.vnode = this.closest("v-node") as VNode
+    this.vnode.vchildren = this
+  }
+
+  disconnectedCallback() {
+    // Clear parent's reference to this children container
+    this.vnode.vchildren = null as any
+  }
+
+  Update(
+    depth: number,
+    childDispDepth: number,
+    cause: nerd.Cause,
+  ) {
+    // Sort new children by ID in place
+    this.vnode.te.children.sort((a, b) => a.id - b.id)
+
+    let oldIdx = 0
+    let newIdx = 0
+
+    // Diff algorithm - process new children
+    while (newIdx < this.vnode.te.children.length) {
+      const nch = this.vnode.te.children[newIdx]
+      const och =
+        oldIdx < this.vnode.oldte.children.length
+          ? this.vnode.oldte.children[oldIdx]
+          : null
+
+      if (!och || nch.id < och.id) {
+        // NEW - either no more old children, or nch not in old array
+        const childNode = nerd.Create("v-node") as VNode
+        this.appendChild(childNode)
+        this.childrenMap.set(nch.id, childNode)
+        // Propagate Init cause, otherwise Create
+        const childCause =
+          cause === nerd.Cause.Init ? nerd.Cause.Init : nerd.Cause.Create
+        childNode.Update(nch, depth + 1, childDispDepth, childCause)
+        newIdx++
+      } else if (nch.id === och.id) {
+        // MATCH - check if VNode exists in DOM
+        const vnode = this.childrenMap.get(nch.id)
+        if (vnode) {
+          // VNode exists - update it
+          vnode.Update(nch, depth + 1, childDispDepth, nerd.Cause.Match)
+        } else {
+          // VNode doesn't exist (was closed) - recreate it as Init
+          const childNode = nerd.Create("v-node") as VNode
+          this.appendChild(childNode)
+          this.childrenMap.set(nch.id, childNode)
+          childNode.Update(
+            nch,
+            depth + 1,
+            childDispDepth,
+            nerd.Cause.Init,
+          )
+        }
+        newIdx++
+        oldIdx++
+      } else {
+        // DELETED - och not in new array (nch.id > och.id)
+        const vnode = this.childrenMap.get(och.id)
+        if (vnode) {
+          vnode.Update(och, depth + 1, childDispDepth, nerd.Cause.Delete)
+          this.childrenMap.delete(och.id)
+        }
+        oldIdx++
+      }
+    }
+
+    // Handle remaining old children (all deleted)
+    while (oldIdx < this.vnode.oldte.children.length) {
+      const och = this.vnode.oldte.children[oldIdx]
+      const vnode = this.childrenMap.get(och.id)
+      if (vnode) {
+        vnode.Update(och, depth + 1, childDispDepth, nerd.Cause.Delete)
+        this.childrenMap.delete(och.id)
+      }
+      oldIdx++
+    }
+  }
+
+  UpdateOverlay(): boolean {
+    for (const child of this.childrenMap.values()) {
+      if (!child.UpdateOverlay()) return false
+    }
+    return true
+  }
+
+  // displayDepth recursively finds the maximum depth of open children
+  displayDepth(baseDepth: number): number {
+    let maxDepth = baseDepth
+
+    for (const child of this.childrenMap.values()) {
+      const childMaxDepth = child.displayDepth()
+      maxDepth = Math.max(maxDepth, childMaxDepth)
+    }
+
+    return maxDepth
+  }
 }
 
 // VValue displays a value
@@ -940,6 +967,7 @@ TypeInfos.set(nerd.NodeType.TopoUpdater, {
 VBranch.register("v-branch")
 VOpen.register("v-open")
 VSidebar.register("v-sidebar")
+VChildren.register("v-children")
 VValue.register("v-value")
 VState.register("v-state")
 VHeader.register("v-header")

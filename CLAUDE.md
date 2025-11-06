@@ -165,6 +165,101 @@ Tree structure caching with automatic invalidation:
 - Invalidation propagates up the tree via `Parent` pointer in `CacheValidity`
 - See integration test Phase 10 for performance measurements
 
+## GUI Architecture
+
+The frontend (`web/src/`) uses Web Components (Custom Elements) following the Vertigo design pattern for hierarchical tree visualization.
+
+### Vertigo Components
+
+**Component Hierarchy**:
+- `VBranch` - Root container for a displayed tree
+  - `VNode` - Single node with its visual elements
+    - `VOpen` - Open/close icon
+    - `VHeader` - Node name and state icon
+    - `VSidebar` - Visual sidebar extending below open icon
+    - `VState` - State detail panel (optional, toggled)
+      - `VValue` - Individual value display
+    - `VChildren` - Container for child VNodes
+
+**Component Lifecycle Pattern**:
+
+All components follow a consistent pattern using `connectedCallback()` and `disconnectedCallback()`:
+
+1. **Creation via Fresh()**: Components are created with static `Fresh(parent)` method:
+   ```typescript
+   static Fresh(p: HTMLElement): ComponentType {
+     const element = document.createElement("component-tag") as ComponentType
+     p.appendChild(element) // or p.prepend(element) for VState
+     return element
+   }
+   ```
+
+2. **Connection**: `connectedCallback()` queries and caches parent/ancestor references:
+   ```typescript
+   connectedCallback() {
+     this.parent = this.parentElement!.closest("v-node") as VNode | null
+     if (this.parent) {
+       this.vbranch = this.parent.vbranch
+     } else {
+       this.vbranch = this.closest("v-branch") as VBranch
+     }
+   }
+   ```
+
+3. **Disconnection**: `disconnectedCallback()` clears parent's reference to this component:
+   ```typescript
+   disconnectedCallback() {
+     this.parent.component = null as any
+   }
+   ```
+
+**Parent Reference Pattern**:
+
+- `VNode` stores `parent: VNode | null` and `vbranch: VBranch`
+- `VChildren` stores `vnode: VNode`
+- `VState` stores `vnode: VNode`
+- `VOpen`, `VHeader`, `VSidebar` are queried and cached by VNode
+
+This allows components to access ancestors without passing references through Update() calls.
+
+**Update Pattern**:
+
+Components follow the "old-new swap" pattern:
+
+```typescript
+Update(newData: TreeEntry, ...): void {
+  // Store old state and immediately update current state
+  this.oldte = this.te
+  this.te = newData
+
+  // Use this.oldte and this.te for diff/comparison throughout
+  if (this.oldte.name !== this.te.name) {
+    this.updateName(this.te.name)
+  }
+}
+```
+
+Key principles:
+- New state is written to `this.te` immediately at function entry
+- Old state stored in `this.oldte` for comparisons
+- No reassignment of `this.te` at function exit
+- Child components access parent state via `this.parent.te` and `this.parent.oldte`
+
+**Value System**:
+
+Values are displayed with seals (type indicators) and can be editable parameters:
+
+- **Seals**: Map short string identifiers to `Idea` enums (e.g., "#" → NodeId, "secret" → Secret)
+- **Ideas**: Fixed-size array organizing seals by their idea type
+- **VValue**: Displays name, value, and seal; handles secrets with "••••" placeholder
+- **Parameters**: Underlined values/seals indicate editability
+
+**Memory Management**:
+
+- Components rely on browser GC after DOM removal
+- `disconnectedCallback()` clears parent references to enable GC
+- No manual cleanup of Maps/Arrays needed - removed with component
+
 ### Key Patterns
 
 **Two-Step Delete Pattern**: Child deletion requires two messages:
