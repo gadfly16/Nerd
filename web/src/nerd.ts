@@ -72,10 +72,7 @@ Seals.set("#", new Seal(Idea.NodeId))
 Seals.set("secret", new Seal(Idea.Secret))
 
 // Ideas organizes seals by their idea for fast lookup
-export const Ideas: Seal[][] = Array.from(
-  { length: Idea.LENGTH },
-  () => [],
-)
+export const Ideas: Seal[][] = Array.from({ length: Idea.LENGTH }, () => [])
 
 // Build Ideas from Seals map
 for (const seal of Seals.values()) {
@@ -110,7 +107,7 @@ export class TreeEntry {
   static init(obj: any, parent: TreeEntry | null = null): TreeEntry {
     const entry = new TreeEntry(obj.nodeId, obj.name, obj.nodeType, [])
     entry.parent = parent
-    entry.depth = parent ? parent.depth + 1 : 0
+    entry.depth = parent ? parent.depth + 1 : 1
 
     // Register in global map
     Registry.set(entry.id, entry)

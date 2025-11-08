@@ -396,14 +396,14 @@ class Board extends nerd.Component {
 
   // UpdateTopo updates all trees on this board after topology change
   UpdateTopo() {
-    for (const tree of this.vbranches) {
-      const newTE = nerd.Registry.get(tree.cfg.rootID)!
-      tree.root.Update(
+    for (const branch of this.vbranches) {
+      const newTE = nerd.Registry.get(branch.cfg.rootID)!
+      const maxDepth = branch.branchRoot.Update(
         newTE,
-        0,
-        tree.root.inheritedDispDepth,
+        branch.branchRoot.openRequest,
         nerd.Cause.Match,
       )
+      branch.updateWidth(maxDepth)
     }
   }
 
@@ -487,7 +487,7 @@ class Board extends nerd.Component {
       this.resizeCanvas()
       // Recalculate tree widths (no re-render needed)
       for (const tree of this.vbranches) {
-        tree.updateWidth()
+        tree.updateWidth(tree.branchRoot.maxDepth)
       }
       this.updateOverlay()
     })
