@@ -2,6 +2,7 @@
 
 import * as nerd from "./nerd.js"
 import * as config from "./config.js"
+import * as typeInfo from "./typeInfo.js"
 import "./util.js" // Side effect: extends DOMRect.prototype
 
 // Layout constants (in pixels)
@@ -12,17 +13,6 @@ const I = W_SIDEBAR + G // Indentation per level (40px)
 const W_MIN = 320 // Minimum width for content area (60ch ≈ 960px)
 const NAME_PADDING = 8 // Horizontal padding for node names
 const SIDEBAR_GAP = 8 // Gap above/below sidebar name text
-
-// TypeInfo stores the display name, measured width, base hue, and values HTML for a node type
-interface TypeInfo {
-  name: string
-  size: number // 0 means not yet measured
-  hue: number // Base hue value (0-360) for HSL color derivation
-  values?: string // HTML for node-specific values (optional, defaults to empty)
-}
-
-// TypeInfos is a global map from node type to TypeInfo (lazy-initialized widths)
-const TypeInfos = new Map<number, TypeInfo>()
 
 // VBranch represents a displayed subtree using the Vertigo design pattern
 export class VBranch extends nerd.Component {
@@ -37,11 +27,18 @@ export class VBranch extends nerd.Component {
   board!: any // Import cycle prevention - Board type from gui.ts
   cfg!: config.Vertigo
   branchRoot!: VNode
+  maxDepth: number = 0
+  openness: number = 0
 
   // Update displays the tree using Vertigo block layout
   Update(board: any, cfg: config.Vertigo): HTMLElement {
     this.board = board
     this.cfg = cfg
+
+    // Hydrate TypeInfos if not already done
+    if (!typeInfo.hydrated) {
+      typeInfo.Hydrate(board.ctx)
+    }
 
     // rootId: 0 means use guiDispRoot
     if (this.cfg.rootID === 0) {
@@ -56,12 +53,11 @@ export class VBranch extends nerd.Component {
     }
 
     // Create root v-node, add to DOM, then update
-    this.branchRoot = nerd.Create("v-node") as VNode
-    this.appendChild(this.branchRoot)
-    const maxDepth = this.branchRoot.Update(te, 0, nerd.Cause.Init)
+    this.branchRoot = VNode.Fresh(this)
+    this.maxDepth = this.branchRoot.Update(te, nerd.Cause.Init)
 
     // Set initial width
-    this.updateWidth(maxDepth)
+    this.updateMaxDepth()
 
     return this
   }
@@ -84,11 +80,9 @@ export class VBranch extends nerd.Component {
 
   // updateWidth calculates and sets the tree width based on maxDepth
   // Called after Update() or by ResizeObserver (parent size change)
-  updateWidth(maxDepth: number) {
-    const maxDispDepth = maxDepth - this.branchRoot.te.depth + 1
-    console.log(
-      `updateWidth: maxDepth=${maxDepth}, branchRoot.te.depth=${this.branchRoot.te.depth}, maxDispDepth=${maxDispDepth}`,
-    )
+  updateMaxDepth() {
+    this.maxDepth = this.branchRoot.maxDepth
+    const maxDispDepth = this.maxDepth - this.branchRoot.te.depth + 1
     const computed = maxDispDepth * I + W_SIDEBAR + W_MIN - G
     const viewport = this.board.clientWidth - G
     this.style.width = `${Math.max(computed, viewport)}px`
@@ -108,6 +102,26 @@ class VNode extends nerd.Component {
 			flex-direction: column;
 			width: ${W_SIDEBAR}px;
 			flex-shrink: 0;
+		}
+
+		v-node .open-icon {
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			flex-shrink: 0;
+			height: ${H_HEADER}px;
+			background-color: hsl(var(--base-hue), 20%, 35%);
+			cursor: pointer;
+			user-select: none;
+			font-size: 0.66em;
+			color: hsl(var(--base-hue), 20%, 70%);
+		}
+
+		v-node .side-bar {
+			display: block;
+			flex: 1;
+			min-height: 0;
+			background-color: hsl(var(--base-hue), 20%, 35%);
 		}
 
 		v-node > .main {
@@ -168,8 +182,8 @@ class VNode extends nerd.Component {
 
   static html = `
 		<div class="side">
-			<v-open></v-open>
-			<v-sidebar></v-sidebar>
+			<div class="open-icon"></div>
+			<div class="side-bar"></div>
 		</div>
 		<div class="main">
 			<v-header>
@@ -182,47 +196,52 @@ class VNode extends nerd.Component {
 		</div>
 	`
 
-  parent: VNode | null = null
+  static Fresh(p: HTMLElement): VNode {
+    const element = document.createElement("v-node") as VNode
+    p.appendChild(element)
+    return element
+  }
+
+  parent: VBranch | VNode | null = null
   vbranch!: VBranch
   te: nerd.TreeEntry = new nerd.TreeEntry(0, "", 0, [])
   oldte: nerd.TreeEntry = new nerd.TreeEntry(0, "", 0, [])
   maxDepth: number = 0 // Maximum depth in this node's open subtree
-  openRequest!: number // Display depth inherited from parent
+  openness: number = 0
   sidebarNameWidth: number = 0 // Cached width of sidebar name text
-  typeInfo!: TypeInfo // Reference to TypeInfo entry for this node's type
+  typeInfo!: typeInfo.TypeInfo // Reference to TypeInfo entry for this node's type
+  fresh: boolean = true // True until first Update() call
+  isOpen: boolean = false // True if node is currently open
 
   // Cached DOM elements
-  vopen!: VOpen
+  vopen: HTMLDivElement | null = null
   vheader!: VHeader
   headerNameInput!: HTMLInputElement
   renameForm!: HTMLFormElement
   stateIconSpan!: HTMLSpanElement
-  vsidebar!: VSidebar
+  vsidebar!: HTMLDivElement
   detailsDiv!: HTMLDivElement
   vstate: VState | null = null
   vchildren: VChildren | null = null
 
   connectedCallback() {
     this.innerHTML = VNode.html
-    this.vopen = this.Query("v-open")!
-    this.vheader = this.Query("v-header")!
-    this.renameForm = this.vheader.Query(".rename-form")!
-    this.headerNameInput = this.vheader.Query(".name")!
-    this.stateIconSpan = this.vheader.Query(".state-icon")!
-    this.vsidebar = this.Query("v-sidebar")!
-    this.detailsDiv = this.Query(".details")!
 
     // Query for parent VNode or VBranch
-    // closest() includes self, so use parentElement to start search from parent
     this.parent = this.parentElement!.closest("v-node") as VNode | null
     if (this.parent) {
       this.vbranch = this.parent.vbranch
     } else {
       this.vbranch = this.closest("v-branch") as VBranch
+      this.parent = this.vbranch
     }
 
-    // Attach click handler once
-    this.vopen.onclick = (e) => this.openClickHandler(e)
+    this.vheader = this.Query("v-header")!
+    this.renameForm = this.vheader.Query(".rename-form")!
+    this.headerNameInput = this.vheader.Query(".name")!
+    this.stateIconSpan = this.vheader.Query(".state-icon")!
+    this.vsidebar = this.Query(".side-bar")!
+    this.detailsDiv = this.Query(".details")!
 
     // Attach state icon click handler
     this.stateIconSpan.onclick = (e) => this.toggleState(e)
@@ -233,42 +252,68 @@ class VNode extends nerd.Component {
 
   // Update updates node state using diff algorithm
   // Compares old tree state (this.oldte) with new tree entry (this.te)
-  // and applies minimal DOM updates proportional to changes
   // Returns maxDepth: the maximum depth in this node's open subtree
-  Update(nte: nerd.TreeEntry, openRequest: number, cause: nerd.Cause): number {
+  Update(nte: nerd.TreeEntry, cause: nerd.Cause): number {
     // Store old state and immediately update current state
     this.oldte = this.te
     this.te = nte
 
-    this.openRequest = openRequest
+    // One-time setup for fresh nodes
+    if (this.fresh) {
+      // Get type info (already measured during hydration)
+      this.typeInfo = typeInfo.TypeInfos.get(this.te.nodeType)!
 
-    // Update type info if needed (lazy measure)
-    this.typeInfo = TypeInfos.get(this.te.nodeType)!
-    if (this.typeInfo.size === 0) {
-      this.typeInfo.size = this.vbranch.board.ctx.measureText(
-        this.typeInfo.name,
-      ).width
+      // Set base hue for color derivation
+      this.style.setProperty("--base-hue", this.typeInfo.hue.toString())
+
+      // Query and setup vopen only if this type can have children
+      if (!this.typeInfo.leaf) {
+        this.vopen = this.Query(".open-icon")!
+        this.vopen.onclick = (e) => this.openClickHandler(e)
+      }
+
+      this.fresh = false
     }
-
-    // Set base hue for color derivation
-    this.style.setProperty("--base-hue", this.typeInfo.hue.toString())
 
     // Update name if changed
     if (this.oldte.name !== this.te.name) {
-      this.setName(this.te.name)
+      this.headerNameInput.value = this.te.name
+      this.sidebarNameWidth = this.vbranch.board.ctx.measureText(
+        this.te.name,
+      ).width
     }
 
-    // Update icon based on openMap state
-    const ome = this.vbranch.cfg.openMap[this.te.id]
-    if (ome !== undefined && ome.open && ome.depth > 0 && ome.depth <= 9) {
-      // Explicit depth 1-9
-      this.vopen.textContent = String.fromCharCode(0x2460 + ome.depth - 1)
-    } else if (ome !== undefined && ome.open && ome.depth === -1) {
-      // Infinite depth
-      this.vopen.textContent = "\uE139" // Private Use Area character for infinite
-    } else {
-      // Neutral or explicitly closed
-      this.vopen.textContent = this.isOpen(this.te.id) ? "◯" : "●"
+    // Update icon based on openMap state and set isOpen (only if node can have children)
+    if (this.vopen) {
+      const ome = this.vbranch.cfg.openMap[this.te.id]
+      if (ome === undefined) {
+        if (this.parent!.openness > 0) {
+          this.openness = this.parent!.openness - 1
+        } else {
+          this.openness = this.parent!.openness
+        }
+        // Neutral node - icon depends on openRequest
+        if (this.openness === 0) {
+          this.isOpen = false
+          this.vopen.textContent = "○" // Closed due to openRequest limit (U+25CB)
+        } else {
+          this.isOpen = true
+          this.vopen.textContent = "◯" // Open (U+25EF)
+        }
+      } else {
+        this.openness = ome.depth
+        // Explicit openMap entry
+        if (ome.open && ome.depth > 0 && ome.depth <= 9) {
+          this.isOpen = true
+          this.vopen.textContent = String.fromCharCode(0x2460 + ome.depth - 1) // ①-⑨
+        } else if (ome.open && ome.depth === -1) {
+          this.isOpen = true
+          this.vopen.textContent = "\uE139" // Infinite depth
+        } else {
+          this.isOpen = false
+          this.vopen.textContent = "●" // Explicitly closed (U+25CF)
+        }
+      }
     }
 
     // Handle animations based on cause, deafult is no anim (init)
@@ -307,98 +352,44 @@ class VNode extends nerd.Component {
       )
     }
 
-    // Only process children if open and destroy them if not
-    if (!this.isOpen(this.te.id)) {
+    // Only process children if node is open
+    if (!this.isOpen) {
       if (this.vchildren) {
         this.vchildren.remove()
       }
-      // Node is closed - maxDepth is just this node's own depth
+      // Node is closed or is a leaf - maxDepth is just this node's own depth
       this.maxDepth = this.te.depth
       return this.maxDepth
     }
 
     // Node is open - ensure VChildren exists and update it
-    const childDispDepth = this.childrenDepth(this.te.id)
     if (!this.vchildren) {
       VChildren.Fresh(this.detailsDiv)
     }
     // Get max depth from children and store it
-    this.maxDepth = this.vchildren!.Update(childDispDepth, cause)
+    this.maxDepth = this.vchildren!.Update(cause)
     return this.maxDepth
   }
 
-  // recalculateMaxDepth recalculates maxDepth from children and propagates changes upward
-  // Called after open/close operations to update ancestor maxDepth values
-  recalculateMaxDepth(): void {
+  // updateMaxDepth recalculates maxDepth from children and propagates changes upward
+  updateMaxDepth(): void {
+    const oldMaxDepth = this.maxDepth
+
     // Find max of children's maxDepth
-    let newMaxDepth = this.te.depth
+    this.maxDepth = this.te.depth
     if (this.vchildren) {
       for (const child of this.vchildren.childrenMap.values()) {
-        newMaxDepth = Math.max(newMaxDepth, child.maxDepth)
+        this.maxDepth = Math.max(this.maxDepth, child.maxDepth)
       }
     }
 
-    // If unchanged, nothing to propagate
-    if (newMaxDepth === this.maxDepth) {
-      return
-    }
-
-    // If no parent, we're at the root - update branch width
-    if (!this.parent) {
-      this.maxDepth = newMaxDepth
-      this.vbranch.updateWidth(newMaxDepth)
-      return
-    }
-
-    // If our change doesn't affect parent's maxDepth, just update and stop
+    // Only update parent if necessary
     if (
-      this.maxDepth < this.parent.maxDepth &&
-      newMaxDepth <= this.parent.maxDepth
+      this.maxDepth !== oldMaxDepth &&
+      (oldMaxDepth === this.parent!.maxDepth ||
+        this.maxDepth > this.parent!.maxDepth)
     ) {
-      this.maxDepth = newMaxDepth
-      return
-    }
-
-    // Update our maxDepth and propagate to parent
-    this.maxDepth = newMaxDepth
-    this.parent.recalculateMaxDepth()
-  }
-
-  // isOpen determines if this node should display its children
-  private isOpen(nodeId: number): boolean {
-    const ome = this.vbranch.cfg.openMap[nodeId]
-
-    if (ome === undefined) {
-      // Neutral node - open if inheritedDispDepth allows it
-      return this.openRequest !== 0
-    }
-
-    // Has explicit openMap entry
-    return ome.open
-  }
-
-  // childrenDepth calculates the depth value to pass to children
-  // Only call this when isOpen() returns true
-  private childrenDepth(nodeId: number): number {
-    const ome = this.vbranch.cfg.openMap[nodeId]
-
-    let myDepth: number
-    if (ome === undefined) {
-      // Neutral node - use inherited depth
-      myDepth = this.openRequest
-    } else if (ome.depth > 0 || ome.depth === -1) {
-      // Has specific depth - use it
-      myDepth = ome.depth
-    } else {
-      // depth === 0: neutral (accept inherited)
-      myDepth = this.openRequest
-    }
-
-    // Calculate depth for children
-    if (myDepth === -1) {
-      return -1 // Infinite propagates
-    } else {
-      return myDepth - 1 // Decrement
+      this.parent!.updateMaxDepth()
     }
   }
 
@@ -407,24 +398,7 @@ class VNode extends nerd.Component {
     const ome = this.vbranch.cfg.openMap[this.te.id]
 
     if (e.shiftKey && e.ctrlKey) {
-      // Ctrl+Shift: Toggle infinite depth
-      if (ome === undefined) {
-        // Neutral node - set to infinite
-        this.vbranch.cfg.openMap[this.te.id] = { open: true, depth: -1 }
-      } else if (ome.depth === -1) {
-        // Currently infinite - make neutral
-        if (ome.open) {
-          // Open infinite -> neutral open (delete entry)
-          delete this.vbranch.cfg.openMap[this.te.id]
-        } else {
-          // Closed infinite -> neutral closed
-          ome.depth = 0
-        }
-      } else {
-        // Has other depth (0, 1-9) - set to infinite and open
-        ome.depth = -1
-        ome.open = true
-      }
+      delete this.vbranch.cfg.openMap[this.te.id]
     } else if (e.shiftKey) {
       // Shift: Increment explicit depth
       if (ome === undefined) {
@@ -444,24 +418,23 @@ class VNode extends nerd.Component {
         ome.open = true
       }
     } else if (e.ctrlKey) {
-      // Ctrl: Make neutral
+      // Ctrl+Shift: Toggle infinite depth
       if (ome === undefined) {
-        // Already neutral - nothing to do
-        return
-      }
-
-      if (ome.open) {
-        // Currently open - remove from openMap (becomes neutral)
+        // Neutral node - set to infinite
+        this.vbranch.cfg.openMap[this.te.id] = { open: true, depth: -1 }
+      } else if (ome.depth === -1) {
+        // Currently infinite - make neutral
         delete this.vbranch.cfg.openMap[this.te.id]
       } else {
-        // Currently closed - set depth to 0 (neutral when closed)
-        ome.depth = 0
+        // Has other depth (0, 1-9) - set to infinite and open
+        ome.depth = -1
+        ome.open = true
       }
     } else {
       // No modifiers: Toggle open/closed
       if (ome === undefined) {
         // Neutral node - check if currently open or closed
-        if (this.openRequest === 0) {
+        if (this.openness === 0) {
           // Currently closed - open it with explicit depth 1
           this.vbranch.cfg.openMap[this.te.id] = { open: true, depth: 1 }
         } else {
@@ -484,24 +457,18 @@ class VNode extends nerd.Component {
     }
 
     // Re-populate from this node down
-    this.Update(this.te, this.openRequest, nerd.Cause.Match)
+    this.Update(this.te, nerd.Cause.Match)
 
     // Recalculate maxDepth up the tree - call on parent since this node was just updated
     if (this.parent) {
-      this.parent.recalculateMaxDepth()
+      this.parent.updateMaxDepth()
     } else {
       // We are the root - update width directly
-      this.vbranch.updateWidth(this.maxDepth)
+      this.vbranch.updateMaxDepth()
     }
 
     // Update overlay
     this.vbranch.board.updateOverlay()
-  }
-
-  // setName updates the node name and measures its width for canvas rendering
-  private setName(name: string) {
-    this.headerNameInput.value = name
-    this.sidebarNameWidth = this.vbranch.board.ctx.measureText(name).width
   }
 
   // toggleState creates or destroys the state detail element
@@ -554,7 +521,7 @@ class VNode extends nerd.Component {
     }
 
     // Get sidebar bounding box (viewport coordinates)
-    const sb = this.vsidebar.bbox()
+    const sb = this.vsidebar.getBoundingClientRect()
     const typeRoom = this.typeInfo.size + 2 * SIDEBAR_GAP
     const nameRoom = this.sidebarNameWidth + 2 * SIDEBAR_GAP
     const effNameRoom = sb.height >= typeRoom + nameRoom ? nameRoom : 0
@@ -610,36 +577,6 @@ class VNode extends nerd.Component {
   }
 }
 
-// Open displays the clickable open/close icon at header level
-class VOpen extends nerd.Component {
-  static style = `
-		v-open {
-			display: flex;
-			align-items: center;
-			justify-content: center;
-			flex-shrink: 0;
-			height: ${H_HEADER}px;
-			background-color: hsl(var(--base-hue), 20%, 35%);
-			cursor: pointer;
-			user-select: none;
-			font-size: 0.66em;
-			color: hsl(var(--base-hue), 20%, 70%);
-		}
-	`
-}
-
-// Sidebar is the visual bar that extends below the open icon when node has details
-class VSidebar extends nerd.Component {
-  static style = `
-		v-sidebar {
-			display: block;
-			flex: 1;
-			min-height: 0;
-			background-color: hsl(var(--base-hue), 20%, 35%);
-		}
-	`
-}
-
 // VChildren displays child VNode elements
 class VChildren extends nerd.Component {
   static style = `
@@ -668,7 +605,7 @@ class VChildren extends nerd.Component {
     this.vnode.vchildren = null as any
   }
 
-  Update(childDispDepth: number, cause: nerd.Cause): number {
+  Update(cause: nerd.Cause): number {
     // Sort new children by ID in place
     this.vnode.te.children.sort((a, b) => a.id - b.id)
 
@@ -686,13 +623,12 @@ class VChildren extends nerd.Component {
 
       if (!och || nch.id < och.id) {
         // NEW - either no more old children, or nch not in old array
-        const childNode = nerd.Create("v-node") as VNode
-        this.appendChild(childNode)
+        const childNode = VNode.Fresh(this)
         this.childrenMap.set(nch.id, childNode)
         // Propagate Init cause, otherwise Create
         const childCause =
           cause === nerd.Cause.Init ? nerd.Cause.Init : nerd.Cause.Create
-        const childMaxDepth = childNode.Update(nch, childDispDepth, childCause)
+        const childMaxDepth = childNode.Update(nch, childCause)
         maxDepth = Math.max(maxDepth, childMaxDepth)
         newIdx++
       } else if (nch.id === och.id) {
@@ -700,22 +636,13 @@ class VChildren extends nerd.Component {
         const vnode = this.childrenMap.get(nch.id)
         if (vnode) {
           // VNode exists - update it
-          const childMaxDepth = vnode.Update(
-            nch,
-            childDispDepth,
-            nerd.Cause.Match,
-          )
+          const childMaxDepth = vnode.Update(nch, nerd.Cause.Match)
           maxDepth = Math.max(maxDepth, childMaxDepth)
         } else {
           // VNode doesn't exist (was closed) - recreate it as Init
-          const childNode = nerd.Create("v-node") as VNode
-          this.appendChild(childNode)
+          const childNode = VNode.Fresh(this)
           this.childrenMap.set(nch.id, childNode)
-          const childMaxDepth = childNode.Update(
-            nch,
-            childDispDepth,
-            nerd.Cause.Init,
-          )
+          const childMaxDepth = childNode.Update(nch, nerd.Cause.Init)
           maxDepth = Math.max(maxDepth, childMaxDepth)
         }
         newIdx++
@@ -724,7 +651,7 @@ class VChildren extends nerd.Component {
         // DELETED - och not in new array (nch.id > och.id)
         const vnode = this.childrenMap.get(och.id)
         if (vnode) {
-          vnode.Update(och, childDispDepth, nerd.Cause.Delete)
+          vnode.Update(och, nerd.Cause.Delete)
           this.childrenMap.delete(och.id)
         }
         oldIdx++
@@ -736,7 +663,7 @@ class VChildren extends nerd.Component {
       const och = this.vnode.oldte.children[oldIdx]
       const vnode = this.childrenMap.get(och.id)
       if (vnode) {
-        vnode.Update(och, childDispDepth, nerd.Cause.Delete)
+        vnode.Update(och, nerd.Cause.Delete)
         this.childrenMap.delete(och.id)
       }
       oldIdx++
@@ -963,37 +890,8 @@ class VHeader extends nerd.Component {
 		`
 }
 
-// Initialize TypeInfos map with all known node types
-// Hues centered around blue (240°), clustered closer together
-TypeInfos.set(nerd.NodeType.Group, { name: "Group", size: 0, hue: 200 })
-TypeInfos.set(nerd.NodeType.Root, { name: "Root", size: 0, hue: 260 })
-TypeInfos.set(nerd.NodeType.Authenticator, {
-  name: "Authenticator",
-  size: 0,
-  hue: 220,
-})
-TypeInfos.set(nerd.NodeType.User, {
-  name: "User",
-  size: 0,
-  hue: 240,
-  values: `
-    <fieldset>
-      <legend>User</legend>
-      <v-value name="password" seal="secret" parm></v-value>
-    </fieldset>
-  `,
-})
-TypeInfos.set(nerd.NodeType.GUI, { name: "GUI", size: 0, hue: 280 })
-TypeInfos.set(nerd.NodeType.TopoUpdater, {
-  name: "TopoUpdater",
-  size: 0,
-  hue: 300,
-})
-
 // Register the Vertigo components
 VBranch.register("v-branch")
-VOpen.register("v-open")
-VSidebar.register("v-sidebar")
 VChildren.register("v-children")
 VValue.register("v-value")
 VState.register("v-state")

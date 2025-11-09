@@ -398,12 +398,8 @@ class Board extends nerd.Component {
   UpdateTopo() {
     for (const branch of this.vbranches) {
       const newTE = nerd.Registry.get(branch.cfg.rootID)!
-      const maxDepth = branch.branchRoot.Update(
-        newTE,
-        branch.branchRoot.openRequest,
-        nerd.Cause.Match,
-      )
-      branch.updateWidth(maxDepth)
+      const maxDepth = branch.branchRoot.Update(newTE, nerd.Cause.Match)
+      branch.updateMaxDepth()
     }
   }
 
@@ -485,9 +481,9 @@ class Board extends nerd.Component {
     // Watch for board size changes (viewport resize)
     this.resizeObs = new ResizeObserver(() => {
       this.resizeCanvas()
-      // Recalculate tree widths (no re-render needed)
-      for (const tree of this.vbranches) {
-        tree.updateWidth(tree.branchRoot.maxDepth)
+      // Recalculate branch widths (no re-render needed)
+      for (const vbranch of this.vbranches) {
+        vbranch.updateMaxDepth()
       }
       this.updateOverlay()
     })
@@ -521,7 +517,7 @@ class Header extends nerd.Component {
 	`
 
   static html = `
-		<span>Nerd - Personal Software Agent Framework</span>
+		<span>Nerd - A Principled Microservice Platform</span>
 		<nerd-action class="logout">Logout</nerd-action>
 	`
 
