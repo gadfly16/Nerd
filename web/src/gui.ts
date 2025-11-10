@@ -59,8 +59,8 @@ class GUI extends nerd.Component {
 	`
 
   // GUI instance fields
-  private auth = nerd.Create("nerd-auth") as Auth
-  private workbench = nerd.Create("nerd-workbench") as Workbench
+  private auth: Auth | null = null
+  private workbench: Workbench | null = null
 
   connectedCallback() {
     gui = this
@@ -68,10 +68,6 @@ class GUI extends nerd.Component {
     // Get userID and admin flag from index.html, and add them to global context
     nerd.Ctx.userID = parseInt(this.getAttribute("userid")!, 10)
     nerd.Ctx.admin = this.getAttribute("admin") === "true"
-
-    // Append both auth and workbench to DOM (one will be hidden)
-    this.appendChild(this.auth)
-    this.appendChild(this.workbench)
 
     // Listen for unauthorized events
     window.addEventListener("nerd:unauthorized", () => this.SwitchToAuth())
@@ -87,23 +83,31 @@ class GUI extends nerd.Component {
   // SwitchToAuth clears all sensitive data and shows authentication UI
   // Called on logout, session expiry, or authentication failure
   SwitchToAuth() {
-    // Cleanup workbench when switching away
-    this.workbench.Cleanup()
+    // Remove workbench completely (disconnectedCallback handles cleanup)
+    if (this.workbench) {
+      this.workbench.remove()
+      this.workbench = null
+    }
 
-    // Hide workbench, show auth
-    this.workbench.Hide()
-    this.auth.Show()
+    // Create fresh auth
+    if (!this.auth) {
+      this.auth = Auth.Fresh(this)
+    }
   }
 
   // SwitchToWorkbench hides auth and loads workbench
   SwitchToWorkbench() {
-    // Cleanup auth when switching away
-    this.auth.Cleanup()
+    // Remove auth completely (no cleanup needed)
+    if (this.auth) {
+      this.auth.remove()
+      this.auth = null
+    }
 
-    // Hide auth, show workbench
-    this.auth.Hide()
-    this.workbench.Show()
-    this.workbench.Update()
+    // Create fresh workbench
+    if (!this.workbench) {
+      this.workbench = Workbench.Fresh(this)
+      this.workbench.Update()
+    }
   }
 }
 
@@ -150,6 +154,12 @@ class Workbench extends nerd.Component {
 		<nerd-footer></nerd-footer>
 	`
 
+  static Fresh(p: HTMLElement): Workbench {
+    const element = document.createElement("nerd-workbench") as Workbench
+    p.appendChild(element)
+    return element
+  }
+
   // Workbench instance fields
   cfg!: config.Workbench
   private boardElements: Board[] = []
@@ -167,6 +177,19 @@ class Workbench extends nerd.Component {
     this.footer = this.Query("nerd-footer") as Footer
   }
 
+  disconnectedCallback() {
+    // Stop WebSocket connection
+    this.closeWebSocket()
+
+    // Stop auto-save timer
+    this.stopAutoSave()
+
+    // Clear all sensitive information
+    nerd.Ctx.userID = 0
+    nerd.Ctx.dispRoot = null
+    nerd.Registry.clear()
+  }
+
   // Update loads the tree and updates the board displays
   async Update() {
     try {
@@ -181,7 +204,7 @@ class Workbench extends nerd.Component {
 
       // Populate all boards with their configs
       for (let i = 0; i < this.boardElements.length; i++) {
-        this.boardElements[i].Update(this, i)
+        this.boardElements[i].Update(this.cfg.boards[i])
       }
 
       // Start auto-save timer
@@ -228,25 +251,6 @@ class Workbench extends nerd.Component {
     if (this.saveTimer !== null) {
       clearInterval(this.saveTimer)
       this.saveTimer = null
-    }
-  }
-
-  // Cleanup stops all workbench operations and clears all data
-  Cleanup() {
-    // Stop WebSocket connection
-    this.closeWebSocket()
-
-    // Stop auto-save timer
-    this.stopAutoSave()
-
-    // Clear all sensitive information
-    nerd.Ctx.userID = 0
-    nerd.Ctx.dispRoot = null
-    nerd.Registry.clear()
-
-    // Clear all boards
-    for (const board of this.boardElements) {
-      board.Clear()
     }
   }
 
@@ -344,6 +348,12 @@ class Board extends nerd.Component {
 
   static html = ``
 
+  static Fresh(p: HTMLElement): Board {
+    const element = document.createElement("nerd-board") as Board
+    p.appendChild(element)
+    return element
+  }
+
   workbench!: Workbench
   cfg!: config.Board
   viewport!: DOMRect
@@ -362,6 +372,9 @@ class Board extends nerd.Component {
 
   connectedCallback() {
     this.innerHTML = Board.html
+
+    // Query DOM for parent Workbench
+    this.workbench = this.closest("nerd-workbench") as Workbench
 
     // MMB drag scrolling
     this.addEventListener("mousedown", (e) => this.handleMouseDown(e))
@@ -384,14 +397,6 @@ class Board extends nerd.Component {
   disconnectedCallback() {
     this.resizeObs?.disconnect()
     this.contentResizeObs?.disconnect()
-  }
-
-  // Clear removes all trees from the board
-  Clear() {
-    if (this.vbranchesContainer) {
-      this.vbranchesContainer.remove()
-    }
-    this.vbranches = []
   }
 
   // UpdateTopo updates all trees on this board after topology change
@@ -454,9 +459,8 @@ class Board extends nerd.Component {
 
   // Populate displays all Vertigo trees for this board
   // Assumes board is already clear
-  Update(workbench: Workbench, index: number) {
-    this.workbench = workbench
-    this.cfg = workbench.cfg.boards[index]
+  Update(cfg: config.Board) {
+    this.cfg = cfg
 
     // Create canvas and append to parent (arena) to avoid scrolling with board content
     this.canvas = document.createElement("canvas")
@@ -472,9 +476,8 @@ class Board extends nerd.Component {
     this.appendChild(this.vbranchesContainer)
 
     for (const branchCfg of this.cfg.branches) {
-      const vtree = nerd.Create("v-branch") as vertigo.VBranch
-      this.vbranchesContainer.appendChild(vtree)
-      vtree.Update(this, branchCfg)
+      const vtree = vertigo.VBranch.Fresh(this.vbranchesContainer)
+      vtree.Update(branchCfg)
       this.vbranches.push(vtree)
     }
 
@@ -639,6 +642,12 @@ class Auth extends nerd.Component {
 		</div>
 	`
 
+  static Fresh(p: HTMLElement): Auth {
+    const element = document.createElement("nerd-auth") as Auth
+    p.appendChild(element)
+    return element
+  }
+
   // Auth instance fields
   private regmode = false
   private login!: HTMLFormElement
@@ -691,21 +700,6 @@ class Auth extends nerd.Component {
 
   private showError(error: string) {
     this.error.textContent = error
-  }
-
-  // Cleanup clears all form fields and errors
-  Cleanup() {
-    // Reset both forms
-    this.login.reset()
-    this.register.reset()
-
-    // Clear error message
-    this.error.textContent = ""
-
-    // Reset to login mode if in register mode
-    if (this.regmode) {
-      this.toggleMode()
-    }
   }
 }
 

@@ -24,20 +24,30 @@ export class VBranch extends nerd.Component {
 		}
 	`
 
+  static Fresh(p: HTMLElement): VBranch {
+    const element = document.createElement("v-branch") as VBranch
+    p.appendChild(element)
+    return element
+  }
+
   board!: any // Import cycle prevention - Board type from gui.ts
   cfg!: config.Vertigo
   branchRoot!: VNode
   maxDepth: number = 0
   openness: number = 0
 
+  connectedCallback() {
+    // Query DOM for parent Board
+    this.board = this.closest("nerd-board")
+  }
+
   // Update displays the tree using Vertigo block layout
-  Update(board: any, cfg: config.Vertigo): HTMLElement {
-    this.board = board
+  Update(cfg: config.Vertigo): HTMLElement {
     this.cfg = cfg
 
     // Hydrate TypeInfos if not already done
     if (!typeInfo.hydrated) {
-      typeInfo.Hydrate(board.ctx)
+      typeInfo.Hydrate(this.board.ctx)
     }
 
     // rootId: 0 means use guiDispRoot
